@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="PSS_SCAN_ALL" header="POURSOCIALSCORE" category="ADDONS">
+		PSS_ScanAllBinding()
+	</Binding>
+</Bindings>

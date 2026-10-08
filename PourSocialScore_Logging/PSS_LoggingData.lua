@@ -1,0 +1,5 @@
+-- PourSocialScore_Logging holds the block history (PSS_LoggingDB: the log
+-- and the lines kept per person, read and written by the core,
+-- PourSocialScore/PSS_SavedData.lua and PSS_ChatHistory.lua) and how it
+-- is saved (this file). Loads on demand, the first time the block history
+-- is needed, so none of this is in memory before.

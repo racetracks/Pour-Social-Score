@@ -1,0 +1,1958 @@
+POUR SOCIAL SCORE - VERSION HISTORY
+(newest first)
+
+=> 3.4.0.29 - The new Pour Social Score window
+
+- One new Pour Social Score window replaces both old windows (the classic PSS window and the EllesmereUI window). /pss (also /pss gui, ui or eui), the Addon Compartment and your Friends or Social window open it; /pss help lists the chat commands.
+- Three looks, picked on its Options tab: Modern (the default, the art of Blizzard's new Social window), Classic (Blizzard's classic window art) and Dark (flat and dark). Same layout and features in all three; the accent is your class colour. A font option sets the window's font, including fonts other addons share.
+- Six tabs: Player Ignore List, Guild Ignore List, Chat Filters, Events, Options and Import/Export. Select an entry to see it beside the list: Summary (its counts and pies), Event History and View/Edit Rule. With nothing selected you see the whole list's totals for this session, the last 24 hours and all time, and by type.
+- New Events tab: every blocked line in one place, with time, type and source filters (including a custom date range), search and sorting. Pie slices and View Events open it on just those lines.
+- Back and forward arrows (and mouse buttons 4 and 5) step through what you looked at. Escape closes a popup first, then steps back, then closes the window.
+- Right-click any row for its menu. Removing anything now asks first.
+- Player Ignore List: Player Search (a /who for a name, tick who to add), Add Player with an empty box adds your target, and Prune removes entries older than the days you choose.
+- Guild Ignore List: Managed Communities, your guilds and the Guild Exclusion List in one grouped list, with Scan All, Guild Search and a members view per guild.
+- New defaults for everyone on your lists: no ignore response is sent, no decline messages are shown, and their duels and trades are declined. Any player, guild or guild member can be an exception (tick boxes on View/Edit Rule, or in the row's menu).
+- Safer in instances and encounters: names and chat details the game hides from addons are checked first and skipped quietly. A listed player is still blocked when only their message is hidden.
+- Guild invites from listed players are declined through the game's own decline call only.
+- Lighter: the window loads only when opened, listens only while open, and lets go of what it read when closed; busy guild lists update far more cheaply as lines are blocked.
+- Upgrading: your lists, rules, counts and history are kept. The old EllesmereUI integration setting and the old window's sizes and column widths are removed. If PourSocialScore_EllesmereUI or PourSocialScore_UI is still in your AddOns folder you are told once at login; delete them.
+- Version numbers now end in a build number (this release is 3.4.0.29).
+
+=> 3.4.0.28 - /pss opens the window
+
+- /pss on its own now opens (or closes) the Pour Social Score window. /pss gui, /pss ui and /pss eui do the same.
+- /pss help lists the chat commands (so does any word /pss does not know); every other command works as before.
+- /pss tui is gone, and so is the old "the old windows are gone" message.
+
+=> 3.4.0.27 - Versions file, build numbers that never reset
+
+- Nothing changes in game.
+- Version numbers: every version now ends in its build number, a full release too (the 3.4.0 release will be 3.4.0.28), and the build number keeps counting into later versions (3.4.1.29 and on).
+- Release notes: a full release's notes are one summary of every change since the previous release, written when the release is made from the list of changes (pull requests) between the two.
+- Project tooling: a versions file in the project (never in the download) records each release and every test build since it, so the changes between any two versions can be looked up.
+
+=> 3.4.0.26 - Readme and docs for the one window
+
+- Nothing changes in game.
+- readme.txt: one section describes the Pour Social Score window (its looks, tabs, lists, the detail pane, exceptions, Player Search, Prune, the guild members view, Chat Filters, Events, Options and Import/Export), replacing the description of the old windows. Resizable columns, which the old window had, are no longer listed.
+- Project docs: brought up to date for the one window; EllesmereUI is named as the reference for building window parts, to be rewritten to the project's rules and never copied.
+
+=> 3.4.0.25 - New PSS window: one window (cutover)
+
+- The Pour Social Score window now lives in the PourSocialScore_GUI folder, in place of the old window. Nothing about the window changes: same look, layout and features.
+- Removed: the old window's code, the EllesmereUI window (PourSocialScore_EllesmereUI) and the temporary PourSocialScore_UI folder. Install the whole zip over the old one as usual.
+- If PourSocialScore_EllesmereUI or PourSocialScore_UI is still in your AddOns folder, Pour Social Score says so once at login; you can delete them.
+- /pss tui is gone; /pss gui (or /pss ui) opens the window.
+- Upgrade: the EllesmereUI integration setting and the old window's sizes, column widths and places are removed from your saved data. Your lists, rules, counts, history and the new window's place are kept.
+
+=> 3.4.0.24 - New PSS window: arrows above the tabs
+
+- The window's back / forward arrows and the line naming the view now sit above the tab row, and the tabs sit straight above the page (Dan, 2026-10-08). The same in all three looks.
+- The Options tab's search box moves down with the tab row.
+
+=> 3.4.0.23 - New PSS window: switch-over
+
+- The new Pour Social Score window is now the window: /pss gui (and /pss ui), the Addon Compartment and, with "Open Pour Social Score UI with Blizzard Friends/Ignore UI" on, your Friends or Social window open it. /pss tui still works until 3.4.0.
+- Opened with Friends or Social it sits beside it and closes with it; opened with /pss gui it is where you last dragged it.
+- The old window and the EllesmereUI window are no longer opened. /pss gui force and /pss eui say so. The EllesmereUI integration option is gone from Options (the window's Dark look replaces it), and EllesmereUI's panel no longer has a Pour Social Score section.
+- The note prompt, the party warning and the reload prompt are always Blizzard's popups (they used EllesmereUI's with the integration on).
+- The look and font options are named "Look of the Pour Social Score window" and "Font of the Pour Social Score window".
+- The /pss command list no longer shows tui, eui and gui force.
+
+=> 3.4.0.22 - New PSS window: exceptions per player and guild
+
+- New default for everyone on the Player or Guild Ignore List: no ignore response is sent, no decline messages are shown, and their duels and trades are declined. Show declines is now Off by default (was On); the Options tab still sets the default.
+- New window (/pss tui): a player's, a guild's or a guild member's View/Edit Rule page shows these four as tick boxes under "For this player" (or guild, or member). Ticked = it happens. A tick that differs from the default makes that one an exception, marked "(exception)"; set it back and the exception is gone. A member follows its guild's settings unless it has its own.
+- The same ticks are in each row's right-click menu.
+- Fixed: an override set to Off showed as Default in the new window.
+- Upgrade: a Show declines On left in a save from 2.0 (which saved every option) is dropped, so the new default applies.
+
+=> 3.4.0.21 - New PSS window: right-click menus
+
+- New window (/pss tui): right-click a row for its menu, in every look (Blizzard's menus in Modern and Classic, the window's own in Dark). The row is selected first.
+- Player Ignore List: Block History, Add Guild (when the player's guild is not listed), Reset Expiration (when one is set), Reset Block History, the player's option overrides, Remove Player.
+- Guild Ignore List: a guild has Show Members, Block History, Reset Block History, its overrides and Remove Guild; a member has Block History, Reset Block History, overrides and Remove Member; Managed Communities and the default lists turn their rules on or off and expand or collapse; an excluded guild can be taken off the Guild Exclusion List.
+- Chat Filters: turn a filter on or off, Copy, Block History, Reset block count, Reset block history, Remove (not for built-ins).
+- Events tab and the panes' Event History: right-click a blocked line to add its sender to the Player Ignore List, or remove them.
+- Removing anything still asks first. Opening a menu never loads the block history.
+
+=> 3.4.0.20 - Mandatory baseline, version tools, release notes and mirror
+
+- Nothing changes in game.
+- Full releases (such as 3.4.0) now come with release notes that sum up every test build since the previous release, and are also published on racetracks/Pour-Social-Score.
+- Project tooling: one command sets the next version in every TOC with its history section, another builds and hosts the test zip, and the rules check now fails if history.txt does not start with the current version.
+- Project docs: the shared rules are mandatory; the few places Pour Social Score differs are listed in one table with the author's OK.
+
+=> 3.4.0.19 - New PSS window: interface rules
+
+- New window (/pss tui): the looks stay listed Modern (the default) first, then Classic and Dark.
+- The font option's tooltip names the looks as they are called now (Modern and Classic, was Blizzard and Modern).
+- Project docs: the window's rules are gathered in one place for future work. Nothing else changes in game.
+
+=> 3.4.0.18 - New PSS window: popup titles
+
+- The window's popups no longer carry the addon's name: each title says what it asks, such as "Remove Player?", "Remove Guild?", "Remove Member?", "Remove Rule?", "Prune Players?", "Add Player?", "Reset Block History?", "Export" and "Import".
+- In the Classic and Modern looks the popup title now sits in the frame's title bar, as the window's does; it was partly hidden under the frame's top edge.
+
+=> 3.4.0.17 - New PSS window: Player Search, add your target, Prune
+
+- Player Ignore List tab (/pss tui): a Player Search button beside Add Player. It runs a /who for the name in the box and lists the players found (name, level, class, guild) in place of the list: click the ones to add (players already listed are greyed), Tick All, then Save. If nobody is found you are asked whether to add the name anyway. Back or Escape closes the results. It waits for the /who cooldown like the guild scans.
+- Add Player with the box empty adds your target, when it is another player of your faction.
+- A Prune button: choose a number of days (365 to start) and see how many entries were added that long ago or more, then Prune removes them, with their notes, settings and block history.
+
+=> 3.4.0.16 - Tidying the new window (no visible change)
+
+- New window: faded text is dimmed as a whole (its shadow with it) instead of through its colour, as the rest of Pour Social Score does. It looks the same.
+- New window: it listens to Pour Social Score's own events only while it is open, and catches up when it opens.
+- New window: the last bits of logic in its drawing code moved to PourSocialScore_Libraries, and the three lists share one sort and search.
+- Fewer throwaway tables while drawing (the type pie keys, the guild members list, pie hover).
+- Nothing should look or behave differently: a new harness tour compares the window step by step in all three looks.
+
+=> 3.4.0.15 - Fixes from the code review: memory and Logging on demand
+
+- Removing a guild, or a guild member who was never blocked, no longer loads the block history (PourSocialScore_Logging). A removed guild's lines are tidied the next time the history loads.
+- New window: it no longer opens on the Events tab; it opens on the tab you had before Events, so opening the window does not load the block history.
+- New window: closing it (or leaving the Events tab) drops the block history lines it had read, and closing it asks for a memory clean-up at the next quiet moment. On a large save this gives back about 32 KB.
+- New window: while the Guild Ignore List shows, each blocked line now updates only the rows on screen instead of sorting every guild again (on a large save about 17 KB of garbage and 0.2 ms each, was about 195 KB and 6 ms). The order and the group totals catch up on your next click.
+- New window: the guild members list is let go when you leave the members view.
+- The Scan All tooltip no longer lists and sorts every guild on each hover (about 0.3 KB, was about 19 KB).
+- Importing options now saves them the same way the Options tab does: default values are not stored, numbers are kept in range, values the option does not offer are skipped, the open window repaints at once, and an option that needs a reload asks for one.
+
+=> 3.4.0.14 - Fixes from the code review: hidden values, Escape, small bugs
+
+- Retail hides some names and chat details from addons in instances and encounters (secret values). Pour Social Score now checks them everywhere before use: your target's name (/pss, adding with the box empty, the unit menu toggle, /pssguild test) and a channel's name and number (the [chname] and [channel] filter tags). A hidden value is skipped quietly: nothing is added, nothing is blocked by it, and no error note.
+- A listed player's line is still blocked and counted when only the message text is hidden; the hidden text itself is never kept (your choice, 2026-10-08).
+- Guild invites from a listed player are declined through the game's decline call only. Pour Social Score no longer presses the invite window's Decline button or hides the window itself.
+- New window: Escape on a popup or a drop-down list now closes only that, not the page or the window behind it.
+- New window: removing a chat filter while another row is selected keeps that row selected.
+- New window: clicking a link in a list does nothing in combat (it could open a Blizzard window).
+- The Group Finder tooltip line for a listed leader checks the tooltip may be used first.
+- readme.txt brought up to date.
+
+=> 3.4.0.13 - Build numbers in place of dev numbers
+
+- Versions now carry a build number: 3.4.0.13 is build 13 of the 3.4.0 line, following 3.4.0-dev012. Every test build takes the next number; fixes to a build no longer add _2, _3.
+- Every build is published as a pre-release. Only a plain version such as 3.4.0 is a full release, made when the work is done.
+- Nothing in the addon changes.
+
+=> 3.4.0-dev012 - New PSS window: Options and Import/Export tabs
+
+- The Options tab works in /pss tui, laid out like the EllesmereUI window: every option under its section heading, with a tick box, a number box, a drop-down, or (the scan level cap) a tick box with its number. A search box at the right of the tab row keeps the options whose name, tip or section holds the text. Options marked * can also be set per guild or per player.
+- The window's look (Modern, Classic, Dark) and font are chosen here too, and the window repaints at once.
+- The Import/Export tab: tick what to include (captured guild members only with the Guild Ignore List), choose Merge or Replace, then Export (a copy box) or Import (paste the string; Replace asks first).
+- All six tabs of the new window are now built.
+
+=> 3.4.0-dev011_3 - New PSS window: popups in the window's own frame
+
+- In the Modern and Classic looks the window's popups (the copy box, confirms, import) now use the same frame and background as the window itself: the metal frame on its stone, or on black in Modern. Blizzard's dialog backgrounds stayed see-through.
+
+=> 3.4.0-dev011_2 - New PSS window: solid popups
+
+- The window's popups (the copy box, confirms, import) are solid in the Modern and Classic looks: Blizzard's dialog backgrounds are see-through and the window behind showed through the text.
+
+=> 3.4.0-dev011 - New PSS window: Events tab
+
+- The Events tab works in /pss tui, laid out like the EllesmereUI window: the blocked lines of the Player and Guild Ignore Lists and the Chat Filters, newest first, with Time, Source, Player, Type, Channel and Message columns (click a header to sort).
+- Three drop-downs: Time (this session, the last 24 hours, all time, or a custom range of dates), Types, and Source (the lists, or the one entry opened). A search box goes over player, channel and message.
+- Links in a message work as in chat; a double-click on a line copies the message. Reset Block History clears the entry shown.
+- View Events, a click on a pie slice and a double-click on a pane's Event History now open it, on that entry, period and the types ticked. Escape goes back to the tab that opened it; back and forward step through what you looked at.
+- Opening it loads the block history (PourSocialScore_Logging).
+
+=> 3.4.0-dev010_2 - New PSS window: list text on one line
+
+- Every list in the new window keeps each cell on one line, cut short with "..." when it does not fit: long filters and descriptions wrapped over the rows below.
+
+=> 3.4.0-dev010 - New PSS window: Chat Filters tab
+
+- The Chat Filters tab works in /pss tui, laid out like the EllesmereUI window: the filters with built-ins first, search, sortable Description, On, Blocked and Filter columns, New Filter and Reset Defaults (asks first).
+- Select a filter for three pages. Summary: its counts and the period pie. Event History: the lines it blocked, with names (loaded only when you press Show Block History). View/Edit Rule: On, description, filter text (it scrolls when long), Save, Copy, Remove (asks first), Reset Count, Test and the link converter.
+- Built-in filters are read only (On only); Copy makes an editable copy. A guild rule shows View/Edit Rule only: its blocks are counted on the Guild Ignore List.
+- Shift-click a link in chat while the filter, Test or Link box is being edited and it goes there (as a filter [tag] in the filter and Link boxes). On Retail 12.x this follows Blizzard's new link insert.
+- With nothing selected, the pane shows every filter's totals.
+
+=> 3.4.0-dev009 - New PSS window: Guild Ignore List tab, part 2
+
+- Select a guild to see its details, laid out like the EllesmereUI window. Summary: counts and the period pie. Event History: the guild's block history with each player's name. View/Edit Rule: W I G P C for the whole guild, Scan (its tooltip shows the sweep; shift-click starts it over), Custom Scan with its fields, the Options overrides, Members and Remove Guild (asks first; default-list guilds cannot be removed).
+- A guild's members show in place of the guild list (double-click the guild, or Members): search, sort, and select a member. A member's details: note, W I G P C (dimmed boxes follow the guild; right-click to follow it again), overrides, Remove Member (asks first) and Add Guild when their actual guild is another. All Guilds, Back or Escape return to the guild list.
+- A default guild list or Managed Communities: its guilds, members and counts, the period and type pies, and buttons to turn its rule on or off and to expand or collapse it.
+- The Guild Exclusion List and each excluded guild: what exclusion means, and Remove from Exclusion List.
+
+=> 3.4.0-dev008_4 - New PSS window: Modern by default, Classic look
+
+- Modern is now the new window's default look. The Blizzard look is renamed Classic; the Options drop-down lists Modern (Default), Classic and Dark. On clients without the Modern art (Camelot), Modern shows the Classic look.
+- If you never picked a look, the window now opens in Modern; a look you picked is kept.
+- Classic and Modern: the streaks behind the tabs now reach down past the line with the arrows, to the top of the page.
+
+=> 3.4.0-dev008_3 - New PSS window: Modern tab row background, drawn
+
+- Modern: the band behind the tabs and the line under them is now the Blizzard frame's stone with its streaks over it, as the AddOns list draws its top. In dev008_2 only the streaks were kept, and they are a dark overlay that shows nothing on black. The pages below stay black.
+
+=> 3.4.0-dev008_2 - New PSS window: Modern tab row background
+
+- Modern: the strip behind the tabs is the Blizzard frame's streaked top band (as in the AddOns list) instead of plain black; the rest of the window stays black.
+
+=> 3.4.0-dev008 - New PSS window: Guild Ignore List tab, part 1
+
+- The Guild Ignore List tab works in /pss tui, laid out like the EllesmereUI window: the Managed Communities row with the default guild lists under it, the Guild Exclusion List, and every other guild, with Members, Blocked and Scan columns. Headings open and close with a click; a list whose rule is off is dimmed.
+- Search by guild name, sort by any column, and select an entry. With nothing selected the pane shows every guild's totals: the period pie and a pie by type.
+- Top right: Scan All (its tooltip shows the sweep's progress), Add a Guild with Guild Search and Add Guild, and Exclude a Guild with its own Guild Search and Exclude. Scan buttons wait while /who cools down.
+- Guild Search shows what it found in place of the list: click the guilds to tick them, Tick All, then Save; Cancel or Escape closes it. An exclusion search that finds nobody offers to add the name anyway.
+- The selected entry's details and a guild's members come in the next build.
+
+=> 3.4.0-dev007 - New PSS window: Player Ignore List tab
+
+- The Player Ignore List tab works in /pss tui, laid out like the EllesmereUI window: search, Add Player, sortable columns (Name, Server, Type, Listed, Expires, Blocked) and a detail pane.
+- The detail pane has three pages along its bottom: Summary (counts and the pie of this session, the last 24 hours and all time, with a tick box for each), Event History (the block history, filtered by type, loaded only when you press Show Block History) and View/Edit Rule (expiry, note, W I G P C, the Options overrides, Remove and Add Guild).
+- With nothing selected the pane shows the whole list's totals: the period pie and a pie by type.
+- The close button (the red X) and the window title now show in the Blizzard and Modern looks: they were drawn under the frame's metal border.
+- View Events, clicking a pie slice and double-clicking a history line open the Events tab once it is built (B6); until then they show their counts only.
+
+=> 3.4.0-dev006_2 - New PSS window: lighter navigation line
+
+- The line beside the back and forward arrows (the tab and view shown) is lighter and easier to read.
+
+=> 3.4.0-dev006 - New PSS window: tabs and navigation
+
+- /pss tui now opens the window with the EllesmereUI window's six tabs: Player Ignore List, Guild Ignore List, Chat Filters, Events, Import/Export and Options. Each tab is built the first time it is opened; until its own build arrives it shows a note.
+- Back and forward arrows under the tabs (and mouse buttons 4 and 5 over the window) step through what you looked at. The line beside them names the tab and view shown; each part before the last is a link back to it, underlined in your class colour.
+- Escape goes up one level first, and closes the window from the top. Events opened from another tab goes back to that tab.
+- Clicking a tab, even the one shown, puts it back to how it opens. The window reopens on the tab shown last.
+- The temporary kit preview has left the window; the harness keeps it to check every look.
+
+=> 3.4.0-dev005 - New PSS window: Libraries groundwork
+
+- Nothing you can see changes yet: this stage adds the maths the new window's tabs will draw, in PourSocialScore_Libraries (new file PSS_DetailQuery.lua, and more in PSS_ViewNav.lua).
+- Detail panes: this session, the last 24 hours and all time for a player, a guild, a chat filter or a whole list, read from the same counts the EllesmereUI window shows; the period pie's nested slices and its tooltip; the type pie; the period and type ticks shared by every pane.
+- Navigation: back and forward through the tabs and views (capped), Escape from Events back to the tab before, double-click, a redraw throttle for bursts of blocks; the override cycle (default, on, off) and its button text.
+- A new harness check (check_viewquery.lua) proves every pane's numbers equal the core's counts on every save, the real ones included.
+
+=> 3.4.0-dev004_4 - New PSS window: Modern buttons and tabs settled
+
+- Modern buttons and tabs keep the straight dark gold-framed plate (Dan's pick). The Filter-art tab and the "Straight art" comparison row are gone from the kit preview.
+
+=> 3.4.0-dev004_3 - New PSS window: straight Modern buttons and tabs
+
+- Modern buttons and tabs use the Social window's straight dark button with a gold frame (its action buttons): the side-tab plate of dev004_2 has a cut corner, which looked uneven along the tab row. Hover brightens the frame; the selected tab stays brighter, with a white label.
+- Kit preview: the third tab (Menus and popups) is drawn in Modern with the Social window's Filter button art (normal, hover, and its open art when selected), to compare with the other two tabs.
+- Kit preview, Controls tab: a "Straight art" row shows the straight candidates side by side (the action button and its pressed art, the Filter button's normal, hover and open art, and one drop-down button) to pick from in game.
+
+=> 3.4.0-dev004_2 - New PSS window: Modern redone after the Social window
+
+- Modern now follows Blizzard's new Social window as a whole, not only its controls: the same metal frame on a black background, pages on the black under the Social window's thin divider, and boxes as its dark cards.
+- Buttons and tabs are the Social window's gold-framed dark plate (its side tabs): brighter gold on hover, the gold glow on the selected tab and while a button is held. The art is now kept upright and stretched only in the middle, so its corners stay crisp; in dev004 it was turned on its side and showed as thin strips. The button that confirms a popup is the Social window's red one.
+- Tick boxes, text and search boxes and popups stay as in dev004.
+
+=> 3.4.0-dev004 - New PSS window: the Modern look
+
+- "Look of the new PSS window" > Modern now works: the art of Blizzard's new Social window. Buttons are Blizzard's red buttons (with their pressed, disabled and highlight art), tick boxes the new minimal box and tick, text and search boxes the new search bar (with its own magnifier), tabs the Social window's side-tab art laid along the top with the selected tab's glow in your class colour, and popups Blizzard's newer dialog border with red buttons.
+- The window frame, panels, drop-downs, menus and tooltips are Blizzard's, as in the Social window.
+- On a client without this art (Camelot) Modern shows the Blizzard look.
+
+=> 3.4.0-dev003_2 - New PSS window: popups open, slimmer right-click menu
+
+- The Confirm, Copy and Import popups open again: their buttons were built with a wrong argument, which the game rejected with a Lua error, so nothing showed.
+- Dark right-click menus are compact: 20 px entries, a slim title and divider, and only as wide as the longest entry. Drop-down lists keep the full size.
+- Harness: a script given anything but a function is now an error, as in the game, so this kind of mistake fails the checks.
+
+=> 3.4.0-dev003 - New PSS window: menus, popups, lists and the pie
+
+- The kit preview (/pss tui) now has three tabs: Controls, Lists and pie, Menus and popups.
+- Drop-downs and right-click menus: Blizzard look uses Blizzard's own menus; Dark draws its own list (dark, a faint edge, the picked or ticked entries marked in your class colour, ticks stay open, a long list scrolls with the mouse wheel; a click elsewhere or Escape closes it).
+- Popups: a confirm, a copy popup (the text selected, read only) and an import popup. Blizzard look: Blizzard's dialog frame and buttons. Dark: a flat dark panel over a dimmed screen, the accept button in your class colour. Escape (or, in Dark, a click on the dimmed screen) cancels.
+- The row list every list tab will use: only the rows that fit are made, so a long list costs the same as a short one; click a header to sort (the sorted column in your class colour with ^ or v), click a row to select it (a class-colour wash), click under the rows to clear it. Links in rows show their tooltip on hover.
+- The pie: hover a slice and the others dim while its count shows in the middle.
+- Nothing else changes.
+
+=> 3.4.0-dev002_4 - New PSS window: class colour accent, clearer tabs
+
+- The new window's accent is your class colour in every look: the selected tab's underline, headings and ticks now (sorted columns and selected rows as they arrive).
+- Dark look: unselected tab labels are brighter (still dimmed, easier to read), and the selected tab's underline is exactly one screen pixel, so it stays crisp at any UI scale. The thin edges are drawn the same way.
+
+=> 3.4.0-dev002_3 - New PSS window: three looks
+
+- "Look of the new PSS window" now offers Blizzard (Default), Modern and Dark. Dark is the flat dark look that was called Modern; if you picked it, it stays picked.
+- Modern is the art of Blizzard's new Social window; it is built in a later stage and shows the Blizzard look until then.
+
+=> 3.4.0-dev002_2 - New PSS window: tab labels
+
+- Blizzard look: tab labels sit in the middle of their tabs (Blizzard's tab code dropped them towards the bottom edge), every label shows in full ("Player Ignore List" was cut short), and the selected tab shows Blizzard's raised tab art.
+
+=> 3.4.0-dev002 - New PSS window: the controls in both looks, and a font option
+
+- /pss tui now shows a kit preview in place of the tabs to come: the tab row, buttons (one disabled), tick boxes, a text box, a number box, a search box, a tooltip and a scroll frame, each in the look chosen in Options.
+- Blizzard look: Blizzard's own buttons, tick boxes, boxes, top tabs, inset panels, scroll bars and tooltip. Modern look: dark flat buttons and boxes with thin grey edges, ticks in the accent green, dark tabs with the selected one underlined, a thin scroll thumb and a dark tooltip that fades in.
+- New option "Font of the new PSS window" (Options tab, User interface): the look's own font (Blizzard's for Blizzard, Arial Narrow for Modern), or Game text, Unit names, Damage numbers, Friz Quadrata, Arial Narrow, Morpheus or Skurri. Fonts that other addons share through LibSharedMedia are listed too once the new window has been opened; PSS only reads that list when another addon has loaded it and ships no library. Changing it repaints the open window.
+- The kit preview is temporary: the window's real tabs replace it in a later stage. Nothing else changes.
+
+=> 3.4.0-dev001 - New PSS window: the folder and the empty window
+
+- First stage of the new PSS window (3.4.0), which will replace both the PSS windows and the EllesmereUI window with one window in the EllesmereUI window's layout, built only from Blizzard's and our own art.
+- New folder PourSocialScore_UI, loaded only when the window is opened. /pss tui opens it: for now an empty 960 x 494 window with its title and close button; drag it to move it (the place is remembered), Escape closes it.
+- New option "Look of the new PSS window" (Options tab, User interface): Blizzard (the default: Blizzard's window frame and fonts) or Modern (flat and dark, with a thin frame). Switching it repaints the open window at once.
+- Nothing else changes: /pss gui, the Friends window and the EllesmereUI window work as before.
+
+=> 3.3.1 - Social window fix, PSS window totals and Managed Communities
+
+- Retail 12.1: the PSS window (and the EllesmereUI one) opens next to Blizzard's new Social window again, clear of its side tabs, and follows it to the Who tab (3.3.0-dev005).
+- PSS window: a totals pane beside the Player, Guild and Chat Filters lists with a pie of this session, the last 24 hours and all time, the same numbers as the EllesmereUI window; the window opens 1290 wide (3.3.0-dev004).
+- PSS window: the default guild lists sit under one Managed Communities row on the Guild Ignore List (3.3.0-dev003).
+- One count for this session and the last 24 hours in both windows; the old hourly counts are removed from saved data on login (12.1 KB less memory); EllesmereUI Chat Filters All time now includes pre-2.0.36 blocks as Unknown (3.3.0-dev002).
+- The shared Events logic moved to PourSocialScore_Libraries; nothing you see changes (3.3.0-dev001).
+
+=> 3.3.0-dev005 - Window opens next to the new Social window
+
+- Retail 12.1: the Friends key and button now open Blizzard's new Social window (SocialUIFrame) instead of the Friends window, so the PSS window (and the EllesmereUI one) no longer opened beside it. It now opens with either: next to the Social window, clear of its tabs on the right edge, or next to the Friends window as before (the Who tab and Camelot still use it).
+- Switching the Social window to the Who tab keeps the window open and moves it next to the Who window; it closes when both are closed.
+- Harness: check_gui.lua and check_eui_window.lua open and close the Social window too.
+
+=> 3.3.0-dev004 - PSS window: totals pane and period pie
+
+- Player Ignore List, Guild Ignore List and Chat Filters: a pane on the right of the list shows the whole list's blocks as a pie of this session, the last 24 hours and all time, as in the EllesmereUI window, with a tick box, colour and count per period. All time starts unticked; the ticks are shared by the three tabs while the window is open.
+- Hover a slice: the others dim, its count shows in the middle and the tooltip says how many of them are also in the smaller period. The numbers are the same as the EllesmereUI window's.
+- The window opens 1290 wide (was 960) so the lists keep every column; the pane hides on the filter editor, Import/Export and Options.
+- The pane redraws at most every quarter second while blocks come in, and only while it is shown. The new file (PSS_Pie.lua) is 11.4 KB compiled, in PourSocialScore_GUI (load on demand).
+- Harness: check_match.lua also checks the pane's numbers against the EllesmereUI window, and that it hides on the filter editor and Options.
+
+=> 3.3.0-dev003 - PSS window: Managed Communities row
+
+- Guild Ignore List: the default guild lists now sit under one Managed Communities row at the top, as in the EllesmereUI window. It shows how many lists there are, their members and blocks added up, and how many of their rules are on.
+- Click it to collapse or expand everything under it; it stays as you left it. Right-click it to turn every list's rule on or off, or to collapse / expand.
+- Each list's own row sits under it, indented, without the "Managed Communities - " in its name. Its click, right-click menu and tooltip are unchanged.
+- Harness: check_managed_row.lua checks the row, its numbers against the EllesmereUI window, the click and the menu, on every real save too.
+
+=> 3.3.0-dev002 - One count for this session and the last 24 hours
+
+- The PSS window's "This session" and "Last 24 hours" lines on the Player Ignore List, Guild Ignore List and Chat Filters tabs now count blocks the same way as the EllesmereUI window (per player, guild and filter, in 10-minute steps), so both windows always show the same numbers. Before, the PSS window kept its own hourly counts, which could disagree: on some saves its Player tab read 0 over a list with blocks, and its 24 hours could span 25.
+- On the Chat Filters tab those two lines show Private messages as "-": a Battle.net whisper counts as a whisper there. The total line still splits them.
+- The old hourly counts (blockStats) are removed from your saved data on login, and the code that kept them has left the always-loaded addon: 12.1 KB less memory all the time.
+- EllesmereUI window: the Chat Filters list's All time now equals its rows added up. Blocks from before 2.0.36, which have no type, were missing from it; they show as Unknown (290 on the save tested).
+- Harness: check_match.lua checks both windows show the same numbers on every save, real ones included.
+
+=> 3.3.0-dev001 - Shared Events logic moved to PourSocialScore_Libraries
+
+- Nothing you see changes. The Events logic both windows need (what type a blocked line is, the "Data expired from logs" and "Counted, not stored" rows, the This session / Last 24 hours / custom time ranges and search, the "Stored: ..." line, a default guild list's lines and counts, and the list-wide Reset Block History of every listed player or guild) now lives once in PourSocialScore_Libraries (PSS_EventsQuery.lua) instead of in the EllesmereUI folder, so the PSS window can use it too. The PSS window's All Players / All Guilds view and reset use it already (issue #77).
+- Harness: eui_compare.sh checks the EllesmereUI window looks the same as another version, step by step, like ui_compare.sh does for the PSS window.
+
+=> 3.2.0 - Events tab, recent counts, smaller saves
+
+- The EllesmereUI folder (PourSocialScore_EllesmereUI) is now part of the main download and has the same version number.
+- New Events tab in the EllesmereUI window: the blocked lines of the Player Ignore List, Guild Ignore List and Chat Filters in one place, newest first, with a Source column. Filter them by Time (This session, Last 24 hours, All time or a custom range), Types and Source, and search them. Every pie slice, View Events and a double-click on a pane's history open it with the matching filters set.
+- Each list's pane shows pies of this session / the last 24 hours / all time and of blocks by type, for an entry or, with nothing selected, the whole list. Unticking a type takes it out of that page's period pie too. Default guild lists sit under one Managed Communities row.
+- Every block is counted for this session and the last 24 hours (in 10-minute steps, with its type) without loading the block history. "This session" means the same in both windows: since your login or last /reload.
+- The 2,000 line block log holds every blocked line again, and is saved grouped per person, filter or guild member: on a real save 2,000 lines take 203 KB instead of 633 KB. When a person's lines leave the log, their newest whispers, party / raid lines and invites are still kept for them.
+- A guild rule never blocks the guild you are in.
+- EllesmereUI window: deselect with a click under a list or on the selected line, a tab click resets the tab, and the line by the back / forward arrows is clickable.
+- Hovering a profession link in a blocked message no longer opens the profession window.
+- The test builds 3.2.0-dev1 to dev012 below list each change in detail.
+- Version 3.2.0.
+
+=> 3.2.0-dev012 - Review fixes
+
+- EllesmereUI window: the type tick boxes under a list's type pie (a whole list, a default guild list) filter that page's period pie and View Events only. A player's, guild's, member's or filter's own pie, which has no type pie beside it, always shows every type again, so its numbers match the PSS window.
+- This session's counts by type take less memory: about 40 KB for 1,000 spammers blocked once each, instead of about 140 KB.
+- Removed leftover code for the old Block History view's guild drop-down.
+
+=> 3.2.0-dev011 - Profession links no longer open on hover
+
+- Hovering a profession link in a blocked message (Block History in the PSS window, the Events tab and Event History in the EllesmereUI window) opened that profession's window. Hovering now only shows tooltips for links that have one (items, spells, achievements, quests and the like); a click still opens a profession link as in chat.
+
+=> 3.2.0-dev010 - EllesmereUI window: an Events tab
+
+- New Events tab (after Chat Filters): the blocked lines of all three lists in one place, newest first, with a Source column. Three drop-downs filter them: Time (This session, Last 24 hours, All time, or a Custom range of dates and times), Types (a box per type, or All types) and Source (Player Ignore List, Guild Ignore List, Chat Filters, or only the player, guild or filter you came from). The search box stays. Back / forward step through your filter changes; Escape goes back to the tab you came from.
+- Every pie slice, View Events button and double-click on a pane's Event History now takes you to the Events tab with the matching filters set: the player, guild, filter or list, the period, and the types ticked. The pies stay where they were.
+- View Events is at the top right of each pie page and opens the widest period ticked (all time when it is ticked) with the types ticked.
+- The type pie's boxes now filter the period pie too: untick a type and this session, the last 24 hours and all time count only the ticked types. A click on a type's name or colour ticks or unticks it, like its box. The legend is one column with full names and counts, and a click on a type slice opens just that type's events.
+- The core now counts this session's blocks by type as well (memory only, nothing more is saved; the always-loaded core grows by 0.8 KB). The lookup that adds them up is in PourSocialScore_Libraries, which only loads with a window.
+- The EllesmereUI window remembers its tab by name instead of number, so the new tab does not move you to the wrong one.
+
+=> 3.2.0-dev009 - EllesmereUI window: getting back
+
+- Click an empty spot under a list (players, guilds, guild members, chat filters), or the selected line again, to deselect it and see the whole list's events again (for a guild member: the guild's own).
+- A click on a tab, even the one shown, opens it as it opens: any Block History view or members list over it closes and nothing is selected.
+- The line next to the back / forward arrows is clickable: the tab name goes back to the tab as it opens, "Members of <guild>" closes the Block History view over the members.
+
+=> 3.2.0-dev008 - EllesmereUI folder in the main download
+
+- PourSocialScore_EllesmereUI is now part of Pour Social Score: it comes in the same zip as the other six folders and has the same version number (it was a separate download, last version 1.1.0-dev010). Nothing changes in game; without EllesmereUI the folder never loads and takes no memory.
+
+=> 3.2.0-dev007 - Every blocked line in the log again, saved smaller
+
+- The 2,000 line block log holds every blocked line again, as before 3.2.0-dev3: listed players, guild members (default lists too), chat filters, world and guild chat. When a person's lines are trimmed off the log, their newest 10 whispers and party / raid lines, 5 party invites and 5 guild invites are still kept for them, at most 2,000 such lines in all. Lines kept by 3.2.0-dev3 to dev006 go back in the log once.
+- The block log is saved one group per person, filter or guild member: the name, guild and rule once, then a short line for each block (type, seconds since the one before, event, channel, message; a repeated message is stored once). On a real 2.0.44 save the 2,000 lines take 203 KB instead of 633 KB. While playing nothing changes: the log is grouped at logout or /reload, and only if it was loaded that session. The code for it is in PourSocialScore_Logging, so it takes memory only when the block history is loaded (the always-loaded core grows by 0.4 KB).
+
+=> 3.2.0-dev006 - One session for both windows
+
+- "This session" now means the same in the PSS window and the EllesmereUI window: since your login or your last /reload. The per-entry session counts used to survive a /reload, so the EllesmereUI pies could show more than the PSS window's header. A loading screen still keeps the session.
+- The session counts are no longer saved at logout (the next load starts a new session anyway), so the saved file gets a little smaller.
+
+=> 3.2.0-dev005 - Managed Communities row
+
+- The guild list query can put every default guild list (Managed Communities - Asmongold ...) under one Managed Communities row that opens and closes, for the EllesmereUI window. The PSS window's list is unchanged. The row is open unless you close it; only a closed row is saved.
+
+=> 3.2.0-dev004 - Totals for a whole list
+
+- New: the blocks of a whole list added up (Player Ignore List, Guild Ignore List or Chat Filters), with this session and the last 24 hours, for the EllesmereUI window to show when nothing on the list is selected. It reads the counters only (the block history stays unloaded) and is in PourSocialScore_Libraries, so it takes no memory until a window opens.
+
+=> 3.2.0-dev3 - Kept lines, world chat, your own guild
+
+- Blocked lines of listed players and guild members (default lists too) no longer go in the 2,000 line block log: each person keeps their newest 10 whispers and party / raid / instance / battleground lines, 5 party invites and 5 guild invites, at most 2,000 such lines in all (the oldest go first). The block log now holds chat filter lines only.
+- Their world chat (channels, say, yell, emotes) and guild chat are still blocked and counted, but no longer stored.
+- Kept lines are stored as one short text each instead of a table: 2,000 kept lines take about 165 KB instead of 805 KB.
+- Upgrading cleans the saved history when it next loads: people's lines leave the log, lines no longer kept are dropped, the rest are packed and capped. On a 2.0.44 save with 2,000 log lines and 378 kept lines, the saved history went from 23,000 to 9,800 lines and the addon from 3.7 MB to 3.0 MB with the history loaded.
+- A guild rule (default lists too) never blocks the guild you are in. A Player Ignore List entry for one of your guildmates still blocks them.
+
+=> 3.2.0-dev2 - Recent counts by type, cleanup
+
+- The last 24 hours of block counts now also record the type of each block (whisper, invite, party, chat ...) per 10 minutes, so the time and type of a block are known even after its line has left the block history.
+- Removing a player, guild, guild member or chat filter also removes its recent counts. A new check runs 30 days of blocks and fails if any saved table keeps growing (recent counts, session, waiting lines, log).
+
+=> 3.2.0-dev1 - Recent block counts
+
+- Every block is now also counted for this session and for the last 24 hours, per player, guild member, guild and chat filter, without loading the block history. The counts are kept in 10-minute steps (at most 144 per day) next to the waiting history lines, so a /reload keeps them; a new login starts a new session. Resetting a block history or a filter's count resets them too. The EllesmereUI Summary page will show them.
+
+=> 3.1.0 - EllesmereUI front end
+
+- New optional seventh folder, PourSocialScore_EllesmereUI (its own download, same version). With EllesmereUI installed and "Enable EllesmereUI integration" on (Options tab, or /pss eui enable, then reload), Friends and /pss gui open a Pour Social Score window in EllesmereUI's style instead of the PSS window. /pss gui force still opens the PSS window. See ELLESMEREUI in the readme.
+- The window has the same five tabs: Player Ignore List, Guild Ignore List and Chat Filters (each a list with a details pane, search and sorting), Import/Export and Options. Back / forward arrows, mouse buttons 4 and 5, and Escape step between views.
+- EllesmereUI's panel gets a "Pour Social Score" section with the Options pages and Import/Export (/pss eui).
+- Block history in the EllesmereUI window loads only when you ask for it (Show Block History), with type tick boxes and a searchable Block History view.
+- The selected tab in the EllesmereUI window now shows as in EllesmereUI's Friends window: a light wash and a line underneath in your EllesmereUI accent colour (class colour when that is your theme), on every EllesmereUI version.
+- The Options tab has a search box at the right of the tab row: it keeps the options whose name, tooltip or section match, and hides empty sections.
+- With the integration on, the note prompt and the party warning now use EllesmereUI's popups. The party warning still closes itself after 15 seconds, and uses the PSS popup in combat or while another EllesmereUI popup is open.
+- Both windows now read and change the lists through the same functions. The ones only the windows need are in PourSocialScore_Libraries, so they take no memory until a window opens.
+- Without EllesmereUI, or with the integration off, Pour Social Score works as in 3.0.
+- The test builds 3.1.0-dev1 to dev6 below list each change in detail.
+- Version 3.1.0.
+
+=> 3.1.0-dev6 - EllesmereUI Chat Filters (3.1 test build)
+
+- The Pour Social Score window in EllesmereUI's style now has its Chat Filters tab: every filter (built-ins first) with Description, On, Blocked and Filter columns. Click a heading to sort, and search by description or filter text.
+- Click a filter to edit it beside the list: On (applies at once), Description and Filter, then Save Filter. Copy makes an editable custom copy that starts Off, Remove asks first, and Reset Count starts its Blocked count again. Test runs a line of chat against the filter text and shows BLOCKED, PASSED or FILTER ERROR. Shift-click a link while editing the filter to add its [tag], or use the Link box to convert one.
+- Built-in filters are read only (On only). A guild rule shows no count or history, because its blocks are counted on the Guild Ignore List.
+- A long filter scrolls inside its box (with a scroll bar) instead of spilling over the buttons below it.
+- New Filter and Reset Defaults (asks first) sit at the top right.
+- The filter's block history sits under the editor and loads only when you click Show Block History. Double-click a line for the Block History view, with All Filters for every filter's lines.
+- Both windows now list, test and convert filters through the same functions in PourSocialScore_Libraries (0 KB until a window opens).
+- Every change to a filter now redraws whichever window is open. Removing a filter that never blocked anything no longer loads the block history.
+- Version 3.1.0-dev6.
+
+=> 3.1.0-dev5 - EllesmereUI Guild Ignore List (3.1 test build)
+
+- The Pour Social Score window in EllesmereUI's style now has its Guild Ignore List tab: the default guild lists (each a row you click to expand or collapse), the Guild Exclusion List, then your guilds, with Members, Blocked and Scan columns. Click a column heading to sort, click again to reverse. Only the rows that fit on screen are drawn, so the big default lists scroll smoothly. A search box filters guilds by name.
+- Click a guild to see its details beside the list: members, W I G P C for the whole guild (ticked = allowed), Scan, Scan Fields and Custom Scan, the per-guild overrides (Default > On > Off), the block counts and that guild's block history. Remove Guild asks first; guilds on a default list can't be removed.
+- Members (or double-click a guild) shows the guild's members in place of the list, searchable and sortable. Click a member for their note, their own W I G P C (dimmed boxes follow the guild, right-click to follow it again), overrides, counts and history, with Remove Member (asks first), Add Guild and Reset Block History. All Guilds goes back.
+- Click a default list's row for its rule, with Turn Rule On / Off.
+- Scan All, Guild Search and Add Guild at the top right, and a second row to add to the Guild Exclusion List (Guild Search or Exclude). Guild Search results open in the window: click the guilds to add, then Save. Every scan button greys out while /who cools down, and the Scan All key binding still works.
+- Both windows now list guilds and members through the same functions. They live in PourSocialScore_Libraries, which loads with either window, so they take no memory until a window opens.
+- Block history in both EllesmereUI tabs: clicking a player or guild no longer loads the block history (PourSocialScore_Logging) by itself. When it isn't loaded yet, the pane shows "Show Block History (n)" and loads it on click; once loaded it shows straight away. Removing a player with nothing blocked no longer loads it either.
+- The history shows the time as yyyy/mm/dd hh:mm:ss and the type as one word (whisper, invite, party, raid, BG, world, guild). Tick boxes above it show or hide each type. A guild's history adds the player's name.
+- Double-click a line of a pane's history for the Block History view in place of the tab: Time, Player, Type, Channel and Message, sorted by a click on a heading. The type tick boxes sit above it with a search box that searches player, channel and message. Links in a message work as in chat (hover, click, shift-click), and a double-click on a line opens the message in a copy box. All Players / All Guilds shows everything, Whole Guild a member's guild, and Reset Block History works as in the PSS window.
+- Back and forward arrows under the tabs step through the views you've opened (tabs, a guild's members), and mouse buttons 4 and 5 do the same over the window. Escape goes up one level (Guild Search results or a guild's members back to the guild list) and closes the window only from the top.
+- Version 3.1.0-dev5.
+
+=> 3.1.0-dev4 - EllesmereUI Player Ignore List (3.1 test build)
+
+- The Pour Social Score window in EllesmereUI's style now has its Player Ignore List tab: every player, NPC and server on the list, with Name, Server, Type, Listed, Expires and Blocked columns. Click a column heading to sort by it, click again to reverse. Only the rows that fit on screen are drawn, so a list of thousands scrolls as smoothly as a short one.
+- A search box filters the list by name, server or note as you type. Hover a row to read its note.
+- Click an entry to see its details beside the list: type, class, date added, guild, last blocked invite, expiry and note (both editable), the W I G P C switches (ticked = allowed), the per-player overrides (Default > On > Off) and the block counts, with that player's block history underneath. The block history only loads once something was blocked from them.
+- Remove asks first (EllesmereUI's popup), because it deletes the player's note, settings and history. Reset Block History and Add Guild work as in the PSS player window.
+- Add Player: type Name or Name-Realm in the box at the top right and press Enter; the new entry is selected.
+- Sorting by Notes in the PSS window now puts empty notes last, as it was meant to.
+- Both windows now read and change the list through the same core functions, and every change redraws whichever window is open.
+- Version 3.1.0-dev4.
+
+=> 3.1.0-dev3 - EllesmereUI options and Import/Export (3.1 test build)
+
+- The Pour Social Score window in EllesmereUI's style now has its Options tab: every Pour Social Score option, grouped like the PSS Options tab, with EllesmereUI's tickboxes, boxes and dropdowns.
+- The "Pour Social Score" section of EllesmereUI's panel now has an Options page for each group (Ignore List, Blocking, Chat Filters, Interface, Whois Scans). EllesmereUI's search finds them by name. A change on either side shows on the other at once.
+- Import/Export works in the window and in the panel: tick what to include, Export shows the string in EllesmereUI's copy box, Import takes it from EllesmereUI's paste box. Replace asks first.
+- Version 3.1.0-dev3.
+
+=> 3.1.0-dev2 - EllesmereUI window and panel section (3.1 test build)
+
+- New seventh folder, PourSocialScore_EllesmereUI (from its own repository, in the test zip). It loads only when it is needed, and only with "Enable EllesmereUI integration" on and EllesmereUI installed.
+- With the integration on, opening your Friends list or typing /pss gui shows a Pour Social Score window in EllesmereUI's style, painted by EllesmereUI's skinning API so it follows your theme and accent colour. It sits next to Friends like the PSS window, can be dragged (the place is kept for /pss gui) and closes with Escape. Its five tabs are empty in this build; they fill in over the next test builds.
+- EllesmereUI's panel gets a "Pour Social Score" section at the bottom of its sidebar. /pss eui opens it (not in combat, like the rest of that panel). Its first page has a button for the window and the integration switch.
+- The PSS window (PourSocialScore_GUI) no longer loads with the integration on, unless you type /pss gui force.
+- Version 3.1.0-dev2.
+
+=> 3.1.0-dev1 - EllesmereUI integration switch (3.1 test build)
+
+- New option "Enable EllesmereUI integration" (Options tab, User Interface section; off by default). It is the switch for the coming EllesmereUI front end, a seventh folder, PourSocialScore_EllesmereUI, added in the next test builds. In this build it changes nothing yet: /pss gui still opens the PSS window.
+- Changing it asks for a reload. With EllesmereUI loaded the prompt is EllesmereUI's own, whose Reload Now button also works on Camelot; without EllesmereUI it is the PSS prompt on Retail, and a chat line asking for /reload on Camelot.
+- New: /pss eui shows the setting, /pss eui enable and /pss eui disable switch it (same reload prompt). /pss gui force will always open the PSS window.
+- Version 3.1.0-dev1.
+
+=> 3.0.0 - Six folders, loaded only when needed
+
+- Back up your WTF folder before the first login: a 3.0 save can't be read by 2.0. Delete the old PourSocialScore folder and install every folder from the zip (six of them, side by side in Interface/AddOns).
+- Pour Social Score is now six addons, grouped as one entry in the AddOns list. Always loaded: PourSocialScore (chat filtering, warnings, declines, guild capture) and PourSocialScore_Options (your settings and lists, data only). Loaded only when needed: PourSocialScore_GUI (the window), PourSocialScore_Libraries (commands, scans, import/export), PourSocialScore_Logging (the block history) and PourSocialScore_Communities (the shipped guild lists). Until you open the window or the history, only the first two are in memory.
+- Your saved data moves at the first login, checked before and after (the counts /pss check reports must match, or the move is undone and tried again next login). One chat line per folder says what moved. Settings and lists go to PourSocialScore_Options.lua, the block history to PourSocialScore_Logging.lua; PourSocialScore.lua keeps only the upgrade record and lines waiting for the history.
+- Blocks are counted at once. New history lines wait in PourSocialScore.lua and join the history when it is opened, when /pss check runs, or after 200 lines (out of combat and outside instances). They are kept over a logout or /reload.
+- Only settings you changed are saved. Windows remember their size and where you left them.
+- The default guild list is now "Managed Communities - Asmongold". Its lists are packed (about 460 KB when the rule is on instead of 1.4 MB, nothing when it is off), and "left this guild" marks the shipped list no longer needs are removed when the lists load.
+- New: /pss check counts and checks all saved data. /pss mem shows each folder.
+- Saved data upgrades now run as numbered steps with an upgrade record (step 5 in this release), so later versions can upgrade straight from any 3.0 save.
+- The test builds 3.0.0-dev1 to dev18 below list each change in detail.
+- Version 3.0.0.
+
+=> 3.0.0-dev18 - Community marks clean themselves up (3.0 test build)
+
+- A shipped member you saw in another guild (or removed) gets a "left this guild" mark in PourSocialScore_Options. When the community lists load, marks the current shipped list no longer needs (it has already dropped or moved that character) are removed, so the saved marks stay small as the lists are updated. Marks that still matter, and your notes and exclusions, are kept; member counts do not change.
+- Guilds with no marks no longer save an empty mark table (119 of them on a save with the community rules).
+- /pss check shows how many shipped members are marked as left.
+- Version 3.0.0-dev18.
+
+=> 3.0.0-dev17 - Smaller community lists (3.0 test build)
+
+- The shipped "Managed Communities - Asmongold" lists are packed: each guild's members are one string and the lookup is a few hundred small search strings, grouped by realm. With the rule on they take about 460 KB of memory instead of about 1.4 MB, and the file is 350 KB instead of 600 KB. With the rule off nothing is loaded, as before.
+- The same 7,634 members in the same 119 guilds are matched; your notes, exclusions and "left this guild" marks are untouched. A lookup costs about a microsecond, far below the chat filter itself.
+- tools/PSS_BuildManaged.lua writes the packed format and still reads the older ones (--reindex).
+- Version 3.0.0-dev17.
+
+=> 3.0.0-dev16 - Only changed settings are saved (3.0 test build)
+
+- Settings left at their default are no longer written to PourSocialScore_Options.lua; only the ones you changed are. Every setting reads and works as before, and a setting you put back to its default is removed from the file.
+- Each window now remembers where you dragged it, saved in PourSocialScore_Options next to its size and column widths, so the place is kept even though the windows load only when opened.
+- Old keys nothing reads any more are removed at the first login (optionsV2012, charOptions, historySize).
+- A new or cleared save now starts with "Show warning if ignore list synchronization fails during login" on, its default in the Options tab (a new save used to store it off).
+- /pss check counts the options changed from their default.
+- Version 3.0.0-dev16.
+
+=> 3.0.0-dev15 - Block history loads only when needed (3.0 test build)
+
+- PourSocialScore_Logging no longer loads at login. It loads the first time the block history is needed: opening a history view, a removal that clears someone's lines, /pss check, changing the history size, or when 200 new lines are waiting (then only out of combat and outside instances). On a large history that keeps about 1.2 MB out of memory until then.
+- Blocks are still counted at once. Every count (hourly stats, totals, chat filter counts) now lives in PourSocialScore_Options (PSS_CountsDB), so counting never needs Logging. Only the new lines wait, in PourSocialScore.lua, and join the history when Logging loads. They are kept over a logout or /reload.
+- At the first login with this build Logging loads once to move the counts out of it. The same happens when upgrading straight from 2.0.
+- /pss mem says when Logging is not loaded and how many lines are waiting, without loading it.
+- Fixed: loading a part during login no longer starts Pour Social Score a second time.
+- Version 3.0.0-dev15.
+
+=> 3.0.0-dev14 - Block history moves to the Logging folder (3.0 test build)
+
+- New PourSocialScore_Logging folder, data only. At the first login the block history, the lines kept per person, the hourly stats, the totals and the chat filter counts move from PourSocialScore.lua to PourSocialScore_Logging.lua. One chat line says how much moved, and the counts are checked before and after the same way as the Options move. Install all six folders from the zip.
+- The block counts of each player and guild member stay on their record in PourSocialScore_Options.
+- PourSocialScore.lua now keeps only the upgrade record and a few bookkeeping flags.
+- PourSocialScore_Logging still loads at login in this build. It loads only when needed in the next one.
+- Version 3.0.0-dev14.
+
+=> 3.0.0-dev13 - Your saved data moves to the Options folder (3.0 test build)
+
+- Back up your WTF folder before the first login with this build: a 3.0 save can't be read by 2.0.
+- At the first login your settings, Player Ignore List, Guild Ignore List and chat rules move from PourSocialScore.lua to PourSocialScore_Options.lua (both in WTF/.../SavedVariables). One chat line says how much moved. Nothing is copied, and every list, note, tick and rule stays as it was.
+- The move is checked: the numbers /pss check reports are counted before and after, and if any differ the move is undone, a chat line says which, and it tries again at the next login.
+- PourSocialScore.lua keeps the upgrade record, the block history and every block count. Those move to their own folder in a later build.
+- /pss clear confirm (clear everything) also empties the Options tables.
+- /pss mem shows the memory of PourSocialScore_Options, which now holds the lists.
+- Version 3.0.0-dev13.
+
+=> 3.0.0-dev12 - Options folder for the saved data (3.0 test build)
+
+- New PourSocialScore_Options folder, always loaded, data only. It will hold your settings, Player Ignore List, Guild Ignore List and chat rules once the next build moves them. For now it saves four empty tables (WTF/.../SavedVariables/PourSocialScore_Options.lua) and nothing changes. Install all five folders from the zip.
+- The core now needs PourSocialScore_Options: without it, WoW does not load PourSocialScore and says which folder is missing.
+- Version 3.0.0-dev12.
+
+=> 3.0.0-dev11 - Shipped guild lists load on demand (3.0 test build)
+
+- The shipped guild lists (Managed Communities - Asmongold: 119 guilds, 7,634 names) moved to a new PourSocialScore_Communities folder. The core keeps only a small list of the guilds and their member counts, so with the rule off the lists take no memory and the guilds still show with their counts. Install all four folders from the zip.
+- They load when the rule is on (at login, or when you tick it), and when you work with guild members: the members window, a scan or /who of a guild, removing a member, or seeing a member of a shipped guild in the world (so new members are still saved, as before).
+- tools/PSS_BuildManaged.lua writes both files (the members for Communities, the manifest for the core).
+- Version 3.0.0-dev11.
+
+=> 3.0.0-dev10 - Commands and import/export load on demand (3.0 test build)
+
+- New PourSocialScore_Libraries folder with the /pss and /pssguild commands and Import/Export. It loads the first time you type a command or open the windows. Install all three folders from the zip.
+- Version 3.0.0-dev10.
+
+=> 3.0.0-dev9 - Windows load on demand (3.0 test build)
+
+- The windows moved to a new PourSocialScore_GUI folder that loads the first time you open them (/pss gui, the Friends window, or a menu entry), so they take no memory until then. Install both folders from the zip.
+- Chat filtering, the right-click menus, the note popup, the group warning and the whisper alert stay in the core and work without the windows loaded.
+- /pss mem shows whether PourSocialScore_GUI is loaded and its memory.
+- The AddOns list shows a PSS heading with "PourSocialScore Core" and "PourSocialScore GUI" under it, "PourSocialScore" in light blue.
+- Version 3.0.0-dev9.
+
+=> 3.0.0-dev8 - Loader for the 3.0 addons (3.0 test build)
+
+- Groundwork only, nothing moves yet and nothing should look different. The core can now load the 3.0 on-demand addons when they are first needed, and says once in chat if one is missing, disabled or from a different version.
+- Version 3.0.0-dev8.
+
+=> 3.0.0-dev7 - Back to the client TOCs (3.0 test build)
+
+- dev6's single TOC did not load on Camelot, so the three TOCs from dev5 (PourSocialScore, _Mainline, _Camelot) are back, unchanged apart from the version. The coloured "PourSocialScore Core" title and the AddOns list group are not in this build.
+- The addon files stay in the PourSocialScore folder in the repository; the zip is the same as before.
+- Version 3.0.0-dev7.
+
+=> 3.0.0-dev6 - One TOC and the AddOns list heading (3.0 test build)
+
+- One PourSocialScore.toc for every client (## Interface: 120007, 16001); the separate Mainline and Camelot TOCs are gone. Delete your old PourSocialScore folder before installing so the old TOCs don't stay behind.
+- The AddOns list shows "PourSocialScore Core" (PourSocialScore in blue) under a PourSocialScore group, ready for the 3.0 addons that will sit next to it.
+- The repository now keeps the addon in a PourSocialScore folder; the release zip is built from every addon folder.
+- Version 3.0.0-dev6.
+
+=> 3.0.0-dev5 - /pss check (3.0 test build)
+
+- New /pss check: counts and checks all saved data without changing it. It shows Player Ignore List entries by type, notes and records; guilds, members shown and stored, member notes and excluded guilds; chat filters (custom, switched on); block history and kept lines; the sum of every block count; the last 24 hours; options; the upgrade record; and any problems found (lists out of step, a chat filter ID used twice, malformed records).
+- The 3.0 upgrade steps will use the same counts to prove nothing was lost when data moves.
+- Version 3.0.0-dev5.
+
+=> 3.0.0-dev4 - Upgrade record (3.0 test build)
+
+- Saved data upgrades are now numbered steps (PSS_Upgrade.lua). Step 1 is everything earlier versions did at login, unchanged, and it still runs at every login for now.
+- The save remembers which step and version last upgraded it, and when. The first login on this version prints "Saved data upgraded to 3.0.0-dev4 (step 1)"; later logins and /reload print nothing. /pss mem shows the record.
+- Version 3.0.0-dev4.
+
+=> 3.0.0-dev3 - Default guild list renamed (3.0 test build)
+
+- The shipped guild list and its Chat Filters rule are now called "Managed Communities - Asmongold" (was "Olympus" on the Guild Ignore List and "Influencer Guilds - Asmongold" on the Chat Filters tab). Its on/off state, members and counts are kept.
+- Version 3.0.0-dev3.
+
+=> 3.0.0-dev2 - Dead code removed (3.0 test build)
+
+- Removed ten functions nothing called (debug dumps, old word parsers and old guild API wrappers). No change in game.
+- Version 3.0.0-dev2.
+
+=> 3.0.0-dev1 - Test tools for the 3.0 split (3.0 test build)
+
+- The test harness can load several PSS addons the way the game does. No change in game.
+- Version 3.0.0-dev1.
+
+=> 2.0.44 - Group and whisper warnings for every list
+
+- Group warning: being in a party or raid with a player from any list now warns you, not only the Player Ignore List. Guild rule members count while their rule is on and their guild is not on the Guild Exclusion List. Still once per player per group, checked after combat if the group changes during a fight.
+- Whisper warning: when you whisper a player whose whispers a list blocks, you get a chat warning and a raid warning style notice on screen, once per player per session. Players whose whispers you allow (W ticked) give no warning.
+- New option (Ignore list options, on by default): "Warn when grouped with, or whispering, a player on any list".
+- Version 2.0.44.
+
+=> 2.0.43 - Removed players leave nothing saved
+
+- Removing a player from the Player Ignore List (by hand, expiry, prune, /pss, or Blizzard's Unignore) now also removes their saved record and their block history lines.
+- If that player is on a built-in guild list (which ships with the addon and can't be edited), they stay on it with every W I G P C switch blocked, and their member note is set to your old list note, or "Removed from player list" if there was none. A member note you already wrote is kept.
+- Removing a guild member, or a whole guild rule, also removes their block history lines once they are in no guild rule.
+- Login tidy-up: player records left behind by earlier versions for players no longer on the list are removed (236 in the 2.0.40 save tested, about 0.4 MB), with the built-in list treatment above for the 2 who are on one.
+- Player records no longer store copies or empty values: the copied note and expiry, the nickname when it equals the name, the "seen online" flag, the old per-type counters (now in the block counts) and empty text fields.
+- Version 2.0.43.
+
+=> 2.0.42 - Smoother guild windows (same look)
+
+- Guild members window: only the rows in view are built, and they are reused as you scroll. Opening your largest guild (934 members) used to build a row for every member and keep them all; now it builds about 17. In the test setup opening it went from about 168 ms to 16 ms and from about 34 MB to under 2 MB of window parts. The scroll bar, row look and selection are the same; a selected member stays selected (and Remove Member stays available) while scrolled out of view, and a note being typed is saved before its row moves.
+- Members search waits for a short pause in typing (0.25 s) instead of re-searching every member on each key press.
+- Guild list: changes that arrive together (such as saving several Guild Search results) redraw it once, the member counts of the default guild lists are worked out again only when members change, and each redraw reuses its working tables (about 16 % less garbage per redraw).
+- Player Ignore List: no longer re-sorted while it is not on screen; it is sorted when shown, as before.
+- Resetting a player's expiry from the right-click menu now goes through the core like every other edit.
+- Version 2.0.42.
+
+=> 2.0.41 - Code rules uplift (no visible change)
+
+- Nothing looks or works differently: every window, tab, dialog and chat command was built and compared with 2.0.40 (frames, sizes, anchors, text, dialogs, slash command output and the values saved after editing), using your 2.0.34 and 2.0.40 saves, and was identical.
+- Window code is out of the core files (rule 6). New files: PSS_ChatHistoryUI.lua, PSS_ImportExportUI.lua, PSS_OptionsUI.lua, PSS_WhoisHarvestUI.lua, PSS_GuildUI.lua (Guild Ignore List tab and members window) and PSS_Commands.lua (/pss and /pssguild). The core now says "something changed" with events (listed in PSS_Events.lua) and the windows redraw themselves; windows change saved data only through core functions.
+- The two longest functions (the guild tab, 576 lines, and the members window, 364 lines) are built from small functions.
+- Stricter checks on every pull request: ASCII only in the shipped text files, no Lua 5.2 calls, tabs for alignment as well as indentation, and a new check that the core files hold no window code (tools/check_rules.sh).
+- Version 2.0.41.
+
+=> 2.0.40 - Fix: background cleanup that never finished; less garbage per blocked line
+
+- Not a leak: in a 90 minute test with 10 chat lines a second and constant nameplates, the addon's live memory levels off at about 1.4 MB above its loaded size (the 2,000 line log plus each person's kept lines) and stays there. The growth seen in the addon list is garbage: memory already let go that still counts against the addon until a collection runs.
+- Fixed: a background cleanup could count as finished without collecting anything. At under 30 frames per second it waited, and after 900 frames it was marked done. A cycle that needed more than 900 frames (a big shared heap, or the small per-frame budget at a high frame rate) was marked done too. Garbage then built up until the next cleanup, 10 minutes later, which could end the same way. Now only a cycle that really finishes counts. A paused one carries on at the next check (every 15 seconds), still never in combat, within 5 minutes of combat or in instances.
+- Less garbage per blocked line: about 1,125 to 615 bytes for a line from a guild ignore list member and 695 to 574 for a line hidden by a chat filter. The tables used to look up a listed person are reused for every chat line, a member's lookup is reused for their next line, and window redraws are no longer scheduled while the window is closed. Block decisions, history lines and counts are unchanged (12,000 lines compared with 2.0.39).
+- /pss mem shows when the last cleanup finished and, when one is due, what it is waiting for (combat, the 5 minutes after combat, or an instance).
+- Version 2.0.40.
+
+=> 2.0.39 - Fix: influencer guild rules counted twice; linked to their guilds; no combat discovery
+
+- Fixed: a block by an influencer guild rule (InfluencerGuild=Olympus) was counted twice: once on the guild (Guild Ignore List) and again on the rule's Chat Filters row, the Chat Filters total and its session / 24 hour counts. These are guild blocks only now, counted once on the Guild Ignore List, where the shipped list and the members found in game are one list. The rule's Blocked cell on the Chat Filters tab reads n/a, and the rule has no block history or reset entries there. This applies to every guild rule, including ones added later.
+- Linked: switching an influencer guild rule off stops every guild block of its guilds, for the shipped members and for the members found in game and stored in SavedVariables. Switching it on again blocks them again. Switching it from the editor or by import now also refreshes the guild member lookup, members of a switched off group no longer win over your own guild rule for the same player, and adding a member to a switched off group no longer hides their earlier chat.
+- No guild discovery from mouseover or nameplates in combat: the addon stops listening to those events when combat starts and listens again when it ends.
+- Upgrade (once): each guild rule's count is taken back out of the Chat Filters total and the 24 hour counts, the rule's own counts are cleared, and the rule tag is removed from block history lines. Guild counts are not changed. Guild rules no longer save statistics of their own. Tested by loading saves from 2.0.1, 2.0.8, 2.0.17, 2.0.18, 2.0.19, 2.0.22, 2.0.35, 2.0.36, 2.0.37 and 2.0.38, plus a guild rule save from each version from 2.0.18 on (sh tools/harness/validate_all.sh).
+- Version 2.0.39.
+
+=> 2.0.38 - Fix: frame jitter from background memory cleanup
+
+- Fixed: frame jitter since 2.0.37. The background memory cleanup ran a full collection of the game's whole Lua memory (every addon, not just this one) at least once a minute. Each run costs one long frame wherever another addon holds a big table (measured 9 ms on a 150 MB heap and 19 ms on 300 MB) plus a few seconds of frames about 1 ms slower.
+- The cleanup runs after something that leaves garbage behind (logging in, a /who scan, an import, closing the window) and otherwise every 10 minutes, as before 2.0.37. It no longer runs when the shared memory grows or every time the block log is trimmed. The game's own collector keeps running in the background every frame, as it always has.
+- The cleanup never runs in combat, within 5 minutes of leaving combat, or inside a dungeon, raid, battleground or arena (the game reports which kind of instance you are in, so there is no list of places). A cleanup that was due waits until you are out.
+- Chat filters are about a third faster per chat line (about 48 to 30 microseconds with 18 filters on) and leave about 20 % less garbage: each filter is turned into a function once instead of being walked as a tree for every line, the "is this a guild rule" check is worked out once per filter, and [word=...] skips building the word list when the word is not in the line at all. Results are unchanged (checked on 96,000 filter tests).
+- Lua has no regular expressions, only Lua patterns. Measured: a pattern find of plain text is the same speed as a plain find, and patterns have no "a or b", so the filters keep plain finds.
+- Version 2.0.38.
+
+=> 2.0.37 - Per-player block history
+
+- Block history stays one shared log of the last 2,000 lines (Options setting unchanged). In addition, every player on the Player Ignore List and every guild member keeps their newest 10 chat lines, 5 emotes, 5 party invites and 5 guild invites when their lines leave the log. A player's Block History shows those together with any of their lines still in the log.
+- A line is in one place only: when it leaves the log it is moved to the person's keep (PourSocialScoreDB.blockKeep), never copied. Block counts (session, last 24 hours and total) are kept on each person and filter as before and are never worked out from history lines, so nothing is counted twice. Chat filter lines are not kept per sender.
+- Upgrade: on the first login the log is trimmed to the setting and the lines it drops go to their person's keep. Saves from before 2.0.17 (one list per person) are merged into the log first, so their older lines are kept too. Lines older versions already dropped cannot be brought back. Tested by loading saves from 2.0.1, 2.0.8, 2.0.17, 2.0.18, 2.0.19, 2.0.22, 2.0.35 and 2.0.36, each also with more history than the log holds (sh tools/harness/validate_all.sh).
+- Tidy-up after the upgrade, on every login: block history lines of players no longer on the Player Ignore List, of guild members in no guild rule whose rule was removed, and of chat filters that no longer exist (such as retired built-in filters) are removed; rule tags of removed rules are cleared. Counts are not changed.
+- Background memory cleanup runs at least once a minute (was every 10 minutes), still only out of combat and in small steps. Right after login the addon briefly shows about twice its real size: loading leaves about 4 MB of temporary data that the first cleanup frees.
+- /pss mem shows how many lines are kept per person.
+- Version 2.0.37.
+
+=> 2.0.36 - Block counts for this session and the last 24 hours
+
+- The block counts of the Player Ignore List, Guild Ignore List and Chat Filters tabs move out of the list panel into the strip at the top of the window, as three lines: This session, Last 24 hours and Total. Each line has the same per-type breakdown, in columns that line up. Total is the count shown before.
+- This session counts from login or /reload. Last 24 hours is saved as one small table per hour that had a block (at most 24 per tab, older hours dropped), so it costs almost no memory.
+- The tab titles ("Player Ignore List" and so on) are gone; the tabs at the bottom say where you are. The same line still shows "Block History: ..." while a block history is open, and the filter counts (Filters / Built-in / Custom / On) on the Chat Filters tab.
+- The Player Ignore List and Chat Filters lists start higher up (more rows fit).
+- Upgrade: the new counts are added to SavedVariables (PourSocialScoreDB.blockStats) on the first login. Last 24 hours starts from the block history lines of the last 24 hours. Every saved total is kept as it was. Tested by loading saves from 2.0.1, 2.0.8, 2.0.17, 2.0.18, 2.0.19, 2.0.22 and 2.0.35 (sh tools/harness/validate_all.sh).
+- Reset Block History for all players or all guilds also clears that tab's session and 24 hour counts.
+- Version 2.0.36.
+
+=> 2.0.35 - Code style rules (Lua 5.1, ASCII, tabs, shared builders)
+
+- All code is now ASCII only. Translations, accented default-list names and accented realm names are written as Lua escapes, which the game reads as the same text. tools/PSS_BuildManaged.lua writes escapes too.
+- Fixed: 7 realm names with accents (for example Aggra (Portugues) and La Croisade Ecarlate) were stored in the wrong encoding and never got their display spelling in the player list and player window. They do now.
+- All code is indented with tabs. Whitespace only: the compiled code is identical.
+- Edit boxes, text areas and scroll lists in Options, the player window, the filter editor, Import/Export and the guild windows are built with shared UI kit builders. Escape now clears focus on every edit box.
+- Realm display names are looked up in a table built on first use instead of a long if/else chain.
+- New tools/check_rules.sh and a GitHub check that fail on code that is not Lua 5.1, not ASCII or indented with spaces.
+- Version 2.0.35.
+
+=> 2.0.34 - Fix: default-list names with accented capitals
+
+- Fixed: since 2.0.32, 24 default-list characters whose names have a non-ASCII capital (for example an accented first letter or Cyrillic) were not matched in game. The game lowercases those letters but the offline index tool did not. The index now carries the game's spelling for them as well.
+- Version 2.0.34.
+
+=> 2.0.33 - Default Olympus list: 7,634 characters
+
+- The default (Olympus) guild list grows from 4,050 to 7,634 characters in 119 guilds: 605 new from PSS Harvest and 2,989 captured by Scan on Olympus guild rules. 7 characters moved to the guild they were last seen in, and 10 who had left their guild were dropped.
+- Guilds promoted from the Olympus group (Olympus Waifus, Olympus Alts and others) are now part of the default list. Olympus Is Lame Af stays a separate rule of your own.
+- The lookup index ships prebuilt as in 2.0.32, so lookups stay the same speed. The list costs about 0.7 MB more memory once loaded.
+- Version 2.0.33.
+
+=> 2.0.32 - Faster guild lookups for chat
+
+- The Guild Ignore List check that runs on every chat line no longer rebuilds the sender's name key: the chat core already has it. That check is about 12x faster for players not on any guild list (most chat) and about 3x faster for members of the default (Olympus) list.
+- The default guild list now ships with its lookup index already built, so nothing is indexed in the background after login. Every default-list member is matched from the first chat line, including right after logging in during combat (before, they could get through until the index finished). Memory is unchanged once loaded.
+- tools/PSS_BuildManaged.lua writes the index, and its new --reindex option rewrites an existing (hand-merged) PSS_GuildIgnore_Managed.lua in the new format.
+- Version 2.0.32.
+
+=> 2.0.31 - Escape closes the main window
+
+- Pressing Escape now closes the main PourSocialScore window, the same as the Block History, Guild Members, Player and picker windows and the prompt dialog already did.
+- Version 2.0.31.
+
+=> 2.0.30 - Addon list title and note
+
+- The Mainline and Camelot TOCs now use the title "PourSocialScore" and the original note, the same as PourSocialScore.toc.
+- Version 2.0.30.
+
+=> 2.0.29 - Guild members stored compactly (memory back down)
+
+- Since 2.0.19 Scan and Scan All sweep whole guilds, so the Guild Ignore List can hold thousands of captured players. Each one was saved with four Allow flags, an empty block-choice table, a zero blockCounts table and /who details nothing reads (online, race, class name), and every login added another empty table to each: about 1.5-2 KB per player once loaded. 5,000 captured players came to about 10.6 MB.
+- Members now keep only what is known about them: name, guild, when captured, class, level, and any note, own W I G P C choice, block counts or last invite they actually have. A missing value reads as its default, so nothing changes in game. Counts are created on a player's first block.
+- Existing saves are compacted at login and again at logout. Measured with 5,000 captured players: about 10.6 MB -> 5.0 MB on the first login with 2.0.29, about 2.9 MB from the next login on (the saved file shrinks too).
+- The chat-line member lookup keeps two flat maps instead of a small table per member.
+- Fixed: the older Allow-flag setter (PSS_SetMemberFlag) cleared the choice instead of allowing.
+- Version 2.0.29.
+
+=> 2.0.27 - PSS folder and icon in the addon list
+
+- The addon now sits under its own collapsible "PSS" header in the AddOns list (character select and in game), and shows the people icon from the /pss window. Addons split out of PSS later appear as their own entries under the same header by adding "## Category: PSS" to their TOC.
+- Version 2.0.27.
+
+=> 2.0.26 - Release zip includes Bindings.xml
+
+- The release zip now contains Bindings.xml, so the "Scan All: next guild /who" key binding (Key Bindings > AddOns > Pour Social Score) works when installed from a release. It was in the addon since 2.0.19 but left out of every release package.
+- Version 2.0.26.
+
+=> 2.0.25 - Player Search, and the UI / logic split begins
+
+- Player Ignore List tab: the top right now works like the guild tab. "Player Search" runs a real /who for the name in the box (n-"Name"; /who can't search by realm, so only the name part is used) and lists the players found with level, class and guild; tick who to add and Save. If nobody is found you are offered "Add Anyway". "Add Player" uses the name in the box and asks "Add <Name> to the Player Ignore List without searching?" with Okay / Search / Cancel; with the box empty it still adds your target (a player of your faction). The box shows "Add a Player...". The old Add Player popup (name, note, expire days) is gone; a listed player's note and expiry are still set from their row.
+- Player Search shares the 6 s /who cooldown with every guild Scan and Guild Search.
+- Code (no change in behaviour for the guild tab):
+  - New PSS_Whois.lua: the /who service - sending, the shared cooldown, reading answers from the Who list and from chat lines, and requests by kind (guild scan, Scan All, Custom, Guild Search, exclusion search, Player Search). Moved out of PSS_GuildIgnoreList.lua, which now only stores what an answer finds.
+  - New PSS_Events.lua: a small register / fire list; the /who cooldown and answers are announced as events, and the buttons and Scan tooltip listen instead of being called from the /who code.
+  - New PSS_Widgets.lua: the UI-only widgets - Prompt, PromptAdd, PromptAddAnyway, BoxHint, EntryRow and Picker (the search results window). They take every decision and message as parameters and never read saved data. The guild and player tabs both use them.
+  - This is the first step toward keeping the logic and the UI in separate files (see the project notes).
+- Version 2.0.25.
+
+=> 2.0.24 - Add Guild uses the box, in-game style prompt
+
+- Guild Ignore List tab: the top right now has two matching rows, each a box, a Guild Search button and an Add Guild button. The top row works on the Guild Ignore List (box hint "Add a Guild..."), the row beneath it on the Guild Exclusion List (box hint "Exclude a Guild..."). The exclusion row's "Search" button is now "Guild Search", and it has its own Add Guild button.
+- Add Guild no longer opens a popup with its own text field: it uses the name typed in the box next to it and asks "Add <Name> to the ... without searching?" with Okay (adds it), Search (runs Guild Search for it) and Cancel.
+- The prompts (Add Guild, and "Add Anyway" when an exclusion search finds nothing) use the game's own dialog art: the StaticPopup box and border, font, buttons and open / close sounds. Escape closes them.
+- Code: the rows are built by one function (createGuildEntryRow) and the prompt by one (promptAddGuild, on top of UI.Prompt in PSS_UIKit.lua), so each is set up by passing parameters.
+- Version 2.0.24.
+
+=> 2.0.23 - Guild Exclusion List
+
+- New Guild Exclusion List on the Guild Ignore List tab: guilds that no guild rule ever blocks, captures or scans in, even a rule whose name they contain (a rule for "Olympus" no longer catches an excluded <Olympus Friends>) or a default list such as Olympus. Names match exactly, ignoring case.
+- It shows as an expandable row like the Olympus list ("[+] Guild Exclusion List (n guilds)"), between the default lists and your own guild rules. Click to expand; each excluded guild has a Remove button and a right-click Remove.
+- To add guilds: type a name in the new box directly beneath the Guild Search box and press the Search button next to it (or Enter). It runs a /who like Guild Search (same 6 s cooldown and level cap); the guilds found open in the same picker, ticked, and Save puts them on the exclusion list. If no guild is found you are offered "Add Anyway".
+- Version 2.0.23.
+
+=> 2.0.22 - Whois Scan Options: scan level cap
+
+- New Options section "Whois Scan Options" with "Enable scan level cap" and a level field next to it. The field is required: the box can't be ticked without a cap, and the cap can't be cleared while it is ticked.
+- With the cap on, it is the highest level any scan searches. Scan and Scan All send g-"Guild" 1-cap first and split capped answers into brackets that end at the cap (the cap on its own last). Custom Scan Fields and Guild Search have every level or range cut to the cap, and get 1-cap added when they have none.
+- The Scan and Scan All tooltips show the level cap.
+- Version 2.0.22.
+
+=> 2.0.21 - 6 s scan cooldown
+
+- The shared /who cooldown on Scan, Scan All, Custom and Guild Search is now 6 s (was 10 s).
+- Version 2.0.21.
+
+=> 2.0.20 - Guild sweep in its own file
+
+- The guild sweep (the PSS Harvest /who logic) now lives in PSS_WhoisHarvest.lua: search planning, the per-guild sweep state, Scan All, the key binding and the Scan tooltips. PSS_GuildIgnoreList.lua still sends the /who and stores what it finds. No change to how Scan behaves: the whole guild first (no level or class), then any answer capped at 50 is split by level bracket (1-9 upwards), then class, then single level.
+- The old Scan n/9 leftovers are gone: guild rules no longer save scan / scanTotal (old values are dropped when the rule is next loaded), and the unused bracket helpers are removed. The Scan column sorts by this session's searches sent.
+- The Scan column is wider so Scan n/m fits. A click while the guild's last search is still waiting for its answer now says so instead of doing nothing.
+- Version 2.0.20.
+
+=> 2.0.19 - Guild Scan sweeps the whole guild, Scan All
+
+- Scan on a guild row is now a full /who sweep of that guild (from PSS Harvest), one search per click: the whole guild first, and every answer that hits the /who cap of 50 is split into narrower searches - level brackets (1-9, 10-19 ... max-1, then max level on its own), then class, then single levels - queued for the next clicks until every search is under the cap. Replaces the fixed 9-bracket cycle, which missed everyone past the first 50 of a busy bracket.
+- The button shows progress: Scan n/m (searches sent / planned so far), Rescan once the sweep is complete. Shift-click starts a guild's sweep over. Progress is kept for the session (it is no longer reset when the tab is reopened).
+- New Scan All button (top of the Guild Ignore List): the same sweep across every guild row A-Z, each guild swept to the end before the next; when all are done the next click starts a new round. Key binding: Key Bindings > AddOns > Pour Social Score > "Scan All: next guild /who".
+- Scan and Scan All tooltips show the sweep status: searches sent / queued / capped / still capped, players found, newly captured and moved, the next search, the last search, the session totals, and whether the next click is allowed yet (counts down live).
+- Each answer still reports in chat; a capped one says how many narrower searches it was split into, and a finished sweep says so with its totals.
+- /who still goes out straight from the click with the same 10 s shared cooldown; Custom Scan and Guild Search are unchanged.
+- Version 2.0.19.
+
+=> 2.0.18 - Cyrillic chat filter
+
+- New filter tag [cyrillic]: matches any message containing Cyrillic letters (Russian, Ukrainian, Belarusian, Bulgarian, Serbian, Kazakh ...), including English spam that swaps in Cyrillic lookalike letters. [cyrillic=N] needs at least N Cyrillic letters.
+- New built-in rule "Filter Cyrillic (Russian etc.)" = [cyrillic] (PSS0017), off by default like every built-in. Turn it on in Chat Filters.
+- Version 2.0.18.
+
+=> 2.0.17 - One shared block history with a total cap, /pss mem
+
+- Block history is now ONE shared log for everything (players, guild members, chat filters, the shipped guild rules) with a total cap of 2,000 lines, instead of a list per person. Memory has a hard ceiling however many people get blocked. Measured: 300 blocked players x 50 lines each -> 2,000 lines kept, ~0.7 MB (per-person lists of 100 lines would have been ~10 MB).
+- Options > Blocking: "Block history lines kept in total, shared by every player, guild and filter (100-20000; a larger buffer increases memory usage)" replaces the per-person setting. Lowering it frees the memory straight away.
+- The per-type blocked counts are still kept per player, member and filter and are totals: they are never cut, so a person whose lines have rolled out of the log still shows their counts.
+- Every view works as before (a player, all players, a guild rule, all guild rules, a member, a filter, all filters, a shipped guild rule on the Chat Filters tab). Guild lines belong to the character, so they follow a player moved to another guild rule; a player who left every rule still shows under the rule they were in. Reset buttons remove just that view's lines.
+- Each line stores its timestamp only; the time text and type label are worked out when shown (two fewer strings per line).
+- Upgrade: the old per-player, per-member and per-filter lists are moved into the shared log once at login (newest 2,000 kept, in time order) and then removed from SavedVariables.
+- New /pss mem [full]: addon memory (game figure, not measured in combat), game Lua heap, block history lines / cap and estimated size split by players / guild members / filters, list sizes, the shipped guild index and its records in use, chat filters, and the memory cleanup state. "full" adds the 10 owners with the most history lines.
+- Number options are clamped to their range when typed.
+- Version 2.0.17.
+
+=> 2.0.16 - Block history size setting (default 25)
+
+- Block history now keeps 25 lines per player, guild member and chat filter (was 100). New option in Options > Blocking: "Block history lines kept per player, guild member and filter (1-500; a larger buffer increases memory usage)". It applies everywhere history is kept, including Olympus members and guild-rule history.
+- Lowering it frees the memory straight away: every stored history is cut to the new size. Histories saved by older versions are cut once, shortly after login (out of combat). The per-type blocked counts are totals and are never reduced.
+- Measured: 100 blocked players with full history used ~3.3 MB at 100 lines, ~0.84 MB at 25.
+- Version 2.0.16.
+
+=> 2.0.15 - Performance and memory pass
+
+Measured in an offline test harness (same code, simulated client):
+  chat line with all text filters on    ~520 us / 20.8 KB garbage  ->  ~37 us / 2.1 KB
+  same line in each extra chat window    ~173 us /  6.5 KB         ->  ~11 us / 0.6 KB
+  Group Finder row check (300 players)   ~690 us                    ->  ~19 us
+  mouseover / nameplate of a player       ~60 us                    ->  ~16 us, and at most once per player every 2 minutes, never in combat
+Results are unchanged: the new filter engine was compared with the old one on 40,000 random filters / lines with no difference.
+
+- Chat filters are compiled once and cached; each line is analysed once and only when a text filter is on. When no text filter or flood filter is on, lines aren't even lower-cased. The flood filter is a ring + set instead of a list search. The sender's display name is only built for a hidden line.
+- Core chat filter: the decision cache is keyed by the line ID number in a fixed 256-slot ring (no string per chat window); one context table is reused; debug messages are no longer formatted for every line while debug is off; the GUID cache is capped at 1,500.
+- Player list lookups (chat, Group Finder rows and menus, the group warning) use the O(1) index instead of rebuilding the key of every list entry per call; the index and the guild member index are rebuilt only when something changed (they were also rebuilt every 30 / 60 seconds).
+- Group roster changes are handled once, 1-2 s after a burst, and not in combat. Unit scanning (target, mouseover, nameplates, group) does nothing in combat and looks at each player at most once every 2 minutes.
+- Managed guild lists: the member index is built in the background in 0.5 ms slices per frame, paused in combat (a 50,000-name list indexes in ~300 frames with no hitch); the index keeps one number per member, not another copy of each name; member counts are worked out arithmetically; records for shipped members are freed when unused (changed ones are kept until saved); seeing a shipped member in the world no longer creates a stored record.
+- Guild records are no longer recounted on every scan result / unit seen. Filter block history is checked for the old format once per session instead of on every blocked line. The duplicate list of each player's last 10 whispers (also in the block history) is no longer kept.
+- Name formatting (Proper / strDown) rewritten without per-character string building (identical output on 30,000 random names).
+- New PSS_Perf.lua - memory cleanup: never a full collectgarbage("collect"); small incremental steps (8 KB) within a 1 ms-per-frame budget (5 % of a slow frame), only out of combat, outside encounters, alive and above 30 fps, stopping the moment combat starts and resuming after it. Runs after /who results, imports, closing the window, building the shipped guild index, at login, when the Lua heap grew by 8 MB, and every 10 minutes. Option: "Background memory cleanup (out of combat, never causes a hitch)" (on). /pssguild status shows it.
+- Version 2.0.15.
+
+=> 2.0.14 - Default (managed) guild lists: Olympus
+
+- New PSS_GuildIgnore_Managed.lua: read-only groups of guilds shipped with the addon, generated from OlympusMute data by tools/PSS_BuildManaged.lua. First group: "Olympus" - 83 guilds, 1,006 named members.
+- Each group gets a built-in guild rule on the Chat Filters tab - "Influencer Guilds - Asmongold" (InfluencerGuild=Olympus) - shown as "(guild rule)". Like the built-in text filters it can't be edited, copied or removed, and starts off. Turning it on blocks every member of the group's guilds (minus each guild's W I G P C exclusions); its Blocked count and Block History collect those blocks. Every group added to the managed file gets its own rule the same way.
+- Guild Ignore List: each group is a collapsible entry ("[+] Olympus") at the top, showing guild and member totals, block counts and whether its rule is on. Click to expand to its guilds, right-click to turn the rule on/off. Guilds of a group whose rule is off are shown dimmed. Shipped guilds can't be removed.
+- Shipped members are not written to SavedVariables. Only the delta is: members your scans / invites find that aren't in the shipped list (kept under the group's guild), shipped members you change (note, exclusions, overrides) or that have block history, and a "left the guild" mark for shipped members seen in another guild by /who or removed by you.
+- Scans of a shipped guild work as before: shipped members found by /who aren't stored again; new members are added (as delta); a member of a matching but unlisted guild is stored under the scanned guild with an Add Guild button, and a guild promoted from a group joins that group.
+- Version 2.0.14.
+
+=> 2.0.13 - Resizable columns, clickable links in Block History
+
+- Every column in every table can be resized: Player Ignore List, Guild Ignore List, guild members window, Chat Filters, every Block History view (tab panels, popup, player detail window), Guild Search results, Options, Import/Export, the block metrics tables and the W I G P C column. Drag the right edge of a column header; right-click the edge to reset that column. Widths are saved per table (PourSocialScoreDB.columnWidths). Where a table has a stretching column (Message, Filter, Guild, the import/export text), it takes the space the others leave, and a drag can't push a table past the width of its window. Text in a narrowed column is cut at the column edge.
+- Block History: links in a blocked message (items, recipes, professions, spells, achievements and so on) are clickable like in chat - hover shows the tooltip, click opens it (e.g. the profession window for a profession link), shift-click pastes the link into chat. Clicking a link doesn't open the row's right-click menu.
+- Version 2.0.13.
+
+=> 2.0.12 - PSS-only blocking by default, simpler Options tab
+
+- "Also put listed players on Blizzard's ignore list" is off by default: PSS does the blocking itself and your exclusions always apply. Turn it on to sync listed players to Blizzard's list as well (which blocks everything from them).
+- The "You are being ignored" auto-reply is off by default.
+- Both are switched off once on upgrade (the saved value was almost always just the old default); turn them back on in the Options tab if you want them.
+- Options tab: the "This character" column (Global / On / Off) is gone. Each option has one setting for the whole account. Options marked * can still be set per guild or per player from their right-click menus and the player detail window, and fall back to the Options tab setting. Per-character overrides saved by earlier versions are removed, so the Options tab value always applies.
+- Version 2.0.12.
+
+=> 2.0.11 - Listing = block everything; Guild Search adds the members it saw
+
+- Back to how lists are meant to work: adding a player or guild opts them in to blocking, so everything from them is blocked and the W I G P C boxes (exclusions) start unticked. 2.0.10's "nothing blocked until you untick" for players and guilds is undone, along with its other list changes: guild chat / achievements / notices, duels, trades and online notices are blocked for every listed player again, and the "You are being ignored" reply defaults to on again.
+- "Also put listed players on Blizzard's ignore list" stays as an option, now on by default (the old behaviour). Blizzard's list blocks everything regardless of exclusions; turn it off to rely on PSS only.
+- Built-in chat filters still start off (opt in per filter).
+- Guild Search remembers who the /who saw in each guild (until the results window closes, at most 10 minutes). Guilds you tick and Save are added with those players as members.
+- Whenever a /who (Guild Search, Scan, Custom or your own) shows a player in a guild that has a rule, and that player is stored under a different guild rule, their record - note, exclusions, block history - moves to the right rule and is removed from the old one(s). Scan reports count these as "moved here from another guild rule".
+- Version 2.0.11.
+
+=> 2.0.10 - Everything opt in, guild scan fixes
+
+- Opt in everywhere. A newly listed player or newly added guild rule starts with every W I G P C box ticked (allowed): nothing is blocked until you untick a box. Every built-in chat filter starts off. Your existing players, guild rules and filter choices are not changed.
+  - "Filter Asmon" and "Filter Olympus" (switched on in 2.0.9) are switched off once.
+  - A player taken over from Blizzard's own ignore list (right-click Ignore, /ignore) still comes in fully blocked - you chose that in Blizzard's UI.
+  - Unticked C now also covers a listed player's guild chat, achievements and channel join/leave notices (they used to be hidden for every listed player). Duels, trades and "has come online" notices are only blocked for players you block in some way. Earlier chat is only cleared when you untick a box.
+  - New option "Also put listed players on Blizzard's ignore list" (off). Blizzard's list blocks everything, so PSS no longer adds players to it unless you turn this on. Players already on it stay there.
+  - The "You are being ignored" auto-reply now defaults to off for new installs.
+- Guild scans: results printed in chat were never captured. With the Who window closed, the game prints small /who results as chat lines instead of filling the Who list, and PSS only read the Who list. Both are read now (the chat lines are matched with the game's own wording, in any language).
+- Any /who - your own, a Scan or a Guild Search - now stores players whose guild has a saved rule under that rule. A /who never creates a rule.
+- Scan n/9 now starts at the highest level bracket (where most players are) instead of 1-9, and only advances when the /who was actually sent.
+- Every scan reports in chat what it did: players found, how many were in a matching guild, newly captured, moved to a more specific rule, and other guilds skipped. It says when /who found nobody, and when /who's 50-player limit cut the result short (narrow it with Custom).
+- Clicking a scan button while /who is cooling down now says how long to wait, instead of doing nothing.
+- Scan Fields (Custom) default to 1-60. Empty Scan Fields on existing guild rules are filled with 1-60 once.
+- Fixed: the player detail window raised a Lua error when it refreshed (the W I G P C boxes referenced an undefined variable).
+- Version 2.0.10.
+
+=> 2.0.9 - Code review fixes, Asmon / Olympus filters
+
+- New built-in chat filters, on by default: "Filter Asmon" ([contains=asmon]) and "Filter Olympus" ([word=olympus]). Turn them off on the Chat Filters tab if you don't want them. (Nothing in the code hid these words before; they were not hard-coded anywhere.)
+- [word=...] now ignores punctuation at the start of a word as well as the end, so [word=olympus] matches "<Olympus>" and "(olympus".
+- Chat filter logic now applies "not", then "and", then "or" (the usual order): "a or b and c" means "a or (b and c)". It used to apply "or" first. Filters with brackets (all built-ins) are unchanged; a custom filter that mixes and/or without brackets may now behave differently. "not not x" no longer locks up the game.
+- Fixed: Chat Filters > Block History showed the filter list drawn on top of the history (jumbled text). The list was redrawn on every blocked chat line even while the history was open.
+- Fixed: the game could freeze when an NPC or server entry with an expiry date ran out (first time the PSS or Friends window opened each session, or /pss sync). Expired entries of every type are now removed.
+- Fixed: Remove Guild also deleted Player Ignore List entries with the same names as the guild's captured members. It now removes only the guild rule and its members.
+- Fixed: /pss clear confirm left about half of Blizzard's ignore list behind, and sync could skip Blizzard entries it removed (both removed entries while counting forwards).
+- Sync: players Blizzard refused 3 times on a character are no longer retried there (they stay on PSS, which blocks them). The old "remove them from PSS" step never ran and is gone.
+- Blizzard's own ignore actions now all reach PSS: right-click Ignore / /ignore (AddOrDelIgnore) and Unignore in the Friends window (DelIgnoreByIndex), as well as AddIgnore / DelIgnore. Picking up a Blizzard ignore no longer adds it to Blizzard's list a second time ("already ignored" spam).
+- The "Add to / Remove from Ignore" option now also appears when you right-click a name in chat and in the guild / community rosters (not on Battle.net-only entries or yourself).
+- Group Finder: adding someone no longer calls Blizzard's search-results update from addon code (a taint risk); visible rows are recoloured directly.
+- Hidden ("secret") names from the client in instances are skipped by unit scanning, right-click menus, the Group Finder hooks and the group warning instead of causing errors.
+- The "You are being ignored" auto-reply is sent at most once per player every 5 minutes, and at most once every 2 seconds overall.
+- "Never filter private chat" now covers Battle.net whispers too.
+- Window redraws caused by blocked chat are batched (at most 4 a second) and skipped while the window is closed.
+- The group warning now checks the group as soon as you join it.
+- /pss commands keep the case of names and notes (notes were lowercased). /pss remove <number> works for NPC and server entries; removing by position always removes that exact entry.
+- Day counts (Listed, expiry) no longer drift by a day around month ends.
+- Malformed item / spell / pet / achievement / talent links no longer cause a filter error.
+- Cleanup: removed unused settings (autoIgnore, autoUpdate, autoCount, autoTime, attachFriends) and dead code; Chinese text no longer uses the old addon name; client flavour flags are set in one place; /pssguild chat also detects Asmonmute.
+- Version 2.0.9.
+
+=> 2.0.8 - Ticked = allowed; block history display fix
+
+- W I G P C tickboxes now mean ALLOWED in every frame (Player Ignore List rows, player detail window, Guild Ignore List rows, guild members window): tick a box to let whispers / party invites / guild invites / party-raid chat / chat channels through, untick to block. The core still stores and decides in "blocked" terms (whispersBlocked, guild/member block flags) so nothing in your saved settings changes meaning - only the boxes are drawn inverted, through one shared helper (UI.ExclChecked / UI.ExclBlocked). Tooltips, header notes, sorting and the readme follow.
+- Fixed: block history tables showed nothing (not even "no entries") whenever the whole history fit on screen without scrolling. Blizzard's FauxScrollFrame_Update hides the scroll frame in that case and the list used that to decide whether to draw its rows. Longer histories (chat filters) were unaffected, which is why counters showed blocks while short guild/member/player histories looked empty.
+- Fixed: guild member block counters saved with Total = 0 now report the sum of their per-type counts.
+- Version 2.0.8.
+
+=> 2.0.7 - Block metrics columns everywhere
+
+- Guild Ignore List: the per-type blocked counts are back to their earlier look - separate Whispers / Party Invites / Party/Raid / World Chat / Guild Invites columns with two-line gold labels, counts in each type's colour and zero in grey (2.0.5 showed them under a second W I G P C letter header). W I G P C now appears once, over the tickboxes. Every metrics column sorts.
+- Player Ignore List: the same metrics columns for every player (sortable).
+- Guild members window: the same metrics columns per member (replaces the single Blocked column) and the guild's metrics as a one-row table at the top right.
+- Player detail window and the Block History popup: the same one-row metrics table (with Total) at the top right, replacing the text breakdown.
+- The metrics are one shared component in PSS_UIKit.lua.
+- The main window's default and minimum width is now 960 so the player and guild tables fit; a few player columns are slightly narrower (Server, Notes).
+- Version 2.0.7.
+
+=> 2.0.6 - One block history for every list, no removal confirmations
+
+- New PSS_ChatHistory.lua: one block-history module for the Player Ignore List, the Guild Ignore List and the Chat Filters - the same entry format (time, player, type, channel, message), the same per-type counts, the same 100-line cap, the same Block History panel and popup, and the same right-click menu on a line (add the sender to / remove them from the Player Ignore List). The guild file and the other lists now use it instead of their own copies.
+- Chat Filters: Block History now opens in place of the filter list (like the Player and Guild tabs) instead of a separate page, with All Filters, Reset Block History, Edit Filter and Close on the bar. With no filter selected it shows every filter's history, each line labelled with its filter. Filters now record the event, channel and type of each blocked line and keep per-type counts.
+- Player Ignore List and Guild Ignore List Block History panels gained Player Details / Show Members on the bar, and Reset works for "all" too (asks first - it clears history, not ignores).
+- Migration: chat filter history is converted from the old 50-slot ring buffer (newest-first order kept, "2026.10.02" dates converted); older player and guild-member lines get their type, time and channel filled in. Anything never recorded is shown as "Unknown" (with its own "Unknown" count).
+- No confirmation when removing ignores: Remove Guild (bar or right-click) removes straight away and reports in chat; Remove from List in the player detail window is one click; Prune asks only for the number of days, and /pss prune <days> no longer needs "confirm".
+- Fix: Prune removed players by name and restarted its loop, which could loop forever if a name did not match; it now removes by position and reports how many entries it removed. Pressing Enter in the Prune box now prunes (it used to just close the box).
+- Version 2.0.6.
+
+=> 2.0.5 - One consistent interface, code review fixes
+
+- New PSS_UIKit.lua: every page and window is now built from the Player Ignore List's own parts - the same summary block, Blizzard-style column headers with sort arrows, 20 px rows with the list highlight (and the same highlight for the selected row), 20 x 20 tickboxes, and buttons on the bar under the panel.
+- W I G P C is one component: the Player Ignore List, the Guild Ignore List and the guild members window use exactly the same letter header and tickboxes (also the player detail window). The Guild Ignore List's per-type block counters use the same letter header.
+- Guild Ignore List: Who-style headers, 20 px rows, no grid lines; selected guild uses the list highlight; Remove moved from each row to the bar (Remove Guild, acts on the selected guild); narrower columns so everything fits.
+- Guild members window: same window style as the main window (portrait, inset panel, bottom bar); search box top right; Remove and Block History moved from each row to the bar (act on the selected member, or the whole guild); a Blocked column (sortable, hover for per-type counts); double-click a member for their history.
+- Player detail, Block History and Guild Search Results windows use the same window style. Guild Search Results is a table with Add tickboxes; Save/Cancel on the bar.
+- Block history lists (players, guilds, chat filters, popups) share one table with Who-style headers; every column sorts (newest first by default).
+- Chat Filters: summary block inside the panel (total, built-in/custom/on counts) and headers under it, like the other tabs. The filter block history page uses the shared history table (right-click a line to ignore the sender, clear history or edit the filter). The filter editor has the same title/summary layout, a Block History button top right, and fields that widen with the window.
+- Options and Import/Export: same summary block and column headers, 20 px tickboxes, Import/Export buttons on the bar.
+- Fix: "Ignore" in the right-click menu of a name in chat did nothing (the menu has a name, not a unit).
+- Fix: Group Finder right-click menu could error when the listing had gone.
+- Fix: the note and expiry dialogs could write to a non-existent entry if it was removed while the dialog was open.
+- Fix: right-clicking a chat filter with no stored history could error.
+- Fix: right-click Ignore with no name and no target errored; the chat-history lookup for a missing server now skips chat windows without history.
+- Fix: names coming from Blizzard's /ignore and from right-click Ignore are treated as a whole name (spaces kept), never as "name note".
+- Removed a startup timer that never had any effect.
+- Version 2.0.5.
+
+=> 2.0.4 - W I G P C exclusions everywhere, sorting on every tab, names with spaces
+
+- Per-player exclusions (renamed from "per-player switches"): W I G P plus new C = chat channels (Trade, General, LFG, communities) and public chat (say, yell, emotes). The blocking core now honours C; it starts ticked for existing entries, so nothing changes until you untick it.
+- Guild Ignore List: the Filter / Guild Inv / Group Inv boxes are replaced by per-guild W I G P C. Existing rules are converted (Filter off = all unticked; Guild Inv / Group Inv carry over to G / I).
+- Guild members window: the four Allow columns are replaced by W I G P C on every member. Members follow the guild until you set a box (dimmed = following the guild; right-click to return to it), and can be opted in even when the guild has everything unticked. Old Allow settings are converted.
+- Sorting on every tab: Player Ignore List (default name A-Z; every column, including each W I G P C), Guild Ignore List (default guild A-Z; every column), Chat Filters (built-in filters always on top; description A-Z by default; every column). Name sorting is no longer case-sensitive.
+- Fix: clicking a Chat Filters or block-history column header re-sorted the Player Ignore List.
+- Player Ignore List has Block History on its bottom bar: the selected player's history, or every player's (newest first), with All Players / Reset Block History / Close.
+- Fix: character names with a space ("First Last-Realm") could not be added. Add Player rejected them, /pss add split the name at the space, and the space was stripped when saved, so chat from that player never matched. Names now keep their space (realm spaces are still ignored) and are matched the same way as guild members. /pss add, remove and expire accept "First Last-Realm" or a quoted name.
+- Fix: /pss add Name 30 note now saves the 30-day expiry (it was parsed but ignored), and the note is no longer glued onto the name.
+- Player detail window shows the C exclusion. /pssguild status and check show W I G P C. Import/Export carries the new settings and converts older export strings.
+- Version 2.0.4.
+
+=> 2.0.3 - Player detail window and cleanup
+
+- New player detail window: double-click an entry on the Player Ignore List (or right-click > Details and note). Shows name, server, faction, class, date added, guild when added, current guild and last blocked invite. Edit the expiry (days, 0 = never) and note in place; toggle the four block switches; set per-player overrides (ignore response, show declines, decline duels, decline trades); see block counts and the full block history with reset; add the player's current guild to the Guild Ignore List; remove the entry (click twice to confirm). NPC and server entries show details, note, expiry and remove. The window is resizable like the others.
+- Double-click on the Player Ignore List previously did nothing (it called a function that did not exist).
+- Author set to Boaties in every TOC. Version 2.0.3.
+- readme.txt rewritten: current features, the Guild Ignore List, the windows, filter syntax and the actual /pss and /pssguild commands (removed "/pss filter", which no longer exists, and the old note that guild ignores were impossible).
+- MERGED_FEATURES_README.txt and FIX_NOTES.txt folded into history.txt (this file) as one changelog, newest first.
+
+=> 2.0.2 - Resizable windows and Guild Ignore List sorting
+
+- Every PSS window (main window, Guild Members, Block History popup, Guild Search Results) now has a resize grip in its bottom-right corner. Drag to resize; right-click the grip to reset to the default size. Sizes are remembered per window (PourSocialScoreDB.windowSizes).
+- Main window panels are anchored to the window edges. The Player Ignore List and Chat Filters lists show more rows as the window grows; the Filter and Message columns take any extra width; the Import/Export text box stretches with the window.
+- Block history lists (guild tab and popup) add rows and widen the Message column as their window grows.
+- Guild Ignore List: every column header is clickable. First click sorts ascending, each further click flips ascending/descending; an arrow shows the active column and direction. Ties always fall back to guild name A-Z.
+- Guild Ignore List always opens sorted by guild name, A-Z.
+- Bottom-right buttons on the main window tabs moved 13px left so they sit clear of the resize grip.
+
+=> 2.0.1 - Player Ignore List header
+
+- The Player Ignore List tab now has the same top section as the Guild Ignore List tab: title, total, and a per-type breakdown
+  (Whispers / Party Invites / Party/Raid / World Chat / Guild Invites), with Add Player and a Player Search box + button top right.
+- Player Search does the same as Add Player for the name typed in the box (opens the Add Player dialog pre-filled so you can add a note/expiry).
+- The W / I / G / P labels now sit in the column header row, directly above each row's switch.
+- Removed the "Under Construction" label and the overlapping summary text; the bottom-left Add Player button moved to the top.
+- Player block counts are kept as counters (no longer limited by the 100-line history).
+
+=> 2.0.0 - One chat-block core
+
+File layout
+- PSS_ChatBlock.lua      The single chat-block function. Every chat line, invite, duel and trade goes through it.
+- PSS_PlayerIgnoreList.lua  Player Ignore List logic (list, sync, /pss, per-player switches) + its block source.
+- PSS_GuildIgnoreList.lua   Guild Ignore List logic (rules, members, scans, /pssguild) + its block source.
+- PSS_ChatFilters.lua    Chat filter rules and the filter engine, registered with the core as its text check.
+- PSS_Options.lua        Options registry, the Options tab, and the scoped option resolver.
+- PSS_ImportExport.lua   Import/Export tab and the export string format.
+
+How a chat line is decided (OlympusMute model)
+1. One filter on every chat event; the decision is cached per line, so a line shown in 5 chat windows is decided and counted once.
+2. System lines (ignore-list sync noise, logins of listed players) and NPC lines are checked first.
+3. People: the sender is looked up once (GUID first, then a normalised name key) in BOTH lists. The lists are merged:
+   if ANY list blocks that message type for that person, the line is hidden. Lookups are hash-table (O(1)),
+   so list size does not matter (tested: 20,000 guild members + 3,000 players, ~55 microseconds per line).
+4. Ignored servers.
+5. Chat filters (text rules) last. Staff (GM/DEV) messages are never text-filtered. You and your own messages are never blocked.
+When a person becomes blocked, their earlier lines are removed from the chat windows, and a party invite from them that is still open is declined.
+
+Per-person message types (the same on both lists)
+- Whispers, Party invites, Guild invites, Party/Raid chat (includes raid warnings, instance chat); world chat is always blocked.
+- Player Ignore List: switches W / I / G / P on each row.  Guild Ignore List: guild columns + per-member Allow columns
+  (new "Allow Guild Invites" column; older saves copy the Group Invites setting).
+
+Options
+- Every option has a value for all characters, plus an optional override for the current character (Options tab, right column).
+- Options marked * can also be set per guild (right-click a guild row) and per person (right-click a player row or a guild member):
+  Send ignore response, Show declines, Decline duels, Decline trades.  Most specific wins: person > guild > character > all characters.
+
+Import/Export (tab between Chat Filters and Options)
+- Export any of: Player Ignore List (with switches, notes, overrides), Guild Ignore List (optionally with captured members),
+  custom chat filters, built-in filter on/off, options.  Import with Merge (adds what is missing) or Replace (with confirmation).
+- The string is "PSS1:<checksum>:<data>". It is read as data only (never run as code) and is rejected if damaged or edited.
+
+Behaviour changes to know about
+- CHAT_MSG_COMMUNITIES_CHANNEL is now covered as world chat.
+- Your own outgoing whispers are no longer hidden.
+- Duels and trades are now also declined from guild-list members (both can be turned off, also per guild/person).
+- The "Add Player" button now works (it called a missing function before).
+- Chat bubbles are not filtered.
+
+=> 1.5.1 - Guild blocking diagnostics
+
+- /pssguild test Name-Realm (or target the player, then /pssguild test): dry run - shows whether that character is stored under a guild rule and, for whispers, party/raid, world chat, party invites and guild invites, whether it would be BLOCKED or shown and why. Nothing is recorded.
+- /pssguild chat: checks the chat pipeline - whether our filter is registered for whispers/channels/say/party, how many Blizzard chat windows are listening, and which chat addons are loaded.
+- /pssguild debug all: for 2 minutes, reports every chat line the filter checks, including senders that are not stored guild members (with the lookup key), to spot name mismatches.
+
+=> 1.5.0 - Guild members window (double-click a guild)
+
+- Column order: Name, Guild, Added, Note, Allow Group Invites, Allow Whispers, Allow All Chat, Add Guild, Remove, Block History (far right).
+- New Note field per member (max 25 characters). Saved on Enter or when you click away; Esc cancels. Notes are searchable and move with the member on Add Guild / reconcile.
+- Click any column header to sort ascending; click again for descending (arrow shows the active column). Ties sort by name. Remove is not sortable. Add Guild sorts members from other guilds together; Block History sorts by total blocks; Added sorts by date.
+- While a note is being typed, background refreshes (incoming blocks) wait until you finish, so rows never move under the cursor.
+- Window enlarged to 1220 x 640.
+
+=> 1.4.0
+
+- Guild table: "Start Level" and "End Level" replaced by one "Custom Scan Fields" text box. Custom Scan sends g-"<Guild>" followed by that text exactly, e.g. 80, 70-80, 80 c-"Mage", r-"Orc". Empty box = g-"<Guild>" only. Existing Start/End values are converted to "start-end" once.
+- The Scan column is the original 9-step "Scan n/9" again.
+
+=> 1.3.0 - Rebrand
+
+- Folder, TOCs and main file renamed to PourSocialScore; all interface text and chat output say "Pour Social Score".
+- SavedVariables renamed to PourSocialScoreDB (not shared with any earlier build).
+- One-time import: if PourSocialScoreDB does not exist yet, data is copied from the previous build's saved variables when that build is enabled for the same login (OptionalDeps makes it load first). The previous Poor Social Score data is preferred; the original Global Ignore List data is used if that is all there is. Disable the old addon afterwards.
+- Slash commands unchanged: /pss and /pssguild.
+
+=> 1.1.0 - Built-in vs custom chat filters
+
+- Built-in (default) chat filters are defined in code and are read only. In the Chat Filters list they show greyed out with "(built-in)". Opening one shows a read-only editor: description and filter text are locked; only the Active box can change ("Save On/Off"). Built-ins cannot be removed.
+- SavedVariables no longer store built-in rule text. They hold PourSocialScoreDB.builtinRules[id] = true/false (enabled state) and builtinStats[id] (blocked count and block history). The filterList/filterDesc/... arrays now contain custom rules only. Built-ins are rebuilt from code on every load (so they are always current); the arrays are collapsed back on PLAYER_LOGOUT / reload.
+- The "Automatically update default Chat Filters" option is retired (shown locked) - built-ins are always up to date.
+- New Copy Filter: bottom bar of the Chat Filters tab, inside the editor, and in the right-click menu. Copies any rule (built-in or custom) to a new custom rule named "Copy of ...", starting Off, and opens it in the editor.
+- Right-click menu also has Turn filter On/Off.
+- Upgrade: existing saved filters are converted automatically. If a built-in's text had been edited, that edited version is kept as a custom rule "<name> (custom)" with its previous on/off state, and the built-in is turned off, so behaviour is unchanged.
+
+=> 1.0.0 - Rebrand of the Global Ignore List mainline port (12.1.25)
+
+- Addon folder/TOCs are now PourSocialScore (PourSocialScore.toc, _Mainline, _Camelot); the main file is PourSocialScore.lua and every GIL_*.lua module is now PSS_*.lua.
+- SavedVariables renamed to PourSocialScoreDB (no longer shares GlobalIgnoreDB with the original addon).
+- One-time import: if PourSocialScoreDB does not exist yet and the original addon is enabled for that login (OptionalDeps makes it load first), its data is copied in, and default chat filter IDs are converted from GILnnnn to PSSnnnn. Disable the old addon afterwards.
+- Slash command is /pss only (/gil, /gi and /gignore removed). Guild diagnostics are /pssguild.
+- All interface text, chat output and window titles say "Pour Social Score" (was "Global Ignore List"/"Global Ignore"); "GIL" prefixes in frame names, popups, messages and identifiers are now "PSS". Translations updated where they named the list (deDE, ruRU, zhCN).
+- Fix: on a fresh install the guild module no longer runs its data upgrade at PLAYER_LOGIN before the main addon has created its lists (previously a Lua error on first login with an empty database). The upgrade now runs once the main addon has loaded.
+
+=> MAINLINE PORT BUILDS (12.1.x, before the Pour Social Score rename)
+
+=> 12.1.25 - Guild filter diagnostics
+
+- /pssguild (or /pssguild status): whether the chat filter is registered, how many chat lines this session were checked / came from stored guild members / were blocked / errored, and per guild rule: Filter ON/OFF, member count and per-type counts.
+- /pssguild debug: toggles a chat report for every chat line from a stored guild member (blocked, allowed by an Allow box, or ignored because the rule's Filter box is off).
+- /pssguild check Name-Realm: shows whether that character is found, under which rule, its allow flags and counts; if not found, lists stored members with the same character name and their keys (reveals realm-name mismatches).
+- Guild filter errors are no longer silently swallowed: the first one is printed to chat and the last is shown in /pssguild status.
+
+=> 12.1.24 - Guild Ignore List table/layout
+
+- Guild table now has a counter column per block type for each guild: Whispers, Party Invites, Party/Raid, World Chat, Guild Invites (coloured to match the summary; zero shown grey). Columns were narrowed (headers wrap to two lines) so everything fits without horizontal scrolling.
+- Block History moved to the bottom button bar, same position and style as the Chat Filters tab. In the history view the bottom bar becomes All Guilds / Reset Block History / Close.
+- The Guild tab panel now uses the same size as the Chat Filters panel so the bottom bar has room.
+
+=> 12.1.23 - Guild Ignore List - block history, summary and allow-flag fixes
+
+- Summary now tracks Whispers, Party Invites, Party/Raid and World Chat (plus Guild Invites when any). "Private Messages" is gone - Battle.net whispers count as Whispers. World Chat is the catch-all for every other chat type (channels such as Trade/General/LFG, say, yell, emotes); guild/officer chat, system text and your own outgoing whispers are never touched.
+- Summary updates live. Totals were previously counted from a 100-entry history, so they stopped moving once a guild hit 100 blocks; counters are now kept separately and are not capped.
+- Each message is now counted once. Chat filters run once per chat window, and both the core filter and the guild filter asked about each message, so one whisper could be recorded several times. Decisions are cached per chat line.
+- Guild rules now actually block World Chat (previously only whispers and party/raid were ever blocked).
+- New "Block History" button on the Guild tab, behaving like the Chat Filters one: click a guild, then Block History to see that guild's history in place of the list (Close returns; "All Guilds" shows every guild). Columns: Time, Member, Type, Channel (e.g. "2. Trade - City", Party, Raid, Say, Party Invite), Message; hover a row for the full message.
+- Double-clicking a guild: each member row has a "History (n)" button (hover for per-category counts) and the window has a "Guild Block History" button.
+- Allow Group Invites / Allow Whispers / Allow All Chat checkboxes are bound directly to the member record shown on the row. The old code re-looked the player up by name and, when realm spellings differed, saved nothing and then un-ticked the box. Member lookup for blocking is realm-spelling-insensitive too ("Aman'Thul" / "AmanThul" / "Area 52" / "Area52").
+- Allow All Chat covers party/raid AND world chat; Allow Whispers covers whispers; Allow Group Invites covers party and guild invites.
+- History and counts are stored on member records, so when a member moves between guild rules (Add Guild promotion, or the scan reconcile) their blocked history moves with them; duplicates are merged and de-duplicated.
+- A guild invite from an unscanned member of an ignored guild is now caught (the invite carries their guild name) and the inviter is added to that guild rule. The old handler also overwrote the member's real guild with the rule name.
+- Existing saved data is migrated on login: duplicate history entries from the old multi-count bug are collapsed and counts rebuilt from them.
+
+=> 12.1.22
+
+Player Ignore List tab shows an "Under Construction" label above the entry count. Guild Ignore List tab has a new Guild Search box + button: it sends a /who (plain text becomes g-"text"; text containing quotes is sent as a raw /who filter), collects the distinct guild names from the results, and shows them as tickboxes with Save/Cancel. Save adds every ticked guild to the Guild Ignore List; guilds already listed are shown greyed out.
+
+=> 12.1.22 - Block History UI Fix
+
+Fixed PSS_GuildIgnoreList.lua: the Guild Ignore UI created its summary FontString as a local
+variable but did not assign it to frame.info. The refresh routine then attempted to call
+frame.info:SetText(), producing:
+
+attempt to index field 'info' (a nil value)
+
+The FontString is now stored as frame.info.
+
+=> 12.1.21
+
+Guild scan ownership validation. WHO's lazy guild search means scanning "Olympus" also returns members of "Olympus Tycoons". Each scan result is now checked against ALL saved guild rules using the member's actual guild name: the rule with the longest name contained in that guild wins (an exact match always wins). A result is only added to the scanned rule if no more specific saved rule owns it; otherwise it is added to the owning rule instead. After every guild scan, all stored members are also validated: anyone sitting in a broad rule but belonging to a more specific saved rule is moved there, merged with any existing record (allow-flags OR-ed, counters kept), and stray copies are removed. Members with no recorded guild are left alone. New API: M.PSS_BestGuildRowFor(guild), M.PSS_ReconcileGuildMembers().
+
+=> 12.1.20
+
+Guild member detail window fixes. (1) The window is now a single reused frame (it was never stored, so each double-click opened another stale copy). (2) Each guild's window lists only the members stored under that guild rule; it no longer merges in other rules whose names contain it, which made "Olympus" and "Olympus Tycoons" show each other's members after an Add Guild move.
+
+=> 12.1.19
+
+Guild detail "Add Guild" rewritten as an explicit two-sided move. ADD: every player stored under any other saved guild rule whose actual guild matches is copied into the new guild rule (settings/counters kept, allow-flags OR-ed, duplicates across rules merged). REMOVE: every reference to those players is then deleted from all other guild rules, using a realm-insensitive player key ("Name-Area 52" == "Name-Area52") and case/whitespace-insensitive guild names, followed by a verification pass. Chat summary lists how many were added and removed per old guild and warns if anything could not be removed.
+
+=> 12.1.18
+
+Guild scan click path now matches OlympusMute's WhoScan(): C_FriendList.SendWho is the first thing the Scan button does. Cooldown, button enable/disable and list refresh (which hides rows and re-scripts the clicked button) are deferred one frame with C_Timer.After(0). WHO_LIST_UPDATE is ignored unless a scan/player lookup is pending, and a pending scan expires after 30s instead of being cleared by any unrelated WHO update.
+
+=> 12.1.17 - Original WHO path restored
+
+Restored the proven 12.1.8 guild WHO request/result path: one-argument SendWho from the Scan button and WHO_LIST_UPDATE/GetWhoInfo result processing. Removed the failed secure-delegate/WHO-routing changes that caused Retail 12.1.x addon action failures. Preserved current guild scan controls and guild-member migration features.
+
+=> 12.1.17
+
+Restored the proven original guild WHO scan path while retaining current scan controls, per-member overrides, and exact-guild migration/de-duplication. Each scanned member now also stores a canonical player key so exact-guild promotion can remove duplicate references reliably.
+
+=> 12.1.16 - WHO routing and migration fix
+
+- Guild WHO scans no longer use CreateSecureDelegate; SendWho remains on the synchronous user-click path because it is hardware-event restricted.
+- WHO results are routed through SetWhoToUi(true) while a scan is pending, with Blizzard's FriendsFrame WHO_LIST_UPDATE handler temporarily unregistered so the Who/Social pane does not open. Results are consumed through C_FriendList.GetWhoInfo and the normal UI routing is restored afterward.
+- Guild scan queries now use the plain guild text + level range form and validate fullGuildName locally, avoiding the legacy g- tag path that can yield no usable rows on current clients.
+- Guild WHO results now also update playerData.currentGuild, giving later exact-guild promotion a reliable source of actual-guild metadata.
+- Add Guild migration now gathers matching players across every existing guild rule, merges their records into the exact guild rule, and removes every reference to those players from every other guild rule.
+- Add Guild reports the number of members moved and old guild-filter references removed in chat.
+
+=> 12.1.16
+
+Guild WHO scans on Retail 12.1.x now use CreateSecureDelegate for C_FriendList.SendWho so addon-built guild/level filters can be sent from a real scan-button click without triggering the client's addon action blocked/failed protection.
+
+=> 12.1.12
+
+Guild scans no longer create Guild Ignore entries from target/mouseover/nameplate/group observation. Only explicit Add Guild and Guild Scan actions create rules; captured sub-guilds remain candidates for the detail-table Add Guild action.
+
+=> 12.1.10
+
+Guild Ignore List improvements: split custom level filters into start/end fields and pass the selected range into guild WHO scans; all guild scan buttons share a 10-second cooldown; guild scan progress resets when the guild console is reopened; fixed the guild member detail table population; added per-member Add Guild for captured sub-guild names; added confirmed guild removal with removal counts.
+
+=> 12.1.9 - Guild member override enforcement
+
+- Guild member Allow Group Invites, Allow Whispers, and Allow All Chat settings are now consulted by the actual chat/invite event handlers.
+- Guild rules now apply to guild members even when those members are not separately present on the global player ignore list.
+- Per-member settings target the exact guild bucket represented by the detail row, avoiding accidental changes to a duplicate member in a compatibility sub-guild bucket.
+- Added a Remove button to each guild member row to remove that person from the guild member cache without removing unrelated global player-ignore entries.
+- Renamed the member detail headers to "Allow Group Invites" and "Allow All Chat".
+
+=> 12.1.8 - Guild member controls fix
+
+- Fixed member-row checkbox anchoring: controls are now positioned within their actual table columns instead of relative to the row center.
+- Allow Group Invites, Allow Whispers, and Allow Chat Messages are visible interactive checkboxes on every guild member row.
+- Checked means allow/exclude that individual from the corresponding guild filter.
+- Settings persist on the member record in PourSocialScoreDB.guildData.
+
+=> 12.1.7 - Guild member isolation/detail UI
+
+- Guild WHO scan results are stored only in PourSocialScoreDB.guildData[*].members.
+- Guild-scanned characters are no longer inserted into PourSocialScoreDB.ignoreList/playerData.
+- Added a one-time conservative cleanup for legacy guild-generated player entries whose player blocked timestamp matches the guild member's discovery timestamp.
+- Double-clicking a guild opens a searchable, scrollable, gridded member table.
+- Member rows show Name, actual Guild, Added timestamp, and per-member Allow Group Invites, Allow Whispers, and Allow Chat Messages checkboxes.
+- Guild member allow settings are persisted per guild/member in PourSocialScoreDB.
+
+=> 12.1.6 - Scan correction
+
+- WHO UI routing now exactly follows OlympusMute: no SetWhoToUi call.
+- Guild row matching uses case-insensitive substring matching, so a row such as "Olympus" captures Olympus Tycoons, Olympus Covoz, Olympus III, etc.
+- Matching WHO results are assigned to the data-driven guild row, not split into separate guild rows for each actual guild name.
+- Filter-enabled rows call PourSocialScore's PSS_AddIgnore path for every matching player.
+- WHO result parsing prefers the GetWhoInfo(i) table form used by OlympusMute.
+
+=> 12.1.5 - Scan correction
+
+- Guild scanning now follows OlympusMute's working WHO flow: button -> SendWho -> WHO_LIST_UPDATE -> GetWhoInfo.
+- Blizzard Who UI is not enabled by the addon.
+- Each guild has its own 1/9 through 9/9 scan cursor.
+- Each scan step sends a guild + level-bracket query.
+- Matching results are stored in the guild member cache.
+- If that guild's Filter checkbox is enabled, matching players are also added to the actual PourSocialScore player blocklist via PSS_AddIgnore.
+- The custom Level Filters field remains a separate query path and does not advance the 9-step cursor.
+
+=> 12.1.4
+
+Guild/player WHO scans now follow the working OlympusMute path: SendWho -> WHO_LIST_UPDATE -> GetWhoInfo, with SetWhoToUi(false), so Blizzard's Who window is not presented to the user.
+
+=> 12.1.3
+
+Guild Ignore List UI/API fixes:
+- Guild scan header is now "Scan".
+- Custom scan header is now "Custom Level Scan".
+- Programmatic /who uses the current C_FriendList.SendWho API without an invalid string origin.
+- /who results are forced through WHO_LIST_UPDATE while Blizzard FriendsFrame is temporarily detached from that event, so the addon consumes results without opening the Who window.
+- Current Retail WhoInfo table fields (fullName, fullGuildName, filename, classStr) are parsed, as well as legacy positional results.
+- Guild scan results populate the guild member cache and member count.
+- Player /who queries use an explicit n-"name" filter.
+
+WoW API note: C_FriendList.SendWho is hardware-event protected, so scans must be initiated by a real button click.
+
+=> EARLIER HISTORY (the original Global Ignore List addon this one is based on)
+
+
+=> 11.2.7.1
+
+Updated for Burning Crusade Anniversary
+
+=> 11.2.7
+
+Updated for latest retail and era versions
+
+Added filter blocking history which can be accessed by right clicking a chat filter or by a new button in the UI, shout out to Roadblock for suggestions and helping with some of the code around history pruning.
+
+Right clicking while viewing blocked filter data can be used to ignore the sender, and other functions
+
+Probably a few other changes I cannot remember as I was pulled away from WoW for a little over a month unexpectedly in the middle of working on this release.
+
+=> 11.2.5.1
+
+Updated default Mystic+ filter
+
+Moved "Send ignore response to ignored players" option under Ignore List Options instead of UI options
+
+Creating a new chat filter will now create the filter turned off by default
+
+When viewing chat filters, right clicking on a filter will now bring up a menu with filter options similar to the ignore list UI.  This right click menu can be used to edit, remove, reset stats or view block history
+
+New button in chat filters tab to view block history of the selected filter.
+
+=> 11.2.5.0
+
+Updated for latest WoW patch
+
+Fixed issue introduced when merging classic and retail code that broke right click ignore in LFG menu
+
+=> 11.2.0.7
+
+I didn't really fix the sync issue that I thought I did yesterday after having more time to test today, so hopefully its fixed now!
+
+=> 11.2.0.6
+
+Accidentally left debug stuff on in the last version.
+
+=> 11.2.0.5
+
+MrFIXIT was gracious enough to take on the task of doing some code reorganization that was very critically needed.  Thank you so much!
+
+Fixed a sync bug introduced with the same server sync option
+
+Fixed a bug with the guild invite ignore
+
+=> 11.2.0.4
+
+The retail and classic code is now one in the same!  This will make managing releases so much easier and we can expect that the classic version will no longer lag behind the retail version.  As a result both the retail and classic versions will now use the same version number which will be based on the retail wow version.
+
+Fixed a bug that was allowing some messages to show even when they were supposed to be disabled during login/synchronization.
+
+Added option to disable same-faction syncing to the account wide ignore list to the GUI options
+
+PSS now automatically declines guild invites from people on ignore, to go along with its duel and party invite declines.  I actually thought it already did this but someone pointed out it did not, so thank you!
+
+=> 11.2.0.3
+
+Added a "Prune" button to the ignore list to remove entries by the length of time they were in the list.  Previously this was only available using a chat command and not by using the GUI.
+
+When doing the prune button, I noticed the option to turn off synchronization messages was also only a chat command, so I added that to the GUI options.
+
+=> 11.2.0.2
+
+Fixed some issues with chat filtering tags which completely broke filtering.  This was introduced by some behind the scenes changes Blizzard made to how wow sends chat data.
+
+Added Russian translation. Credits to ZamestoTV for the work, thank you so much!
+
+=> 11.2.0.1
+
+Added new option to disable the ignore response that Pour Social Score sends when a person is on ignore list.  Keep in mind that players who are on the Blizzard ignore list will still get an ignore response.  This is response is built into WoW, not part of Pour Social Score
+
+Added new option to adjust the GUI window priority.  For example, some people have noticed that commands like /raidinfo show under the UI as the UI defaults to "DIALOG" level priority.  Changing this to MEDIUM will cause the raidinfo window to have a higher priority and show on top of the UI.
+
+=> 11.2.0
+
+Updated for new season 3 of TWW!
+
+=> 11.0.2.7
+
+Added new [chname=name] tag where name is the channel name that you want the filter to apply to. Reminder that spaces must be escaped with the backslash character for example [chname=Trade\ -\ City].  Text that does not have a channel will still have a channel name set as follows: say, yell, whisper, officer, guild, party, raid, raid_leader, instance_chat, instance_chat_leader, battleground, battleground_leader.
+
+Added new option to filter repeated messages in chat.  This is off by default but if enabled it will block players who spam the same message over and over again so long as it was within the last 50 messages processed.
+
+=> 11.0.2.6
+
+Added an option to "Never filter yourself" to the Chat Filtering options panel
+
+=> 11.0.2.5
+
+Fixed a small bug in the chat filtering
+
+=> 11.0.2.4
+
+Added an [outfit] tag to filter out outfit links.
+
+Updated the readme.txt and the CurseForge page to include the latest tags.
+
+After a few people have asked, I have created a "Buy me a Coffee" page if you like my addon and would like to buy be a coffee:
+https://buymeacoffee.com/missiceypop
+
+=> 11.0.2.3
+
+Fixed a bug with UI updating when using the ignore button
+
+The right click menu in the PSS ignore list UI now works again to allow editing notes, setting expirations, etc
+
+=> 11.0.2.2
+
+You can now ignore group leaders again directly from the LFG menu by right clicking their group
+
+Fixed a bug where the ignore list UI wasn't updating correctly when using the Remove Ignore button
+
+=> 11.0.2.1
+
+Added icon in addons list and added entry into addons compartment
+
+=> 11.0.2
+
+Bugfixes and more UI stuff working again
+
+=> 11.0.0
+
+Updated for The War Within pre-patch.  Some UI features are not yet working in this release (such as LFG tool hacks)
+
+=> 10.1.7
+
+Updated for latest WoW release
+
+Renamed GUI function
+
+=> 10.1.5
+
+Updated for latest WoW release
+
+Added anchor nil check recommended by Hollo6 for LFG list frame error
+
+=> 10.0.7.2
+
+Attempted (?) to fix a bug with M+ input when creating a group without SMS/Authenticator without breaking any other hacks.
+
+=> 10.0.7.1
+
+Fixed bug in Chat filter editor list where it would sometimes not display the filters correctly when selecting/scrolling the list
+
+Added new default filter to filter out Power Leveling sellers
+
+Fixed a bug when ignoring NPCs using the Unit Menu
+
+The Options tab now is a scrolling window so that more options can be added!
+
+Added a new section called User Interface options which now allows UI hacks to be enabled or disabled for those that experience issues with them.
+
+There is now an option to disable the ignore list synchronization warning message when it fails during login
+
+=> 10.0.7
+
+Updated for new patch
+
+Disabled all UI hacks temporarily because a few people are reporting problems that I cannot reproduce.  I am planning to add them back in the next update probably with an option to disable them in the settings for those who may have issues.
+
+=> 10.0.5.5
+
+Fixed issues with LFG tool, requiring completely reworked right click ignore menu and other changes
+
+=> 10.0.5.4
+
+PSS is now integrated into the LFG tool GUI for Raids and M+
+
+LFG groups whose leader is on your ignore list will be listed with a red font color.  Thanks to wildmandnd for the suggestion and a first crack at how to do it!
+
+PSS will now show that the LFG tool leader is ignored in the tooltip when you mouse over the listing
+
+PSS will now show the ignored player's note in the LFG tool's tooltip when you mouse over a listing
+
+When right clicking a listing in the LFG tool, you will now see the Leader's name and the option to ignore or remove them
+
+=> 10.0.5.3
+
+Added a "Blocked" column to the chat filter editor which shows the number of times the filter has blocked something without editing the filter.  Thanks to xruptor for inspiring me to add this in finally.
+
+Blocked count and overall blocked count now update in real-time when the chat filter tab is open.  You can watch the filter blocked count climb on a busy server if you get sick of watching paint dry!
+
+Added a new default filter for "Tradeskill sellers" to filter out tradeskill spam.  This is off by default.
+
+Removed the default gold seller filters as they no longer seem to be relevant.
+
+Added some more text into the localization
+
+When sync default chat filters is enabled, filters will now be added, removed and updated as the default changes automatically.  If you disable a default filter with syncing on, it will not be reenabled but they will still update.
+
+=> 10.0.5.2
+
+Added new [journal] tag to filter all boss links for Dungeon/Raid journal
+
+Added new [guild] tag to filter all guild links
+
+Added new [trade] tag to filter all tradeskill links
+
+Added new [mount] tag to filter all mount links
+
+All new tags (journal, guild, trade, and mount) are included in the [link] filter which makes things like the Anal spam filter better (or any filter that uses link tag)
+
+Added new default Mythic+ Seller filter which is disabled by default
+
+Added new IDs to the default filters, so that defaults can be added, removed, and updated in the future based on community feedback.
+
+Reverted the UI strata back to "DIALOG" from "MEDIUM".  Added extra checking in filtering to handle invalid link formats, and other minor changes.
+
+PSS now detects the current WOW version (which is why the classic version isn't updated alongside this release).  I will be experimenting with one single PSS version that works with everything in the future.
+
+=> 10.0.5.1
+
+Now filters "Unknown friend response" error message during login
+
+Additional checks for invalid character names
+
+Updated to use proper C_PartyInfo references used by latest API
+
+=> 10.0.2.1
+
+Updated for Dragonflight
+Fixed UI crashes
+Changed strata of UI from DIALOG to MEDIUM to provide better layering with other UI elements
+
+=> 9.0.5.2
+
+Fixed the prune function which could cause the game to freeze for a period of time if there were ignored NPCs or guilds on the Pour Social Score
+
+=> 9.0.5.1
+
+Some players have reported an error where the Blizzard ignore list seems to be returning a blank value for a person on the ignore list so I've put a check in to try to prevent issues when that happens.
+
+=> 9.0.5
+
+Updated for 9.0.5 version
+Increased max failed sync attempts to 2 instead of 1 before removing a character.  At some point occasional failures started happening and this aggressively low number could cause characters to be prematurely removed.
+Increased the max length of a chat filter to 1000 characters, up from 500.  Someone actually hit that limit for a chat filter!
+
+=> 9.0.3
+
+Updated for Shadowlands live patch
+Fixed issue with Copy Character Name causing an error
+Attempted to improve performance on system message processing that could cause some micro stuttering with super larger ignore lists
+
+=> 9.0.2
+
+Added filter for American Politics (disabled by default)
+Added some German translations by LadyBellaSilver
+Forgot to update the version in the TOC for the last release!
+
+=> 9.0.1
+
+Updated for 9.0.1.  This is a first attempt after taking a good break from WoW, so there could be some issues.
+
+=> 8.2.5.1
+
+Added Chinese localization.  Thank you for the translation help: Translated by Duoluo Zhiliao
+
+=> 8.2.5
+
+Updated for 8.2.5
+
+=> 8.2.2
+
+Swapped the create and remove filter button in the chat filter editor, and added a confirmation dialog box when a filter is requested to be removed
+
+Added the new "[words=#]" tag which can be used to compare the number of words in the chat text
+
+Added new "[channel=#]" tag which allows a filter to be applied only to a specific channel
+
+Added the ability to disable filtering of party chat.  This includes, party, raid, instance, and battleground channels.  This open is off by default.
+
+Added the ability to disable or enable filtering of private messages.  This option is on by default.
+
+Updated the default "Anal" spam filter to utilize the words count, to address people who do not link a spell or item and instead type the name
+
+=> 8.2.1
+
+Added option to never apply spam filters to Guild chat.  This option is turned on by default in the options tab.
+
+=> 8.2.0
+
+Fixed a residual 8.1 issue that was causing PSS to fail to remove players on synchronization
+
+Updated to 8.2
+
+=> 8.1.4
+
+Spaces can now be used in a [Contains] tag by escaping the character similar to parenthesis, brackets, and backslashes ie "[contains=Filter\ This]"
+
+=> 8.1.3
+
+More updates related to the annoying undocumented changes Blizzard made in 8.1
+
+=> 8.1.2
+
+Fixed Blizzard UI ignore button and chat command for ignore which was broken by the 8.1 update
+
+=> 8.1.1
+
+Added a new UI hack to work around Blizzard's new "feature" that no longer creates ignore events when you're at 50 ignores and you try to ignore by right clicking chat.
+
+=> 8.1.0
+
+Updated for WOW 8.1
+
+=> 8.0.3
+
+Changed the way the Synchronization list works on login.  In the past there was a lot of strange things going on to avoid some WoW bugs but I am hoping those have been fixed now.  The worst that could happen is you may get more messages that the list could not Synchronize on login.
+
+Changed the way some of the message filtering works upon login to hopefully make things slightly cleaner.
+
+Major changes when adding people to ignore by right clicking chat.  WoW has a bug where it sometimes does not report the server name which causes almost all complaints with the addon. I reported it during Legion but it was not fixed for BFA and I was not in Beta to know before release.  So now whenever PSS gets an add/remove ignore request without a server name, it will search the members of your current group, raid, battleground, and current chat tab text for any evidence of the person.  If a reference to their name is found it will use that server. This was a lot of work and there may be issues so please be aware that this version could either be buggy or it could fix all known issues in a single swoop lol :)
+
+=> 8.0.2
+
+PSS will now pop up a dialog box to warn you when an ignored player joins a party you are in, or you join a party with an ignored player.  This dialog box will automatically close after 15 seconds if it is not closed before that since people can join in mid-combat.
+
+PSS will print a warning and list of players to the chat window if you join a party with ignored players, or if an ignored player joins a party you're already in.
+
+Fixed a bug which could cause the ignore functions to not work properly when ignoring from the party frames
+
+Fixed a bug that could cause the "You are inviting an ignored person to your party" confirmation box to not display when inviting by typing a chat command
+
+=> 8.0.1
+
+Added a new tag [community] which can be used to block Community Join requests in chat.  A new default filter has been created for this, but it will default to being turned off.
+
+By request: Added a new tag [nonlatin] which can be used to block Japanese/Chinese/Korean language.  This was requested to add the functionality of another addon called "BlockChinese" by Ketho.  If you're not interested in all of the features of PSS and just want the Chinese blocking, be sure to check out their addon!  Added a default spam filter to do this, but it will be disabled by default.
+
+Filters can now include brackets and parenthesis in the contains and word tags but prefixing them with a forward slash.
+
+Updated the default Guild Recruitment filter to be better at doing its job
+
+=> 8.0.0
+
+Updated for Battle for Azeroth expansion
+
+=> 7.1.4
+
+PSS was not filtering the "Instance" chat channel
+
+=> 7.1.3
+
+PSS now has a "sync" chat command to force the ignore list to synchronize.  IE: /pss sync
+
+If the ignore list is unavailable for synchronization during login, PSS will now detect it, print a message, and attempt to automatically sync the ignore list whenever the GUI is opened.
+
+Filters now can be enabled or disabled within the filter editor
+
+Added new filter for guild recruitment spam which defaults to being turned off.  If you want to use it, edit the filter and turn it on in the filters tab.
+
+More localization work completed
+
+Updated for 7.3 release
+
+=> 7.1.2
+
+Ignored players who attempt to invite you to a group will now be automatically declined by PSS even when not on the account wide ignore list
+
+Ignored players who attempt to duel you will now be automatically declined by PSS even when not on the account wide ignore list
+
+Players are now given a warning and confirmation box when sending party invites to an ignored player
+
+Fixed some issues when ignoring by right clicking on a target frame or raid frame which could cause PSS to ignore the target instead of the right clicked person.
+
+Minor localization work
+
+=> 7.1.1
+
+Updated default spam filters
+
+Fixed a problem where the Test button in the filter editor was not case insensitive, causing some tests to report the wrong result
+
+Added a help button into the filter editor for the filter box
+
+=> 7.1.0
+
+Updated default spam filter
+Fixed a problem where NPCs with inconsistant casing in their names would not be properly be ignored
+
+=> 7.0.6
+
+Fixed a problem where a filter that had an error in it could cause all chat to not be filtered
+
+Updated default spam filters
+
+=> 7.0.5
+
+Fixes problems with shift click linking
+
+=> 7.0.4
+
+Updates to default spam filters
+
+Completely redid the Spam Filter editor!  So many shiny new things:
+
+When editing a spam filter, the total number of spammers blocked by that filter will now be shown
+
+Reworked the Filter input box in the filter editor to allow for a larger input area
+
+Cleaned up the display of the filters in the Chat Spam tab so they do not wrap down to the next line.
+
+Added a chat link resolover where items can be linked into the box and converted into a PSS tag
+
+Shift clicking any chat link inside the Spam Filter box will automatically insert a PSS tag for that particular item, spell, achievement, pet, etc.
+
+Added an awesome filter testing system built right into the Spam Filter editor!  You can now enter examples of chat text and press the Test button to test applications of the filter you're building.  It will also tell you if it thinks there is an error in your filter.
+
+=> 7.0.3
+
+Added the [talent] tag to the spam filter and into [link] tag
+
+=> 7.0.2
+
+Accidentally left some debug stuff turned on
+
+Fixed a typo which could have caused some issues on startup
+
+=> 7.0.1
+
+Added a new [icon] tag that can be used to evaluate raid icons
+
+Added a new [pet] tag that can be used to evaluate battlepet links in chat
+
+Rewrote the word matching to fix many situations where the word matching would fail, such as when icons and words were used together like {star}test{star}.  PSS will now see "test" as its own word even though its sandwitched in between two icons with no space.  The same works for all link types (spells, items, achievements, etc)
+
+Statistical tracking for the various chat filters is now completely accurate.  In the past it was overestimating a bit.
+
+Now should use about 250% less memory when under high stress and overall less CPU cycles in general
+
+Added some more startup code to try to work around the "Unknown" problem with WoW's API.  This problem could have caused the ignore list to get deleted, or the addon not to load
+
+=> 7.0.0
+
+Updated for new expansion and pre-patch 7.0!
+
+Added some more code to hopefully prevent the "Unknown" problem in non English languages.
+
+Words will now have punctuation stripped from the end of them before applying the word-matching chat filters to them
+
+=> 6.2.19
+
+Added back in the old startup code which seemed to better prevent things from turning bad better than the new approach whenever Blizzard's API returns Unknown for everyone
+
+Updated default spam filters to fix a typo
+
+=> 6.2.18
+
+This update adds some new default spam filters.  I sat on a high pop server in Orgrimmar and created filters until I saw no spam.  I blocked 1283 spammers during that time!
+
+=> 6.2.17
+
+Fixed a bug in the chat filter system which could cause an error when certain items are linked
+
+=> 6.2.16
+
+Fixed a typo in a variable name that could allow "Unknown" characters to be added to the ignore list and maybe other unknown things.
+
+=> 6.2.15
+
+Fixed an conflict with some other addons which could cause some errors since the 6.2.12 release
+
+=> 6.2.14
+
+Changed the way the addon starts up.  This may end up causing problems but it also may end up fixing a problem that a couple people seem to have with the latest couple of versions.  If anyone experiences problems please let me know so that they can be addressed!
+
+When editing a spam filter, PSS will now always save the contents of the editor when the Save Filter button is clicked, even if you haven't pressed ENTER yet.
+
+New option to "Automatically Synchronize Default Spam Filters" will create or update your spam filters to include all of the latest default spam filters.  I will be creating new default filters as I encounter spammers that are not already covered.
+
+=> 6.2.13
+
+Just a small update that may or may not fix an error someone seems to be getting
+
+=> 6.2.12
+
+I've begun doing some more localization work, starting with German but that is not in this version.  I hope to have it done by the 7.0 patch update.  If anyone would like to help with a translation please let me know.
+
+Added a chat spam filter system that allows you to define your own chat filters so that only exactly what you want to filter is filtered!  This of course can be disabled if it is not desired.
+
+Completely revamped all of the code to be much cleaner and easy to work with
+
+=> 6.2.11
+
+Removed the "Attach window to friends list UI" option because it wasn't very useful and some found its reason to be confusing
+
+Removed the ability to disable chat filtering
+
+When responding with the "You are being ignored" message, PSS was sending one message "You are being ignored" message back to the person on ignore for each chat tab you had.  If you had many tabs, it would basically spam the person you have on ignore! :P  This has been fixed so it only sends the message once.
+
+I hope to have fixed an EPIC bug that was prevent the addon for filtering chat on some servers that have two or more words in their name.
+
+Added a server name translator for all US/EU servers to make the server name column look pretty, instead of things like "Theforgottencoast" you should now see "The Forgotten Coast".
+
+=> 6.2.10
+
+Redesigned the way PSS detects deleted characters when maintaining the account-wide ignore list.  This is a big improvement over the old system assuming there are no quirks!
+
+=> 6.2.9
+
+Relaxed the automatic character deleted removal from the ignore list, just in case there are quirks after someone mentioned weirdness.
+
+Began work on the spam filtering but I've disabled it for now until its in better shape.  But you'll still see the tab in the UI for now.
+
+=> 6.2.8
+
+Fixed problem where a person could still show up in chat when on the same server and with a larger ignore list size.  I broke this during the UI revamp but wasn't able to get to it do to holidays.  Sorry everyone.
+
+=> 6.2.7
+
+The /pss npc chat command can now remove NPCs by list number
+
+The PSS UI ignore list wasn't always being updated when ignoring NPCs and entire servers.  These quirks should be fixed now.
+
+=> 6.2.6
+
+PSS can now track character name changes and characters who've been deleted from the *account wide* ignore list.  Players will be added added to and removed from the Pour Social Score as expected when these situations are identified.  Blizzard doesn't have a mechanism for this type of tracking within addons, so PSS does it own historical tracking to determine these things.  Because of this, it may take a couple of logins before PSS decides to take certain actions against certain character names.
+
+Added a new option to toggle off name change and deletion tracking just in case anyone wants it to work like it did before this version.  But this option may go away in the future if the new system is a hit.
+
+PSS now filters "Player is already ignored" messages for the first 60 seconds of login
+
+Fixed some bugs that could cause the PSS UI list not to be updated when adding/removing players
+
+=> 6.2.5
+
+Fixed a error that would occur after setting the default expiration using the Options tab (chat command still worked).  If you've changed it from the default 0 value then please double check the value again after installing this version, as PSS may reset the value if it was stored incorrectly in the settings by the previous version.
+
+=> 6.2.4
+
+The "Open/attach window with Blizzard Ignore list" options were always set to true regardless of what you changed it to.  It should now work as expected.
+
+=> 6.2.3
+
+NPCs can now be added and removed from Ignore by clicking on their portraits!
+
+Renamed "server" chat option to "sameserver" and better described what it actually does
+
+PSS can now ignore entire servers.  Use /pss server servername to add or remove a server by name or list number
+
+PSS now responds with a "You are being ignored" message in cases when WoW itself will not.
+
+Fixed a small display bug on the ignore list UI
+
+NEW GUI!  By default the new GUI opens with the Friends/Ignore list but this can be changed in the options.  The GUI can also be started by typing /pss gui in chat too.
+
+=> 6.2.2
+
+Fixed a bug with removing players using right click on their portrait
+
+Added a filter for the "You can't ignore more players" message but I was not able to properly test this.
+
+=> 6.2.1
+
+Localization!  All text has been localized, which means that PSS can be translated to languages other than English!  I will need volunteers though, as I only speak English and broken Spanish.
+
+Possibly fixed some weirdness with right clicking a portrait to ignore
+
+Extended the amount of time PSS filters the "ignore" messages on login to 60 seconds, up from 15.  This should help with any spam some people would randomly get during login but be aware all ignore messages will be filtered for the first 1 minute of each login
+
+You can now set expiration time using list numbers instead of name.  So /pss expire 40 365 will expire the 40th person on the /pss list after 365 days.
+
+=> 6.2.0
+
+Updated for Patch 6.2
+
+=> 6.1.8
+
+Right clicking a target UI and selecting "set focus" was causing an error.  Focus worked when using /focus or hotkey or macro, but not from the unit right click menu.  I had to completely redo the way the target ignore option works but it should be fixed.
+
+Fixed a bug when attempting to ignore by typing /ignore with a current target
+
+=> 6.1.7
+
+By request, the list chat command now shows the reason/notes for each player if there is one
+
+=> 6.1.6
+
+PSS can now optionally ask you for the ignore note when a person is ignored.  This is on by default but it can be turned off by with /pss asknote off and turned on with /pss asknote on
+
+The right click menu in the ignore UI now has a "Reset expiration" option
+
+Pressing enter while editing the ignore note now does the same thing as the Save button
+
+Pressing escape while editing the ignore note now does the same thing as the Cancel button
+
+Pressing enter while editing the expiration days now does the same thing as the Save button
+
+Pressing escape while editing the expiration days now does the same thing as the Cancel button
+
+=> 6.1.5
+
+/pss add now checks the current target and will ignore them if there is no player name supplied
+
+/pss npc now checks the current target and will ignore it if there is no NPC player supplied
+
+=> 6.1.4
+
+The speed of the screen updating when scrolling around the ignore list UI has been greatly improved
+
+PSS now ignores the "Player not found" chat messages for 10 seconds after PSS is loaded, instead of the first 10 seconds after login
+
+PSS can now ignore non player characters (NPC and monsters) yells, emotes, says, tells, and party chat
+
+New command /pss npc npcname adds or removes an NPC character from the ignore list.  Example: "/pss npc snurk bucksquick"
+
+New /pss list option "NPC" will show a list of all ignored NPC characers.  Here are some examples of the list command:
+
+	"/pss list"  List all characters on Pour Social Score
+	"/pss list npc"  List all NPC characters on Pour Social Score
+	"/pss list 30"  List all characters on ignore list from 30 days or more
+	"/pss list server"  List all characters ignored from the current server
+	"/pss list Area52" List all characters ignored from the Area 52 server
+
+=> 6.1.3
+
+An "Ignore" option is now added to the targeted player menu while in a Raid group
+
+An "Ignore" option is now added to the targeted player menu while in a party
+
+PSS now has an automated expiration system which allows players to be automatically removed after a specified number of days.  This can be set using the UI or chat commands, and a default value for all newly added ignored players can be set too!
+
+"/pss defexpire days" can now be used to set the number of days that newly ignored players will remain on the list before they are automatically removed.
+
+"/pss expire character days" sets the number of days in which the character should remain on the list.  So for example "/pss expire mytoon 30" will set character mytoon to be automatically removed after being on the list for 30 days.
+
+Right clicking in the ignore tab UI now brings up a drop down menu that allows the note to be edited, the expiration days to be set, or the person to be removed from the list.  Double clicking still provides a quick way to set their note.
+
+The /ignore and /pss add commands now allow a note and expiration days to be supplied.  A simple /ignore works as it always has, but now you can also supply the days after the name followed by a note.  Here are some examples:
+
+	"/ignore mytoon" This will ignore mytoon with the default configured expiration time
+	"/ignore mytoon 30" This will ignore mytoon with a 30 day expiration time
+	"/ignore mytoon this person is mean!"  This will ignore mytoon and set their note to "This person is mean!"
+	"/ignore mytoon 30 this person is mean!" This will ignore mytoon, removing them after 30 days, and setting their note to "this person is mean"
+
+PSS has now been tested and fixed to work with multiple language character sets and unicode/high ASCII characters!
+
+PSS now longer shows "You can't ignore more players" when ignoring a character when the list is larger than the Blizzard maximum
+
+PSS will no longer show itself adding characters during each login when the list is larger than the Blizzard maximum number of ignores
+
+PSS should no longer spam your chat window with "Removing Unknown" on some occasions during login
+
+PSS will now filter out the ignore "Player not found" message from chat during the first 10 seconds of logging in
+
+=> 6.1.2
+
+The ignore by clicking on portraits option had to be scaled back due to Blizzard blocking the add-on when it attempts to modify Blizzard's internal menus.  This happened during dismissing pets, preventing hunters from dismissing until they disabled the addon.  The ignore feature is still there and works, but it just always says "Ignore" now, and serves to toggle the state of ignore for that person.  Better than nothing I suppose, but not as nice as it was.
+
+=> 6.1.1
+
+/pss now works same as /pss and /pss
+
+The /pss add and /ignore functions can now specify a reason for ignore, for example 
+"/ignore mytoon-Area52 this person is annoying".  If a server has a space in the name just leave the space out.
+
+The default ignore list UI now shows the days a person has been in the ignore list
+
+The default ignore list UI now shows the reason/note in the ignore list
+
+Double clicking on a character name in the ignore list UI allows the note to be edited
+
+Mousing over a name in the ignore list UI now shows a tooltip with character name, faction, how long they've been ignored, their note/reason, etc.
+
+/pss ignore now does the same as /pss add 
+
+/pss delete now does the same thing as /pss remove
+
+Right clicking a target portait now gives an "Ignore" option in the option list
+
+=> 6.1.0
+
+Updated for new 6.1 patch.  I'm also working on some UI stuff too for future versions but progress has been slow mostly due to raiding! :)
+
+=> 6.0.4
+The /pss list command will now round the number of days a person has been on the ignore list to the nearest whole number
+
+If you try to ignore yourself, you will now get a message telling you that you can't!
+
+PSS should now be able to ignore login and logout messages even when you have more than 50 people on your ignore list!
+
+The /pss list command now assigns a number to each person in the list and the /pss remove command can now remove people by number making things much easier when you have to deal with people using special characters in their name.  Removing by name should still work too!
+
+=> 6.0.3
+Added a chat filtering option which (if enabled) will filter chat messages and remove people on the ignore list if a message from them is found.  This allows a way to get around the 50 player ignore limit per character!  This feature will be on my default but it can be turned off by typing /pss filter off.
+
+=> 6.0.2
+When ignoring a player by right clicking their name in chat and selecting ignore on a server that has a space in the server name, the addon would fail to synchronize and ignore the player.  Sorry :(
+
+The gi list chat command can now have the server name passed to it.  Here are some examples:
+
+/pss list : Shows all people on the ignore list
+/pss list 90 : Shows a list of all people on the list for 90 or more days
+/pss list Area 52 : Shows a list of all people on the list from server Area 52
+/pss list server : Shows a list of all people on the list on the current server
+
+=> 6.0.1
+The list command now shows the number of days the person has been on the ignore list instead of a date
+
+The list command now optionally can take a number of days and it will only list players on ignore for that many days or longer.  For example "/pss list 30" would list only people who have been on the list for 30 or more days while "/pss list" would show all people on the list.
+
+Added a new command called prune.  This will allow you to remove people in bulk who have been ignored for a specified number of days.  For example "/pss prune 30" removes all people who have been ignored for 30 or more days.
+
+
+=> 6.0.0
+First release

@@ -1,0 +1,4 @@
+-- PourSocialScore_Options holds saved data only: PSS_OptionsDB (settings),
+-- PSS_PlayersDB (Player Ignore List), PSS_GuildsDB (Guild Ignore List) and
+-- PSS_RulesDB (chat rules) and PSS_CountsDB (every block count). It has no code; the core reads and writes the
+-- tables (PourSocialScore/PSS_SavedData.lua). Always loaded, before the core.

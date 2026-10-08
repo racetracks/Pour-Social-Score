@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: |cff69ccf0PourSocialScore|r Options
+## Notes: PourSocialScore saved settings and lists (data only)
+## Category: PSS
+## Group: PourSocialScore
+## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
+## Author: Boaties
+## Version: 3.4.0.29
+## SavedVariables: PSS_OptionsDB, PSS_PlayersDB, PSS_GuildsDB, PSS_RulesDB, PSS_CountsDB
+
+PSS_OptionsData.lua

@@ -1,0 +1,14 @@
+## Interface: 120007, 16001
+## Title: |cff69ccf0PourSocialScore|r Logging
+## Notes: PourSocialScore block history (loads on demand)
+## Category: PSS
+## Group: PourSocialScore
+## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
+## Author: Boaties
+## Version: 3.4.0.29
+## LoadOnDemand: 1
+## Dependencies: PourSocialScore
+## SavedVariables: PSS_LoggingDB
+
+PSS_LoggingData.lua
+PSS_SavedLog.lua
