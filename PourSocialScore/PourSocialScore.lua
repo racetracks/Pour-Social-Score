@@ -137,6 +137,7 @@ local function ApplicationStartup(self)
 	M.PSS_ExpireEntries()
 	-- the lists are in their final form: hear unit and /who captures only if they can be used (P3)
 	if M.PSS_ApplyCapture then M.PSS_ApplyCapture() end
+	if PourSocialScoreDB.gfxPending and M.PSS_Need("Libraries") and M.PSS_GfxAsk then M.PSS_GfxAsk() end	-- the graphics keep prompt (PSS_Graphics.lua)
 	-- PourSocialScore_Logging was loaded for the upgrade: add the waiting
 	-- lines, trim and tidy the history now
 	local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded

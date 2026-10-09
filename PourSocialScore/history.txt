@@ -1,6 +1,43 @@
 POUR SOCIAL SCORE - VERSION HISTORY
 (newest first)
 
+=> 3.5.0.62 - Graphics settings and Macro Helper
+
+- New on Camelot: /pss gfx exports every graphics setting as text, imports one and shows each change before you apply it. After the reload you get 15 seconds to keep the new settings; Revert, Escape or no answer puts the old ones back. History keeps the last 5 sets saved before a change: see what differs from now, restore one or export it. Nothing loads and nothing is saved unless you use it.
+- New on Camelot: /pss macro creates the macros the addon carries, each as an account-wide or a character macro. /pss macro global create adds Trinket 1 and Trinket 2; /pss macro warrior create adds Attack on a warrior. Add account or character to put a whole set in one place. /pss macro lists the sets, /pss macro <set> shows what will change. A macro with the same name in the same place is set to the addon's version; nothing is deleted. Not in combat. More macros follow in later builds.
+- Retail: /pss gfx and /pss macro print that they are for Camelot only; nothing else changes in game since 3.4.2.54.
+
+=> 3.5.0.61 - Macro Helper
+
+- New on Camelot: /pss macro creates the macros the addon carries, each as an account-wide or a character macro. /pss macro global create adds Trinket 1 and Trinket 2; /pss macro warrior create adds Attack on a warrior. Add account or character to put a whole set in one place. /pss macro lists the sets, /pss macro <set> shows what will change. A macro with the same name in the same place is set to the addon's version; nothing is deleted. Not in combat.
+
+=> 3.5.0.60 - Docs: Macro Helper is the next step
+
+- Docs only, no change in game: the Macro Helper (/pss macro, Camelot) is the next step; CLAUDE.md, the status and the handover point to its design and implementation plan on scratch.
+
+=> 3.5.0.59 - Docs: feature tests and release workflows
+
+- Docs only, no change in game: every feature's design and plan name its tests (rules check, harness, upgrade and data checks, window compare, real saves) and, at release, the release workflows it needs.
+
+=> 3.5.0.58 - Docs: sparse messages and thread reuse
+
+- Docs only, no change in game: CLAUDE.md and the preferences ask for sparse messages and token use, and for reusing a thread that already holds the tools and context.
+
+=> 3.5.0.57 - Graphics settings: export, import, history and keep prompt (/pss gfx, Camelot)
+
+- New /pss gfx (Camelot only): export every graphics setting as text, import one, and see each change before you apply it.
+- After the reload you get 15 seconds to keep the new settings; Revert, Escape or no answer puts the old ones back.
+- History keeps the last 5 sets saved before a change: see what differs from now, restore one or export it.
+- Nothing loads and nothing is saved unless you use it (Retail prints that it is Camelot only).
+
+=> 3.5.0.56 - Graphics settings design and next steps (docs only)
+
+- No change in game. Opens line 3.5.0 for the next feature, graphics settings for Camelot (/pss gfx: export, import, keep or revert after a reload, and the last 5 sets kept). The project docs point a fresh session to its design and implementation plan on scratch.
+
+=> 3.4.3.55 - Docs: release and technical notes as context
+
+- No change in game. The project docs now point to the release notes, the summary of changes and the technical notes as context for any change or regression check, and list what each full release updates.
+
 => 3.4.2.54 - Project docs trimmed to the current state
 
 - No change in game since 3.4.1.53: the addon is the same build. The project documentation was trimmed to how the addon works today, without version history.

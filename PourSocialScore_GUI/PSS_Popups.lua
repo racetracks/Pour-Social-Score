@@ -6,6 +6,13 @@
 --   ns.Confirm({ title, text, accept, cancel, onAccept, onCancel })
 --     number = a starting number: a number box under the text (onAccept(n));
 --     numberNote(n) = the line under it, again as it is typed
+--     timeout = seconds: the cancel button reads "<cancel> (<n>)" and counts
+--     down; at 0 the popup hides and onTimeout() runs (not onCancel). The
+--     count is an OnUpdate on the popup only while a timed one shows
+--   ns.GfxPopup()  the graphics settings popup (Export, Import, History,
+--     Reload UI; /pss gfx on Camelot): every button is a call into
+--     Libraries (PSS_Graphics.lua); M.PSS_GfxBox() shows it and
+--     M.PSS_GfxKeepPrompt() is the timed keep prompt after a reload
 --   ns.CopyText({ title, subtitle, text })          read only, selected
 --   ns.ImportText({ title, subtitle, accept, onAccept(text) })
 -- Classic and Modern: the window's own frame and background
@@ -138,6 +145,7 @@ local function BuildConfirm()
 	-- hidden any other way (Cancel, Escape, a click on the dimmed screen,
 	-- another popup) is a cancel
 	confirm:SetScript("OnHide", function()
+		confirm:SetScript("OnUpdate", nil)	-- the countdown runs only while shown
 		local o = confirmOpts
 		confirmOpts = nil
 		if o and o.onCancel then o.onCancel() end
@@ -149,6 +157,30 @@ local function BuildConfirm()
 	end)
 end
 
+-- The timed prompt's countdown (opts.timeout): the cancel button's text
+-- each whole second; at 0 the popup hides (confirmOpts cleared first, so
+-- OnHide does not also run onCancel) and onTimeout runs. Set as the
+-- frame's OnUpdate only while a timed popup shows.
+local function Countdown(opts, left)
+	local cancel = opts.cancel or CANCEL or "Cancel"
+	local shown = -1
+	return function(self, elapsed)
+		left = left - (elapsed or 0)
+		if left <= 0 then
+			local o = confirmOpts
+			confirmOpts = nil
+			confirm:Hide()
+			if o and o.onTimeout then o.onTimeout() end
+			return
+		end
+		local n = math.ceil(left)
+		if n ~= shown then
+			shown = n
+			confirm.cancel:SetText(cancel .. " (" .. n .. ")")
+		end
+	end
+end
+
 function ns.Confirm(opts)
 	if not confirm then BuildConfirm() end
 	if confirm:IsShown() then confirm:Hide() end
@@ -156,7 +188,12 @@ function ns.Confirm(opts)
 	confirm.title:SetText(opts.title or "")
 	confirm.text:SetText(opts.text or "")
 	confirm.accept:SetText(opts.accept or OKAY or "Okay")
-	confirm.cancel:SetText(opts.cancel or CANCEL or "Cancel")
+	if opts.timeout then
+		confirm.cancel:SetText((opts.cancel or CANCEL or "Cancel") .. " (" .. math.ceil(opts.timeout) .. ")")
+		confirm:SetScript("OnUpdate", Countdown(opts, opts.timeout))
+	else
+		confirm.cancel:SetText(opts.cancel or CANCEL or "Cancel")
+	end
 	local withNumber = opts.number ~= nil
 	confirm.number:SetShown(withNumber)
 	confirm.note:SetShown(withNumber)
@@ -252,3 +289,203 @@ function M.PSS_CopyTextBox(title, subtitle, text)
 	return ns.CopyText({ title = title, subtitle = subtitle, text = text })
 end
 function ns.ImportText(opts) return ShowText(opts, false) end
+
+------------------------------------------------------------------------
+-- Graphics settings (/pss gfx, Camelot): every button is a call into
+-- PSS_Graphics.lua (Libraries); this only draws. Built on first use.
+-- Export, Import, History and Reload UI along the bottom; History swaps
+-- the box for the saved sets (a row click shows what changed, Restore,
+-- Export and Back).
+------------------------------------------------------------------------
+local gfx, gfxRead, gfxRows, gfxPick
+
+-- the line under the title (a message from Libraries or a hint)
+local function GfxSay(text)
+	if gfx then gfx.subtitle:SetText(text or "") end
+end
+
+-- the preview of a plan, then Apply (Import and Restore share it)
+local function GfxPreview(plan, why)
+	if not plan then GfxSay(why) return end
+	if #plan.changes == 0 then GfxSay(M.PSS_GfxSummary(plan)) return end
+	ns.Confirm({
+		title = "Apply Graphics Settings?",
+		text = M.PSS_GfxSummary(plan),
+		accept = "Apply",
+		onAccept = function()
+			local ok, msg = M.PSS_GfxApply(plan)
+			if not ok then GfxSay(msg) end
+		end,
+	})
+end
+
+-- the text box: editable for a paste, read only (all selected) for a result
+local function GfxBoxText(text, readOnly)
+	gfxRead = readOnly and text or nil
+	gfx.edit:SetText(text or "")
+	if readOnly then gfx.edit:HighlightText() end
+end
+
+-- the History view or the main view
+local function GfxHistoryView(on)
+	local f = gfx
+	f.histOn = on
+	f.listFrame:SetShown(on)
+	f.export:SetShown(not on)
+	f.import:SetShown(not on)
+	f.history:SetShown(not on)
+	f.reload:SetShown(not on)
+	f.restore:SetShown(on)
+	f.hexport:SetShown(on)
+	f.back:SetShown(on)
+	f.box:ClearAllPoints()
+	f.box:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -20, 52)
+	f.box:SetPoint("TOPLEFT", f, "TOPLEFT", 20, on and -176 or -58)
+	gfxPick = nil
+	f.restore:Disable()
+	f.hexport:Disable()
+	GfxBoxText("", on)
+	if on then
+		gfxRows = M.PSS_GfxHistory()
+		f.list:SetCount(#gfxRows)
+		f.list:Top()
+		f.list:Select(function() return false end)
+		GfxSay(#gfxRows > 0 and "Pick a saved set to see what changed" or "")
+	else
+		gfxRows = nil
+		f.list:SetCount(0)
+		GfxSay("Export, paste a set to Import, or restore an earlier one")
+	end
+end
+
+local function BuildGfx()
+	local f = Shell("PSS_GfxPopup", 560, 340)
+	gfx = f
+	f.subtitle = ns.NewText(f, 11)
+	f.subtitle:SetPoint("TOP", f, "TOP", 0, -40)
+	f.subtitle:SetTextColor(1, 1, 1)
+	f.subtitle:SetAlpha(0.45)
+	f.box = ns.NewTextArea(f, 11, nil, 6)
+	f.edit = f.box.edit
+	f.edit:SetScript("OnEscapePressed", function() f:Hide() end)
+	-- a result stays as given, all of it selected
+	f.edit:SetScript("OnTextChanged", function(self, user)
+		if user and gfxRead then
+			self:SetText(gfxRead)
+			self:HighlightText()
+		end
+	end)
+
+	-- History: the saved sets above the box
+	f.listFrame = CreateFrame("Frame", nil, f)
+	f.listFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -58)
+	f.listFrame:SetPoint("TOPRIGHT", f, "TOPRIGHT", -20, -58)
+	f.listFrame:SetHeight(110)
+	f.listFrame:Hide()
+	f.list = ns.NewRows(f.listFrame, {
+		rowH = 18, fontSize = 11, height = 80,
+		cols = { { key = "when", text = "When", width = 150, sort = false },
+			{ key = "changed", text = "Changed", width = 80, sort = false } },
+		draw = function(row, i)
+			local r = gfxRows and gfxRows[i]
+			row.cells.when:SetText(r and r.whenText or "")
+			row.cells.changed:SetText(r and tostring(r.changed) or "")
+		end,
+		click = function(row, i)
+			local r = gfxRows and gfxRows[i]
+			if not r then return end
+			gfxPick = r.i
+			f.list:Select(function(n) return n == i end)
+			f.restore:Enable()
+			f.hexport:Enable()
+			GfxBoxText(M.PSS_GfxSetDiff(r.i), true)
+		end,
+	})
+	f.list:SetEmptyText("No saved sets yet")
+
+	f.export = PopupButton(f, 120, 26, false)
+	f.import = PopupButton(f, 120, 26, true)
+	f.history = PopupButton(f, 120, 26, false)
+	f.reload = PopupButton(f, 120, 26, false)
+	f.restore = PopupButton(f, 120, 26, true)
+	f.hexport = PopupButton(f, 120, 26, false)
+	f.back = PopupButton(f, 120, 26, false)
+	f.export:SetText("Export")
+	f.import:SetText("Import")
+	f.history:SetText("History")
+	f.reload:SetText("Reload UI")
+	f.restore:SetText("Restore")
+	f.hexport:SetText("Export")
+	f.back:SetText("Back")
+	-- one row along the bottom: four buttons, or Restore / Export / Back
+	f.export:SetPoint("BOTTOM", f, "BOTTOM", -192, 14)
+	f.import:SetPoint("LEFT", f.export, "RIGHT", 8, 0)
+	f.history:SetPoint("LEFT", f.import, "RIGHT", 8, 0)
+	f.reload:SetPoint("LEFT", f.history, "RIGHT", 8, 0)
+	f.restore:SetPoint("BOTTOM", f, "BOTTOM", -128, 14)
+	f.hexport:SetPoint("LEFT", f.restore, "RIGHT", 8, 0)
+	f.back:SetPoint("LEFT", f.hexport, "RIGHT", 8, 0)
+	f.restore:Hide()
+	f.hexport:Hide()
+	f.back:Hide()
+
+	f.export:SetScript("OnClick", function()
+		local text, n = M.PSS_GfxExportText()
+		if not text then GfxSay(n) return end
+		GfxBoxText(text, true)
+		f.edit:SetFocus()
+		GfxSay(n .. " settings")
+	end)
+	f.import:SetScript("OnClick", function()
+		gfxRead = nil
+		GfxPreview(M.PSS_GfxParse(f.edit:GetText() or ""))
+	end)
+	f.history:SetScript("OnClick", function() GfxHistoryView(true) end)
+	f.reload:SetScript("OnClick", function() M.PSS_GfxReload() end)
+	f.restore:SetScript("OnClick", function()
+		if gfxPick then GfxPreview(M.PSS_GfxRestorePlan(gfxPick)) end
+	end)
+	f.hexport:SetScript("OnClick", function()
+		if not gfxPick then return end
+		local text, n = M.PSS_GfxExportText(gfxPick)
+		if not text then GfxSay(n) return end
+		GfxBoxText(text, true)
+		f.edit:SetFocus()
+		GfxSay(n .. " settings")
+	end)
+	f.back:SetScript("OnClick", function() GfxHistoryView(false) end)
+
+	f:SetScript("OnHide", function()
+		gfxRead, gfxRows, gfxPick = nil, nil, nil
+		f.edit:SetText("")
+		f.edit:ClearFocus()
+		f.list:SetCount(0)
+		if f.histOn then GfxHistoryView(false) end
+		if M.PSS_RequestGC then M.PSS_RequestGC("graphics closed") end
+	end)
+	ns.EscapeCloses(f, "PSS_GfxPopup")	-- after its OnHide (SetScript drops hooks)
+	f.title:SetText("Graphics Settings")
+	GfxHistoryView(false)
+	return f
+end
+
+function ns.GfxPopup()
+	if not gfx then BuildGfx() end
+	return gfx
+end
+
+-- the entries Libraries calls (PSS_Graphics.lua): the popup, and the keep
+-- prompt after a reload with a change waiting
+function M.PSS_GfxBox()
+	local f = ns.GfxPopup()
+	if f.histOn then GfxHistoryView(false) end
+	GfxBoxText("", false)
+	GfxSay("Export, paste a set to Import, or restore an earlier one")
+	f:Show()
+	f:Raise()
+	return f
+end
+
+function M.PSS_GfxKeepPrompt()
+	return ns.Confirm(M.PSS_GfxKeepSpec())
+end

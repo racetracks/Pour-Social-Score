@@ -64,7 +64,7 @@ local ON_DEMAND = { PourSocialScore_Logging = "Logging" }
 -- in 3.4.1.51).
 local LAYOUT = {
 	options	= { "showIgnoreDebug", "windowSizes", "windowPoints", "columnWidths", "charOptions", "optionsV2012",
-				"euiIntegration", "blizzardSync" },
+				"euiIntegration", "blizzardSync", "gfxSets", "gfxPending" },
 	players	= { "list", "delList", "playerData",
 				"ignoreList", "typeList", "factionList", "dateList", "notes", "expList", "syncInfo" },
 	guilds	= { "guildData", "guildExclusions", "guildGroupOpen", "scanFieldsDefaultV1", "guildPlayerCleanupV3" },
