@@ -2,14 +2,14 @@
 -- POUR SOCIAL SCORE UI - SKINS
 --
 -- The window has one layout and three looks (option uiSkin, Libraries
--- M.PSS_UISkin): "blizzard" (the default: Blizzard frames, templates and
--- fonts), "modern" (Blizzard's new Social window art; until it is built it
--- paints as Blizzard) and "dark" (flat dark fills and one-pixel borders,
--- drawn here).
--- Every widget is built once with the parts of both looks and registers a
--- painter with ns.OnPaint; switching the look or the font (option uiFont)
--- repaints the window in place. Only the paint differs: sizes, places and
--- behaviour are the same in both looks.
+-- M.PSS_UISkin), in this order: "modern" (the default: Blizzard's 12.x
+-- Social window art, falling back to Classic where the client lacks it),
+-- "blizzard" (named Classic: Blizzard frames, templates and fonts) and
+-- "dark" (flat dark fills and one-pixel borders, drawn here).
+-- Every widget is built once with the parts of all three looks and
+-- registers a painter with ns.OnPaint; switching the look or the font
+-- (option uiFont) repaints the window in place. Only the paint differs:
+-- sizes, places and behaviour are the same in every look.
 ------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
 local M = PourSocialScore_NS.M
@@ -52,7 +52,7 @@ ns.TITLE_H = 25
 local skin, modernArt
 local painters = {}
 
--- "blizzard" or "dark"
+-- "modern", "blizzard" (Classic) or "dark"
 function ns.Skin()
 	if not skin then skin = M.PSS_UISkin() end
 	return skin
@@ -62,9 +62,17 @@ function ns.IsDark()
 	return ns.Skin() == "dark"
 end
 
--- The art of Blizzard's new Social window (12.x); a client without it
--- (Camelot) shows the Blizzard look when Modern is picked.
-local MODERN_ART = { "128-RedButton-Left", "common-button-tertiary-normal", "common-button-tertiary-pressed", "friends-card-default", "perks-divider-short", "checkbox-minimal", "checkmark-minimal", "common-searchbar-a" }
+-- The art of Blizzard's new Social window (12.x), every atlas Modern draws;
+-- a client without one of them (Camelot) shows the Blizzard look when
+-- Modern is picked.
+local MODERN_ART = {
+	"128-RedButton-Left", "128-RedButton-Left-Pressed", "128-RedButton-Left-Disabled",
+	"_128-RedButton-Center", "_128-RedButton-Center-Pressed", "_128-RedButton-Center-Disabled",
+	"128-RedButton-Right", "128-RedButton-Right-Pressed", "128-RedButton-Right-Disabled",
+	"128-RedButton-Highlight",
+	"common-button-tertiary-normal", "common-button-tertiary-pressed", "friends-card-default", "perks-divider-short",
+	"checkbox-minimal", "checkmark-minimal", "checkmark-minimal-disabled", "common-searchbar-a", "common-searchbar-icon-a",
+}
 
 function ns.HasModernArt()
 	if modernArt == nil then

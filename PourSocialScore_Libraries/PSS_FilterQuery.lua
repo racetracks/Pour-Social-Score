@@ -54,7 +54,7 @@ function M.PSS_FilterRow(i, into)
 	into.blocked = not into.guildRule and (tonumber(db.filterCount[i]) or 0) or nil
 	local t = db.filterBlocked[i]
 	local c = type(t) == "table" and t.counts
-	into.lines = type(c) == "table" and (tonumber(c.total) or 0) or (type(t) == "table" and #t or 0)
+	into.lines = type(c) == "table" and History.CountTotal(c) or (type(t) == "table" and #t or 0)
 	return into
 end
 

@@ -7,38 +7,36 @@
 --
 -- Instead, when there is something to clean up, it adds small incremental
 -- collection steps - collectgarbage("step") - spread over many frames:
---   * never in combat, in a boss encounter, while the player is dead /
---     loading, within COMBAT_COOLDOWN seconds (5 minutes) of leaving
---     combat, or inside a dungeon, raid, battleground or arena (asked from
---     the game with IsInInstance, no list of places); a step cycle stops
---     the moment any of these starts
+--   * only when asked for (after login, a /who scan, an import, closing the
+--     window ...). There is no timer, no idle cycle and no wall-clock gate
+--     (3.4.1.52; baseline 02 C15).
+--   * never in combat, in a boss encounter, while the player is dead, or
+--     inside a dungeon, raid, battleground or arena (asked from the game
+--     with IsInInstance, no list of places); a step cycle stops the moment
+--     any of these starts
+--   * a request made at a bad moment waits for an event that can end it
+--     (PLAYER_REGEN_ENABLED, PLAYER_ENTERING_WORLD, ZONE_CHANGED_NEW_AREA,
+--     PLAYER_ALIVE, PLAYER_UNGHOST). Those events are registered only
+--     while a request is waiting.
 --   * at most STEP_BUDGET_MS per frame (less when the frame rate is low)
 --   * not at all below MIN_FPS
---   * a cycle runs when asked for (after login, a /who scan, an import,
---     closing the window ...) and at most every IDLE_INTERVAL seconds
---     (10 minutes) otherwise
 --   * no heap-growth cycles and nothing more often (2.0.38). The game's own
 --     collector already runs in the background every frame, and the heap
 --     grows with every addon's garbage, not just ours. A cycle here walks
 --     the WHOLE shared heap, and one step cannot split a big table, so each
 --     cycle costs one long frame (measured 9 ms on a 150 MB heap, 19 ms on
---     300 MB) plus seconds of ~1 ms frames. 2.0.37 ran one every minute,
---     which showed as frame jitter.
+--     300 MB) plus seconds of ~1 ms frames.
 -- Options > "Background memory cleanup (out of combat)" turns it off.
 ------------------------------------------------------------------------
 local addonName, addon = ...
 local M = addon.M
 
-local CHECK_INTERVAL	= 15		-- seconds between checks
-local IDLE_INTERVAL		= 600		-- a timed cycle at most this often (10 minutes)
-local COMBAT_COOLDOWN = 300			-- no cycle until this long after leaving combat
-local GROWTH_KB			= nil		-- heap growth that starts a cycle; nil = none (see above)
 local STEP_KB			= 8			-- size of one collector step (small: fine-grained budget)
 local STEP_BUDGET_MS	= 1.0		-- max time per frame
 local MIN_FPS			= 30
 local MAX_FRAMES		= 900		-- pause a cycle after this many frames (it resumes)
 
-local gc = { pending = false, running = false, lastCycle = 0, leftCombat = nil, heapAfter = nil, supported = true, frames = 0,
+local gc = { pending = false, running = false, lastCycle = 0, heapAfter = nil, waiting = false, supported = true, frames = 0,
 			cycles = 0, lastReason = nil, lastMs = 0 }
 M.PSS_GCState = gc
 
@@ -52,7 +50,6 @@ local function busyReason()
 	if UnitAffectingCombat and UnitAffectingCombat("player") then return "in combat" end
 	if IsEncounterInProgress and IsEncounterInProgress() then return "boss encounter" end
 	if UnitIsDeadOrGhost and UnitIsDeadOrGhost("player") then return "dead" end
-	if gc.leftCombat and GetTime() - gc.leftCombat < COMBAT_COOLDOWN then return "less than 5 minutes after combat" end
 	-- dungeon, raid, battleground or arena (the game says which; "scenario"
 	-- and the open world are allowed)
 	if IsInInstance then
@@ -87,17 +84,21 @@ end
 
 runner:SetScript("OnUpdate", function(self, elapsed)
 	if not gc.running then self:Hide() return end
-	if inCombatOrBusy() or not enabled() then stopCycle(false) return end
+	if inCombatOrBusy() or not enabled() then
+		stopCycle(false)
+		if enabled() then gc.pending = true; M.PSS_GCWatch(true) end		-- resumes at the next wake event
+		return
+	end
 	-- frame budget: never more than STEP_BUDGET_MS, and a smaller share of a
 	-- slow frame (5 % of the last frame time)
 	local fps = GetFramerate and GetFramerate() or 60
 	if fps < MIN_FPS then return end		-- wait for a calmer moment
 	-- a long cycle (big heap, or a high frame rate's small budget) pauses
-	-- and carries on at the next check; the collector keeps its place.
+	-- and carries on at the next wake event; the collector keeps its place.
 	-- Only a finished cycle counts as done (before 2.0.40 hitting this cap,
 	-- or waiting out a low frame rate, counted as a finished cleanup).
 	gc.frames = gc.frames + 1
-	if gc.frames > MAX_FRAMES then stopCycle(false); gc.pending = true return end
+	if gc.frames > MAX_FRAMES then stopCycle(false); gc.pending = true; M.PSS_GCWatch(true) return end
 	local budget = math.min(STEP_BUDGET_MS, (elapsed or 0.016) * 1000 * 0.05)
 	local clock = debugprofilestop
 	local start = clock and clock() or 0
@@ -117,43 +118,46 @@ local function startCycle(reason)
 	gc.running = true
 	gc.frames = 0
 	gc.lastReason = reason
+	gc.pending = false
+	M.PSS_GCWatch(false)
 	runner:Show()
 	return true
 end
 
--- Ask for a cleanup soon (it waits for a safe moment).
+-- The wake events, registered only while a request waits for a safe moment.
+local wake = CreateFrame("Frame")
+local WAKE_EVENTS = { "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_ALIVE", "PLAYER_UNGHOST" }
+function M.PSS_GCWatch(on)
+	if on == gc.waiting then return end
+	gc.waiting = on
+	for i = 1, #WAKE_EVENTS do
+		if on then wake:RegisterEvent(WAKE_EVENTS[i]) else wake:UnregisterEvent(WAKE_EVENTS[i]) end
+	end
+end
+wake:SetScript("OnEvent", function()
+	if not gc.pending then M.PSS_GCWatch(false) return end
+	if gc.running or not gc.supported then return end
+	if not enabled() then gc.pending = false; M.PSS_GCWatch(false) return end		-- switched off while waiting
+	startCycle(gc.lastReason)		-- still busy: stays registered for the next event
+end)
+
+-- Ask for a cleanup: it starts now when the moment is safe, else at the next
+-- wake event.
 function M.PSS_RequestGC(reason)
 	gc.pending = true
 	gc.lastReason = reason or gc.lastReason
-end
-
-local function check()
-	if gc.running or not gc.supported or not enabled() or inCombatOrBusy() then return end
-	local now = GetTime()
-	local grew = GROWTH_KB and gc.heapAfter and (heapKB() - gc.heapAfter) >= GROWTH_KB
-	local due = IDLE_INTERVAL and (now - gc.lastCycle) >= IDLE_INTERVAL
-	if gc.pending or grew or due then
-		startCycle(gc.pending and gc.lastReason or (grew and "heap grew") or "idle")
-	end
+	if gc.running or not gc.supported or not enabled() then return end
+	if not startCycle(gc.lastReason) then M.PSS_GCWatch(true) end
 end
 
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_LOGIN")
-ev:RegisterEvent("PLAYER_REGEN_DISABLED")
-ev:RegisterEvent("PLAYER_REGEN_ENABLED")
-ev:SetScript("OnEvent", function(self, event)
-	if event == "PLAYER_REGEN_DISABLED" then
-		if gc.running then stopCycle(false); gc.pending = true end		-- resume after combat
-	elseif event == "PLAYER_REGEN_ENABLED" then
-		-- the regular check picks it up once COMBAT_COOLDOWN has passed
-		gc.leftCombat = GetTime()
-	elseif event == "PLAYER_LOGIN" then
-		gc.lastCycle = GetTime()
-		gc.heapAfter = heapKB()
-		-- loading is over; tidy up once things have settled
-		M.PSS_RequestGC("login")
-		if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(CHECK_INTERVAL, check) end
-	end
+ev:SetScript("OnEvent", function(self)
+	self:UnregisterEvent("PLAYER_LOGIN")
+	gc.lastCycle = GetTime()
+	gc.heapAfter = heapKB()
+	-- loading is over; tidy up once things have settled
+	M.PSS_RequestGC("login")
 end)
 
 ------------------------------------------------------------------------
@@ -236,7 +240,7 @@ function M.PSS_MemReport(full)
 
 	-- lists
 	local players = 0
-	for i = 1, #(db.ignoreList or {}) do if (db.typeList and db.typeList[i] or "player") == "player" then players = players + 1 end end
+	for _, e in ipairs(db.list or {}) do if (e.kind or "player") == "player" then players = players + 1 end end
 	local rules, stored, managedRules = 0, 0, 0
 	for _, g in pairs(db.guildData or {}) do
 		if type(g) == "table" then
@@ -266,8 +270,7 @@ function M.PSS_MemReport(full)
 	-- memory the game has not collected yet still counts as addon memory, so
 	-- these say when the last cleanup finished and what a due one waits for
 	local ago = (gcs.cycles or 0) > 0 and math.floor((GetTime() - (gcs.lastCycle or 0)) / 60) or nil
-	local due = gcs.pending or (IDLE_INTERVAL and GetTime() - (gcs.lastCycle or 0) >= IDLE_INTERVAL)
-	local waiting = due and not gcs.running and busyReason()
+	local waiting = gcs.pending and not gcs.running and busyReason()
 	out(("  last finished: %s%s"):format(ago and (ago .. " min ago") or "not yet this session",
 		waiting and ("   |   next one waits: " .. waiting) or ""))
 	if not full then out("  |cffaaaaaa/pss mem full|r also lists who has the most history lines.") end

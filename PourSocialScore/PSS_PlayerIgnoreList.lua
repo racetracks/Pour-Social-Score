@@ -19,9 +19,13 @@ local maxHistorySize	= 250
 local BlizzardAddIgnore			= nil
 local BlizzardDelIgnore			= nil
 local BlizzardDelIgnoreByIndex = nil
+local pssHookGuard = false	-- true while PSS itself changes Blizzard's list (the hooks below ignore it)
+local pendingMove = {}		-- name -> GetTime(): listed from Blizzard, to come off Blizzard's list (B1)
 
 -- faction is learned at startup (V.faction)
 local function currentFaction() return V.faction or (UnitFactionGroup and UnitFactionGroup("player")) end
+
+local ensurePlayer	-- defined with the per-player settings below
 
 local function hasDeleted (name)
 
@@ -70,30 +74,124 @@ local function removeDeleted (name)
 	end
 end
 
--- W I G P C switches on a player record (stored as "blocked").
-local BLOCK_FIELDS = { "whispersBlocked", "partyInvitesBlocked", "guildInvitesBlocked", "partyRaidBlocked", "channelsBlocked" }
+-- (list entries)
+-- One sparse record per listed entry: { name, date, [kind], [faction], [note], [exp], [sync] }.
+-- Readers apply the defaults: kind "player", note "", exp 0; no faction, sync or date = none.
+local function getList()
+	local db = PourSocialScoreDB
+	local list = db.list
+	if not list then
+		list = {}
+		db.list = list
+	end
+	return list
+end
+M.PSS_List = getList
+
+function M.PSS_EntryName(i)
+	local e = getList()[i]
+	return e and e.name or nil
+end
+
+function M.PSS_EntryKind(i)
+	local e = getList()[i]
+	if not e then return nil end
+	return e.kind or "player"
+end
+
+function M.PSS_NewEntry(name, kind, faction, note, exp)
+	local list = getList()
+	local e = { name = name, date = date("%d %b %Y") }
+	if kind and kind ~= "player" then e.kind = kind end
+	if type(faction) == "string" and faction ~= "" then e.faction = faction end
+	if type(note) == "string" and note ~= "" then e.note = note end
+	exp = tonumber(exp)
+	if exp and exp > 0 then e.exp = exp end
+	local index = #list + 1
+	list[index] = e
+	return index
+end
+
+function M.PSS_SetEntryNote(i, note)
+	local e = getList()[i]
+	if not e then return end
+	if type(note) == "string" and note ~= "" then e.note = note else e.note = nil end
+end
+
+function M.PSS_SetEntryExp(i, days)
+	local e = getList()[i]
+	if not e then return end
+	days = tonumber(days)
+	if days and days > 0 then e.exp = days else e.exp = nil end
+end
+
+function M.PSS_SetEntryDate(i, str)
+	local e = getList()[i]
+	if not e then return end
+	if type(str) == "string" and str ~= "" then e.date = str else e.date = nil end
+end
+
+function M.PSS_SetEntryFaction(i, f)
+	local e = getList()[i]
+	if not e then return end
+	if type(f) == "string" and f ~= "" then e.faction = f else e.faction = nil end
+end
+
+function M.PSS_EntrySync(i)
+	local e = getList()[i]
+	local sync = e and e.sync
+	if type(sync) == "table" then return sync end
+	return nil
+end
+
+function M.PSS_EntryAddSync(i, str)
+	local e = getList()[i]
+	if not e then return end
+	if type(e.sync) ~= "table" then e.sync = {} end
+	e.sync[#e.sync + 1] = str
+	return #e.sync
+end
+-- (/list entries)
+
+-- W I G P C switches on a player record (stored as "blocked"). A switch is
+-- saved only when it is false (the player allows it): a missing one blocks
+-- (core uplift S3). Every read is `p[field] ~= false`.
+local BLOCK_FIELDS = M.PSS_BLOCK_FIELDS
 
 local function anyBlocked(p)
 	if type(p) ~= "table" then return false end
-	for _, f in ipairs(BLOCK_FIELDS) do if p[f] == true then return true end end
+	for _, f in ipairs(BLOCK_FIELDS) do if p[f] ~= false then return true end end
 	return false
 end
 M.PSS_PlayerBlocksAnything = anyBlocked
+
+-- Upgrade step 10 and logout: the switches that block are not saved, nor
+-- zero counts. In the upgrade (legacy), a save from before guild invites had a
+-- switch of their own gets it from the party invite one first; afterwards a
+-- missing switch blocks. Returns how many records changed.
+function M.PSS_CompactPlayers(legacy)
+	local n = 0
+	for _, p in pairs((PourSocialScoreDB and PourSocialScoreDB.playerData) or {}) do
+		if type(p) == "table" then
+			if legacy and p.guildInvitesBlocked == nil and p.partyInvitesBlocked == false then p.guildInvitesBlocked = false end
+			local changed = false
+			for _, f in ipairs(BLOCK_FIELDS) do
+				if p[f] ~= nil and p[f] ~= false then p[f] = nil; changed = true end
+			end
+			local bc = p.blockCounts
+			if type(bc) == "table" and not M.PSS_History.CompactCounts(bc) then p.blockCounts = nil; changed = true end
+			if changed then n = n + 1 end
+		end
+	end
+	return n
+end
 
 -- Adding someone to the list opts them IN to blocking: everything from them
 -- is blocked. The W I G P C boxes are per-player EXCLUSIONS and start
 -- unticked; tick one to let that one thing through.
 local function AddToList(newname, newfaction, newnote, newtype)
 
-	local index = #PourSocialScoreDB.ignoreList+1
-
-	PourSocialScoreDB.ignoreList[index] = newname
-	PourSocialScoreDB.factionList[index] = newfaction
-	PourSocialScoreDB.dateList[index] = date("%d %b %Y")
-	PourSocialScoreDB.notes[index] = (newnote or "")
-	PourSocialScoreDB.expList[index] = M.PSS_Opt("defexpire")
-	PourSocialScoreDB.typeList[index] = (newtype or "player")
-	PourSocialScoreDB.syncInfo[index] = {}
+	M.PSS_NewEntry(newname, newtype, newfaction, newnote, M.PSS_Opt("defexpire"))
 
 	local p
 	if newtype == nil or newtype == "player" then
@@ -102,7 +200,7 @@ local function AddToList(newname, newfaction, newnote, newtype)
 			if p then
 				-- a fresh listing blocks everything (no exclusions), even if an
 				-- older record for this name is still stored from an earlier listing
-				for _, f in ipairs(BLOCK_FIELDS) do p[f] = true end
+				for _, f in ipairs(BLOCK_FIELDS) do p[f] = nil end
 			end
 		end
 	end
@@ -122,20 +220,15 @@ local function AddToList(newname, newfaction, newnote, newtype)
 end
 
 local function RemoveFromList (index)
-	local name = PourSocialScoreDB.ignoreList[index]
+	local e = getList()[index]
+	local name = e and e.name
 	if name then
 		addDeleted(name)
-		if (PourSocialScoreDB.typeList[index] or "player") == "player" and M.PSS_ForgetPlayer then
-			M.PSS_ForgetPlayer(name, PourSocialScoreDB.notes[index])
+		if (e.kind or "player") == "player" and M.PSS_ForgetPlayer then
+			M.PSS_ForgetPlayer(name, e.note or "")
 		end
 
-		table.remove(PourSocialScoreDB.ignoreList, index)
-		table.remove(PourSocialScoreDB.factionList, index)
-		table.remove(PourSocialScoreDB.dateList, index)
-		table.remove(PourSocialScoreDB.notes, index)
-		table.remove(PourSocialScoreDB.expList, index)
-		table.remove(PourSocialScoreDB.typeList, index)
-		table.remove(PourSocialScoreDB.syncInfo, index)
+		table.remove(getList(), index)
 		if M.PSS_MarkIgnoreIndexDirty then M.PSS_MarkIgnoreIndexDirty() end
 	end
 end
@@ -145,9 +238,9 @@ M.PSS_RemoveFromList = RemoveFromList
 -- Import/Export entry points (PSS_ImportExport.lua)
 function M.PSS_ImportListEntry(name, faction, note, ltype, dateStr, exp)
 	AddToList(name, faction ~= "" and faction or nil, note, ltype)
-	local i = #PourSocialScoreDB.ignoreList
-	if type(dateStr) == "string" and dateStr ~= "" then PourSocialScoreDB.dateList[i] = dateStr end
-	if tonumber(exp) then PourSocialScoreDB.expList[i] = tonumber(exp) end
+	local i = #getList()
+	if type(dateStr) == "string" and dateStr ~= "" then M.PSS_SetEntryDate(i, dateStr) end
+	if tonumber(exp) then M.PSS_SetEntryExp(i, exp) end
 	return i
 end
 
@@ -156,10 +249,10 @@ function M.PSS_RemoveListEntryAt(index)
 end
 
 local function getSyncValue (index)
-	-- value, index of syncInfo data
+	-- value, index of the entry's sync data
 
-	local info = PourSocialScoreDB.syncInfo[index]
-	if type(info) ~= "table" then return 0, 0 end
+	local info = M.PSS_EntrySync(index)
+	if not info then return 0, 0 end
 
 	for c = 1, #info do
 		local s = info[c]
@@ -178,18 +271,17 @@ end
 
 local function setSyncValue (name, index)
 
-	if type(PourSocialScoreDB.syncInfo[index]) ~= "table" then PourSocialScoreDB.syncInfo[index] = {} end
 	local val,idx = getSyncValue(index)
-
-	if idx == 0 then
-		idx = #PourSocialScoreDB.syncInfo[index] + 1
-	end
 
 	val = val + 1
 
 	--M.debugMsg("Setting "..name.. " failed add attempts to "..val)
 
-	PourSocialScoreDB.syncInfo[index][idx] = V.playerName .. "@" .. val
+	if idx == 0 then
+		M.PSS_EntryAddSync(index, V.playerName .. "@" .. val)
+	else
+		M.PSS_EntrySync(index)[idx] = V.playerName .. "@" .. val
+	end
 end
 
 local function isServerMatch (server1, server2)
@@ -221,8 +313,9 @@ function M.hasNPCIgnored (name)
 
 	if not name then return 0 end
 
-	for count = 1, #PourSocialScoreDB.ignoreList do
-		if PourSocialScoreDB.ignoreList[count] == name and PourSocialScoreDB.typeList[count] == "npc" then
+	local list = getList()
+	for count = 1, #list do
+		if list[count].name == name and list[count].kind == "npc" then
 			return count
 		end
 	end
@@ -234,8 +327,9 @@ local function hasServerIgnored (name)
 
 	if not name then return 0 end
 
-	for count = 1, #PourSocialScoreDB.ignoreList do
-		if PourSocialScoreDB.ignoreList[count] == name and PourSocialScoreDB.typeList[count] == "server" then
+	local list = getList()
+	for count = 1, #list do
+		if list[count].name == name and list[count].kind == "server" then
 			return count
 		end
 	end
@@ -260,8 +354,9 @@ function M.hasGlobalIgnored (name)
 
 	if not name then return 0 end
 
-	for count = 1, #PourSocialScoreDB.ignoreList do
-		if PourSocialScoreDB.ignoreList[count] == name and PourSocialScoreDB.typeList[count] == "player" then
+	local list = getList()
+	for count = 1, #list do
+		if list[count].name == name and (list[count].kind or "player") == "player" then
 			return count
 		end
 	end
@@ -279,9 +374,10 @@ function M.hasAnyIgnored (name)
 
 	if not name then return 0 end
 
-	for count = 1, #PourSocialScoreDB.ignoreList do
+	local list = getList()
+	for count = 1, #list do
 
-		if PourSocialScoreDB.ignoreList[count] == name then
+		if list[count].name == name then
 			return count
 		end
 	end
@@ -301,14 +397,8 @@ local function ResetIgnoreDB()
 
 	-- (options are not listed: no saved value is the default, PSS_Options.lua)
 	PourSocialScoreDB = {
-		ignoreList			= {},
-		factionList			= {},
-		dateList			= {},
-		notes				= {},
-		expList				= {},
-		typeList			= {},
+		list				= {},
 		delList				= {},
-		syncInfo			= {},
 		filterTotal			= 0,
 		filterCount			= {},
 		filterDesc			= {},
@@ -318,7 +408,6 @@ local function ResetIgnoreDB()
 		filterBlockedLast	= {},
 		filterWhisperTotal	= 0,
 		filterPrivateTotal	= 0,
-		showIgnoreDebug		= false,
 		playerData		= {},
 		guildData		= {},
 		imported			= false
@@ -358,6 +447,121 @@ local function isValidList()
 	end
 
 	return true
+end
+
+-- Blizzard's ignore list and PSS (B1, 3.4.1.35; PSS is authoritative): a
+-- player is on Blizzard's list only when "Also on Blizzard's ignore list" is
+-- ticked for them (p.blizzardIgnore, true only), or while a player Blizzard
+-- listed is taken into PSS and moved off it (the hooks below).
+local function blizzardNote()
+	return "Synced from Blizzard ignore list on " .. date("%d %b %Y")
+end
+
+-- Blizzard's list as full names, secret and blank entries left out
+local function blizzardNames()
+	local t = {}
+	for i = 1, C_FriendList.GetNumIgnores() do
+		local raw = C_FriendList.GetIgnoreName(i)
+		if type(raw) == "string" and not M.PSS_IsSecret(raw) and raw ~= "" then
+			local short = M.removeServer(raw, true)
+			if short ~= "" and short ~= _G.UNKNOWN then t[#t + 1] = M.Proper(M.addServer(raw)) end
+		end
+	end
+	return t
+end
+
+-- Lists a player Blizzard has on its list, with the note. tick: also tick
+-- "Also on Blizzard's ignore list" (they stay on Blizzard's list).
+local function takeOn(full, tick)
+	AddToList(full, currentFaction(), blizzardNote())
+	if tick then
+		local p = M.PSS_GetPlayerRecord(full)
+		if p then p.blizzardIgnore = true end
+	end
+end
+
+-- Sets the tick for a player and puts them on, or takes them off,
+-- Blizzard's ignore list to match. Returns false when Blizzard's list is full.
+function M.PSS_SetBlizzardIgnore(name, on)
+	local p = ensurePlayer(name)
+	if not p then return false end
+	on = on == true
+	local full = M.Proper(M.addServer(name))
+	local idx = hasIgnored(full)
+	if on then
+		if idx == 0 then
+			if C_FriendList.GetNumIgnores() >= maxIgnoreSize then
+				M.ShowMsg("Blizzard's ignore list is full (" .. maxIgnoreSize .. " players).")
+				return false
+			end
+			-- the same realm goes by its short name, as Blizzard's own commands do
+			local who = isServerMatch(V.serverName, M.getServer(full)) and M.removeServer(full) or full
+			pssHookGuard = true; BlizzardAddIgnore(who); pssHookGuard = false
+		end
+		p.blizzardIgnore = true
+	else
+		p.blizzardIgnore = nil
+		if idx > 0 then
+			pssHookGuard = true; BlizzardDelIgnoreByIndex(idx); pssHookGuard = false
+		end
+	end
+	return true
+end
+
+-- Ticks every listed player who is on Blizzard's list now (upgrade step 8
+-- and the first list update after it); the number ticked.
+function M.PSS_TickBlizzardIgnored()
+	local n = 0
+	for _, full in ipairs(blizzardNames()) do
+		if M.hasGlobalIgnored(full) > 0 then
+			local p = M.PSS_GetPlayerPrefs(full)
+			if p and p.blizzardIgnore ~= true then p.blizzardIgnore = true; n = n + 1 end
+		end
+	end
+	return n
+end
+
+-- Entries listed for their expiry's number of days or more are removed
+-- (N40; readme: "entries remove themselves after N days"): at login after
+-- the upgrades, when combat ends (at most once a day), when the window or
+-- /pss list opens, and on /pss sync. Backwards, by position, so a removal
+-- never shifts an entry not looked at yet; an NPC or server entry goes too.
+-- One chat line names them unless quiet. The number removed.
+local expireDay = nil
+function M.PSS_ExpireEntries(quiet, daily)
+	local db = PourSocialScoreDB
+	if not (db and db.list) then return 0 end
+	local list = db.list
+	local today = M.dateToJulianDate(date("%d %b %Y"))
+	if daily and expireDay == today then return 0 end
+	expireDay = today
+	local gone
+	for count = #list, 1, -1 do
+		local e = list[count]
+		local exp = tonumber(e.exp) or 0
+		if exp > 0 then
+			local added = M.dateToJulianDate(e.date)
+			if added > 0 and today - added >= exp then
+				local name = e.name
+				local before = #list
+				if (e.kind or "player") == "player" then
+					M.PSS_DelIgnore(count, true, true)
+				else
+					RemoveFromList(count)
+				end
+				if #list < before then
+					gone = gone or {}
+					gone[#gone + 1] = tostring(name)
+				end
+			end
+		end
+	end
+	if not gone then return 0 end
+	if not quiet then
+		M.ShowMsg(("Expired: %d entr%s removed (%s)."):format(#gone, #gone == 1 and "y" or "ies", table.concat(gone, ", ")))
+	end
+	M.Events.Fire("PLAYERS_CHANGED", true)
+	return #gone
 end
 
 function M.SyncIgnoreList (silent)
@@ -403,7 +607,7 @@ function M.SyncIgnoreList (silent)
 					if M.hasGlobalIgnored(name) == 0 then
 						added = added + 1
 
-						AddToList(name, currentFaction())
+						takeOn(name, true)
 
 						if silent == false then
 							M.ShowMsg (format(L["LOAD_3"], name))
@@ -416,31 +620,20 @@ function M.SyncIgnoreList (silent)
 		PourSocialScoreDB.imported = true
 	end
 
-	-- first remove broken and expired entries. Backwards, by position, so a
-	-- removal never shifts an entry we have not looked at yet and an entry
-	-- that is not a player (NPC / server) is removed too. (2.0.8 restarted the
-	-- loop after each expiry and could only remove players, so an expired NPC
-	-- or server entry made it loop forever.)
+	-- first remove broken entries. Backwards, by position, so a removal
+	-- never shifts an entry we have not looked at yet. Expired ones go
+	-- through M.PSS_ExpireEntries (N40).
 
-	for count = #PourSocialScoreDB.ignoreList, 1, -1 do
-		local entry = PourSocialScoreDB.ignoreList[count]
+	for count = #getList(), 1, -1 do
+		local entry = M.PSS_EntryName(count)
 		local tmp = type(entry) == "string" and M.removeServer(entry, true) or ""
 
 		if tmp == "" then
 			M.debugMsg ("Blank character name found in position " .. count)
 			RemoveFromList(count)
-		else
-			local exp = tonumber(PourSocialScoreDB.expList[count]) or 0
-			if exp > 0 and M.daysFromToday(PourSocialScoreDB.dateList[count]) >= exp then
-				M.debugMsg ("Removing " .. entry .. " due to expiration date")
-				if PourSocialScoreDB.typeList[count] == "player" then
-					M.PSS_DelIgnore(count, true)
-				else
-					RemoveFromList(count)
-				end
-			end
 		end
 	end
+	M.PSS_ExpireEntries(silent)
 
 	-- find account ignores that aren't on Pour Social Score and do things
 	-- (backwards: removing an entry moves the later ones up a place)
@@ -451,7 +644,7 @@ function M.SyncIgnoreList (silent)
 
 		if rawName == nil or rawName == "" then
 			M.debugMsg("Removing blank name on Blizzard ignore list")
-			BlizzardDelIgnoreByIndex(count)
+			pssHookGuard = true; BlizzardDelIgnoreByIndex(count); pssHookGuard = false
 		else
 			local short = M.removeServer(rawName, true)
 
@@ -464,17 +657,18 @@ function M.SyncIgnoreList (silent)
 						-- ignored with Blizzard's own UI: take it on (it is
 						-- already on Blizzard's list, so it is not added again)
 						M.debugMsg ("New player "..name.. " found on character, adding to Pour Social Score")
-						AddToList(name, currentFaction())
+						takeOn(name, true)
 						if not silent then M.ShowMsg (format(L["LOAD_3"], name)) end
 					else
 						if not silent then
 							M.ShowMsg (format(L["SYNC_1"], name))
 						end
 						M.debugMsg ("Removing "..name.." from character ignore because they are not on Pour Social Score")
-						BlizzardDelIgnoreByIndex(count)
+						pssHookGuard = true; BlizzardDelIgnoreByIndex(count); pssHookGuard = false
 					end
 				else
-					PourSocialScoreDB.syncInfo[globIdx] = {}
+					local e = getList()[globIdx]
+					if e then e.sync = nil end
 				end
 			end
 		end
@@ -488,19 +682,21 @@ function M.SyncIgnoreList (silent)
 
 	local ignoreCount = C_FriendList.GetNumIgnores()
 
-	if ignoreCount < maxIgnoreSize and M.PSS_Opt("blizzardSync") == true then
+	if ignoreCount < maxIgnoreSize then
 
-		M.debugMsg("Moving characters from PSS to Ignore")
+		M.debugMsg("Moving ticked characters from PSS to Ignore")
 
-		for key = 1, #PourSocialScoreDB.ignoreList do
-			local value = PourSocialScoreDB.ignoreList[key]
+		local list = getList()
+		for key = 1, #list do
+			local value = list[key].name
 
-			if PourSocialScoreDB.typeList[key] == "player" and getSyncValue(key) < maxSyncTries then
+			if (list[key].kind or "player") == "player" and getSyncValue(key) < maxSyncTries then
 
 				local name = M.Proper(M.addServer(value))
+				local rec = M.PSS_GetPlayerRecord(name)
 
-				if hasIgnored(name) == 0 then
-					local ok = (PourSocialScoreDB.factionList[key] == currentFaction()) or (M.PSS_Opt("samefaction") == false)
+				if rec and rec.blizzardIgnore == true and hasIgnored(name) == 0 then
+					local ok = (list[key].faction == currentFaction()) or (M.PSS_Opt("samefaction") == false)
 
 					if ok then
 						ok = (isServerMatch(V.serverName, M.getServer(name))) or (M.PSS_Opt("sameserver") == false)
@@ -515,7 +711,7 @@ function M.SyncIgnoreList (silent)
 							M.ShowMsg (format(L["SYNC_2"], name))
 						end
 
-						BlizzardAddIgnore(name)
+						pssHookGuard = true; BlizzardAddIgnore(name); pssHookGuard = false
 					end
 				end
 			end
@@ -540,26 +736,27 @@ function M.PruneIgnoreList (days, doit)
 	local targets = 0
 	local count		= 0
 
-	while count < #PourSocialScoreDB.dateList do
+	local list = getList()
+	while count < #list do
 		count = count + 1
 
-		if M.daysFromToday(PourSocialScoreDB.dateList[count]) >= days then
+		if M.daysFromToday(list[count].date) >= days then
 			targets = targets + 1
 
-			local name = M.addServer(PourSocialScoreDB.ignoreList[count])
+			local name = M.addServer(list[count].name)
 
 			--if doit ~= true then
 			--	M.ShowMsg("Prune will remove: "..name)
 			--end
 
 			if doit == true then
-				local before = #PourSocialScoreDB.ignoreList
-				if PourSocialScoreDB.typeList[count] == "player" then
+				local before = #list
+				if (list[count].kind or "player") == "player" then
 					M.PSS_DelIgnore(count, true)	-- by position: always the right entry
 				else
 					RemoveFromList(count)
 				end
-				if #PourSocialScoreDB.ignoreList >= before then
+				if #list >= before then
 					-- could not be removed: skip it instead of looping forever
 				else
 					count = count - 1
@@ -569,7 +766,6 @@ function M.PruneIgnoreList (days, doit)
 	end
 
 	if doit == true then
-		V.needSorted = true
 		M.ShowMsg(("Pruned %d entr%s listed for %d or more days."):format(targets, targets == 1 and "y" or "ies", days))
 		M.Events.Fire("PLAYERS_CHANGED", true)
 	end
@@ -586,15 +782,17 @@ function M.ignoreFromCmd (argStr)
 	-- not Proper()-ed here: that would glue the note onto the name. The name
 	-- part is split off and normalised by PSS_AddIgnore.
 	argStr = M.trim(argStr or "")
+	local exact
 	if argStr == "" then
-		argStr = M.PSS_UnitFullName("target") or ""
+		-- a target's name is a whole name ("First Last"), never "name note"
+		argStr, exact = M.PSS_UnitFullName("target") or "", true
 		if argStr ~= "" and not UnitPlayerControlled("target") then
 			argStr = ""
 		end
 	end
 
 	if argStr ~= "" then
-		M.PSS_AddIgnore (argStr)
+		M.PSS_AddIgnore (argStr, nil, exact)
 	end
 end
 
@@ -609,7 +807,6 @@ end
 BlizzardAddIgnore			= C_FriendList.AddIgnore
 BlizzardDelIgnore			= C_FriendList.DelIgnore
 BlizzardDelIgnoreByIndex	= C_FriendList.DelIgnoreByIndex
-local pssHookGuard = false
 
 -- name: "Name[-Realm] [days] [note]" as typed, or with exactName = true the
 -- whole string is the character name (it may contain a space).
@@ -623,7 +820,7 @@ M.PSS_AddIgnore = function(name, noNote, exactName)
 
 	--print("DEBUG: Info sent to C_FriendList.AddIgnore name="..(name or "nil") .. " note="..(noNote or "nil"))
 	if (not name or name == "") then
-		name = M.PSS_UnitFullName("target")
+		name, exactName = M.PSS_UnitFullName("target"), true
 	end
 
 	if (not name or name == "") then
@@ -655,13 +852,12 @@ M.PSS_AddIgnore = function(name, noNote, exactName)
 		end
 	end
 
-	V.needSorted = true
 	name		= M.Proper(M.addServer(name))
 
 	local tmp = M.removeServer(name, true)
 	if (tmp == "") or (tmp == _G.UNKNOWN) then return end
 
-	if M.Proper(M.addServer(UnitName("player"))) ~= name then
+	if M.PSS_PlayerDisplayName() ~= name then
 
 		local index = M.hasGlobalIgnored(name)
 
@@ -669,7 +865,7 @@ M.PSS_AddIgnore = function(name, noNote, exactName)
 			AddToList(name, currentFaction(), note)
 			-- "/pss add Name 30 note": the days were parsed but never saved
 			local newIndex = M.hasGlobalIgnored(name)
-			if newIndex > 0 and tonumber(days) then PourSocialScoreDB.expList[newIndex] = tonumber(days) end
+			if newIndex > 0 and tonumber(days) then M.PSS_SetEntryExp(newIndex, days) end
 
 			if M.PSS_Opt("asknote") == true and not noNote then
 
@@ -679,21 +875,10 @@ M.PSS_AddIgnore = function(name, noNote, exactName)
 			if okDisplay == true then
 				M.ShowMsg(format(L["ADD_2"], name))
 			end
-
-			-- Blizzard's ignore list blocks everything, so it is only used when
-			-- you opt in to it (Options > "Also put listed players on
-			-- Blizzard's ignore list")
-			if M.PSS_Opt("blizzardSync") == true and hasIgnored(name) == 0 and C_FriendList.GetNumIgnores() < maxIgnoreSize then
-				pssHookGuard = true; BlizzardAddIgnore(M.removeServer(name)); pssHookGuard = false
-			end
-		else
-			if hasIgnored(name) > 0 then
-				if okDisplay == true then
-					M.ShowMsg(format(L["ADD_1"], name))
-				end
-			elseif M.PSS_Opt("blizzardSync") == true and C_FriendList.GetNumIgnores() < maxIgnoreSize then
-				pssHookGuard = true; BlizzardAddIgnore(M.removeServer(name)); pssHookGuard = false
-			end
+			-- (Blizzard's ignore list blocks everything, so a player goes on it
+			-- only when it is ticked for them: M.PSS_SetBlizzardIgnore)
+		elseif okDisplay == true then
+			M.ShowMsg(format(L["ADD_1"], name))
 		end
 
 		--removeDeleted(name)
@@ -715,11 +900,10 @@ function M.PSS_AddPlayer(name, note, days, unit)
 	local full = M.Proper(M.addServer(name))
 	local idx = M.hasGlobalIgnored(full)
 	if idx and idx > 0 then
-		if type(note) == "string" and note ~= "" then PourSocialScoreDB.notes[idx] = note end
-		if tonumber(days) and tonumber(days) > 0 then PourSocialScoreDB.expList[idx] = tonumber(days) end
+		if type(note) == "string" and note ~= "" then M.PSS_SetEntryNote(idx, note) end
+		if tonumber(days) and tonumber(days) > 0 then M.PSS_SetEntryExp(idx, days) end
 		if unit and M.PSS_SetPlayerMeta then M.PSS_SetPlayerMeta(full, unit) end
 	end
-	V.needSorted = true
 	M.Events.Fire("PLAYERS_CHANGED", true)
 end
 
@@ -762,9 +946,10 @@ end
 --                    NPC or server entry at that position is removed too.
 --   isPSS + name   : the player with that name.
 --   otherwise      : a Blizzard ignore list position or a name.
-M.PSS_DelIgnore = function(idxpos, isPSS)
+--   quiet          : no chat line (expiry says it once for all, N40)
+M.PSS_DelIgnore = function(idxpos, isPSS, quiet)
 
-	local okDisplay = true
+	local okDisplay = not quiet
 
 	if (V.PSS_InSync == true and M.PSS_Opt("chatmsg") == false) then
 		okDisplay = false
@@ -774,12 +959,11 @@ M.PSS_DelIgnore = function(idxpos, isPSS)
 
 	if isPSS and tonumber(idxpos) ~= nil then
 		index = tonumber(idxpos)
-		name = PourSocialScoreDB.ignoreList[index]
+		name = M.PSS_EntryName(index)
 		if name == nil then return end
-		if PourSocialScoreDB.typeList[index] ~= "player" then
+		if M.PSS_EntryKind(index) ~= "player" then
 			-- NPC / server entry: no Blizzard ignore to touch
 			RemoveFromList(index)
-			V.needSorted = true
 			M.Events.Fire("PLAYERS_CHANGED")
 			return
 		end
@@ -795,7 +979,6 @@ M.PSS_DelIgnore = function(idxpos, isPSS)
 		return
 	end
 
-	V.needSorted = true
 	name = M.Proper(M.addServer(name))
 	if index == 0 then index = M.hasGlobalIgnored(name) end
 
@@ -823,83 +1006,6 @@ M.PSS_AddOrDelIgnore = function(name)
 	end
 
 	if type(name) ~= "string" or M.PSS_IsSecret(name) or name == "" then return end		-- no name and no target
-
-	local find = string.find
-	local sub	= string.sub
-
-	-- try to resolve server if there isn't one due to Blizzard bugs
-
-	if not find(name, "-", nil, true) then
-		local pServers = {}
-		local pServer	= ""
-		local tempName, count
-
-		-- check group for a name
-
-		if IsInGroup() then
-			local prefix = IsInRaid() and "raid" or "party"
-
-			for count = 1, GetNumGroupMembers() do
-				tempName = GetUnitName(prefix..count, true)
-
-				if type(tempName) == "string" and not M.PSS_IsSecret(tempName) then
-					if M.removeServer(tempName, true) == name then
-						pServer = M.Proper(M.getServer(tempName), "")
-						--print ("DEBUG matched name: "..name)
-
-						if pServer ~= "" then
-							--print ("DEBUG adding possible server by group="..pServer)
-							pServers[#pServers + 1] = pServer
-						end
-					end
-				end
-			end
-		end
-
-		-- check chat history for a name
-
-		for count = 1, 20 do
-			local frameName = "ChatFrame"..count
-
-			local hb = _G[frameName] and _G[frameName].historyBuffer
-			if hb and hb.GetNumElements and hb.GetEntryAtIndex then
-				local msg, pos
-
-				for c = 1, hb:GetNumElements() do
-					local e = hb:GetEntryAtIndex(hb:GetNumElements() - c + 1)
-					msg = e and e.message
-					if type(msg) ~= "string" or (M.PSS_IsSecret and M.PSS_IsSecret(msg)) then msg = "" end
-					pos = find(msg, "|Hplayer:", 1, true)
-					--t = string.gsub(msg, "|", "!")
-
-					if pos then
-						--print("RAW="..t);
-						--tempName = sub(msg, pos + 9, find(msg, ":", pos + 10, true) - 1, true)
-						tempName = sub(msg, pos + 9, (find(msg, ":", pos + 9, true) or (find(msg, "|", pos + 10, true))) - 1)
-
-
-						if M.removeServer(tempName, true) == name then
-							--print ("DEBUG matched name: "..name)
-
-							pServer = M.Proper(M.getServer(tempName), "")
-
-							if pServer ~= "" then
-								--print("DEBUG Adding possible server name by chat="..pServer)
-								pServers[#pServers + 1] = pServer
-							end
-						end
-					end
-				end
-			end
-		end
-
-		if pServer ~= "" then
-			name = name .. "-" .. pServer
-		end
-
-		--print("FINAL="..pServer.. " name="..name)
-		--M.ShowMsg (L["ADD_4"])
-	end
 
 	if (not name or name == "") then
 		return
@@ -942,26 +1048,75 @@ local function takeBlizzSnapshot()
 end
 
 -- Blizzard's list already has them: only add to PSS, never call AddIgnore again
--- (2.0.8 did, which printed "already ignored").
+-- (2.0.8 did, which printed "already ignored"). B1: PSS is authoritative, so
+-- they come off Blizzard's list at its next update (processMoves), with a
+-- note saying where they came from; someone PSS already lists comes off too
+-- and keeps their note, unless they are ticked "Also on Blizzard's ignore list".
 local function addFromBlizzard(name)
 	if not V.PSS_Loaded or type(name) ~= "string" or M.PSS_IsSecret(name) or name == "" then return end
-	local full = M.Proper(M.addServer(name))
+	local full = M.Proper(M.addServer(M.PSS_FixUnitName(name)))
 	local short = M.removeServer(full, true)
 	if short == "" or short == _G.UNKNOWN then return end
-	if M.hasGlobalIgnored(full) > 0 then return end
-	if M.Proper(M.addServer(UnitName("player"))) == full then return end
-	AddToList(full, currentFaction())
-	V.needSorted = true
-	if M.PSS_Opt("chatmsg") ~= false then M.ShowMsg(format(L["ADD_2"], full)) end
-	M.Events.Fire("PLAYERS_CHANGED", true)
+	if M.PSS_PlayerDisplayName() == full then return end
+	if M.hasGlobalIgnored(full) == 0 then
+		takeOn(full)
+		if M.PSS_Opt("chatmsg") ~= false then M.ShowMsg(format(L["ADD_2"], full)) end
+		M.Events.Fire("PLAYERS_CHANGED", true)
+	end
+	local p = M.PSS_GetPlayerRecord(full)
+	if not (p and p.blizzardIgnore == true) then pendingMove[full] = GetTime() end
 end
 
-local function removeFromBlizzard(name)
+-- On a list update: the players waiting to come off Blizzard's list that it
+-- now shows come off it. A name not shown within 30 s is dropped.
+local function processMoves()
+	if next(pendingMove) == nil then return end
+	local now = GetTime()
+	for full, at in pairs(pendingMove) do
+		local idx = hasIgnored(full)
+		if idx > 0 then
+			pssHookGuard = true; BlizzardDelIgnoreByIndex(idx); pssHookGuard = false
+			pendingMove[full] = nil
+		elseif now - at > 30 then
+			pendingMove[full] = nil
+		end
+	end
+end
+
+-- Once per login, at the first list update: everyone on Blizzard's list
+-- whom PSS does not list is listed with the note and ticked, and stays on
+-- Blizzard's list; nobody is taken off it here. After upgrade step 8 the
+-- listed players already on it are ticked (V.PSS_TickOnSync).
+local loginSynced = false
+local function syncFromBlizzard()
+	loginSynced = true
+	local added = 0
+	for _, full in ipairs(blizzardNames()) do
+		if M.hasGlobalIgnored(full) == 0 and M.PSS_PlayerDisplayName() ~= full then
+			takeOn(full, true)
+			added = added + 1
+		end
+	end
+	if V.PSS_TickOnSync then
+		V.PSS_TickOnSync = nil
+		M.PSS_TickBlizzardIgnored()
+	end
+	if added > 0 then
+		if M.PSS_Opt("chatmsg") ~= false then
+			M.ShowMsg(("Added %d player%s from Blizzard's ignore list to Pour Social Score."):format(added, added == 1 and "" or "s"))
+		end
+		M.Events.Fire("PLAYERS_CHANGED", true)
+	end
+end
+
+-- full: the name as fixed when the toggle was made (M.PSS_FixUnitName)
+local function removeFromBlizzard(name, full)
 	if not V.PSS_Loaded or type(name) ~= "string" or M.PSS_IsSecret(name) or name == "" then return end
-	local index = M.hasGlobalIgnored(M.Proper(M.addServer(name)))
+	-- "First-Last" from a unit menu, or as it was stored before 3.4.1.33
+	local index = M.hasGlobalIgnored(M.Proper(M.addServer(full or M.PSS_FixUnitName(name))))
+	if index == 0 then index = M.hasGlobalIgnored(M.Proper(M.addServer(name))) end
 	if index > 0 then
 		RemoveFromList(index)
-		V.needSorted = true
 		M.Events.Fire("PLAYERS_CHANGED", true)
 	end
 end
@@ -978,7 +1133,8 @@ end
 
 local function PSS_IgnoreToggled(name)
 	if pssHookGuard or type(name) ~= "string" or M.PSS_IsSecret(name) or name == "" then return end
-	pendingToggle = { name = name, at = GetTime() }
+	-- the unit is read now: by the server's answer the target may have changed
+	pendingToggle = { name = name, full = M.PSS_FixUnitName(name), at = GetTime() }
 end
 
 local function PSS_IgnoreRemovedByIndex(index)
@@ -990,12 +1146,16 @@ local hookFrame = CreateFrame("Frame")
 hookFrame:RegisterEvent("IGNORELIST_UPDATE")
 hookFrame:RegisterEvent("PLAYER_LOGIN")
 hookFrame:SetScript("OnEvent", function(self, event)
-	if event == "IGNORELIST_UPDATE" and pendingToggle then
-		local pt = pendingToggle
-		pendingToggle = nil
-		if GetTime() - pt.at < 10 then
-			if hasIgnored(pt.name) > 0 then addFromBlizzard(pt.name) else removeFromBlizzard(pt.name) end
+	if event == "IGNORELIST_UPDATE" then
+		if pendingToggle then
+			local pt = pendingToggle
+			pendingToggle = nil
+			if GetTime() - pt.at < 10 then
+				if hasIgnored(pt.name) > 0 then addFromBlizzard(pt.full) else removeFromBlizzard(pt.name, pt.full) end
+			end
 		end
+		if not loginSynced and V.PSS_Loaded then syncFromBlizzard() end
+		processMoves()
 	end
 	takeBlizzSnapshot()
 end)
@@ -1013,9 +1173,9 @@ M.AddOrDelNPC = function (argStr)
 
 		local nIndex = tonumber(argStr)
 
-		if (nIndex > 0) and (PourSocialScoreDB.ignoreList[nIndex]) and (PourSocialScoreDB.typeList[nIndex] == "npc") then
+		if (nIndex > 0) and (M.PSS_EntryName(nIndex)) and (M.PSS_EntryKind(nIndex) == "npc") then
 
-			M.ShowMsg (format(L["CMD_12"], PourSocialScoreDB.ignoreList[nIndex]))
+			M.ShowMsg (format(L["CMD_12"], M.PSS_EntryName(nIndex)))
 			RemoveFromList(nIndex)
 		end
 	else
@@ -1038,7 +1198,7 @@ M.AddOrDelNPC = function (argStr)
 			local npcIndex = M.hasNPCIgnored(argStr)
 
 			if npcIndex > 0 then
-				local name = PourSocialScoreDB.ignoreList[npcIndex]
+				local name = M.PSS_EntryName(npcIndex)
 
 				M.ShowMsg (format(L["CMD_12"], name))
 				RemoveFromList(npcIndex)
@@ -1058,9 +1218,9 @@ M.AddOrDelServer = function (sName)
 
 		local sIndex = tonumber(sName)
 
-		if (sIndex > 0) and (PourSocialScoreDB.ignoreList[sIndex]) and (PourSocialScoreDB.typeList[sIndex] == "server") then
+		if (sIndex > 0) and (M.PSS_EntryName(sIndex)) and (M.PSS_EntryKind(sIndex) == "server") then
 
-			M.ShowMsg(format(L["CMD_19"], PourSocialScoreDB.ignoreList[sIndex]))
+			M.ShowMsg(format(L["CMD_19"], M.PSS_EntryName(sIndex)))
 			RemoveFromList(sIndex)
 		end
 
@@ -1107,29 +1267,19 @@ local function ensureDB()
 	PourSocialScoreDB.guildData = PourSocialScoreDB.guildData or {}
 end
 
-local function ensurePlayer(name)
+function ensurePlayer(name)
 	ensureDB()
 	local key = normalizePlayer(name)
 	if not key then return nil end
 	local p = PourSocialScoreDB.playerData[key]
 	if not p then
 		-- only what is known; empty text and zero counters are not stored
-		p = {
-			name = displayPlayer(name), whenBlocked = nowString(),
-			whispersBlocked = true, partyInvitesBlocked = true, guildInvitesBlocked = true, partyRaidBlocked = true,
-			channelsBlocked = true,
-		}
+		p = { name = displayPlayer(name), whenBlocked = nowString() }
 		PourSocialScoreDB.playerData[key] = p
 	else
 		p.name = p.name or displayPlayer(name)
 		p.whenBlocked = p.whenBlocked or nowString()
-		if p.whispersBlocked == nil then p.whispersBlocked = true end
-		if p.partyInvitesBlocked == nil then p.partyInvitesBlocked = true end
-		-- guild invites used to share the party-invite setting
-		if p.guildInvitesBlocked == nil then p.guildInvitesBlocked = p.partyInvitesBlocked end
-		if p.partyRaidBlocked == nil then p.partyRaidBlocked = true end
-		-- C (chat channels / public chat) was always blocked before it became a switch
-		if p.channelsBlocked == nil then p.channelsBlocked = true end
+		-- (a missing W I G P C switch blocks: nothing is filled in, S3)
 	end
 	return p, key
 end
@@ -1147,8 +1297,7 @@ end
 local OLD_COUNTERS = { "blockedWhispers", "blockedWhisperMessages", "blockedPrivateMessages", "blockedChatMessages", "blockedInvites" }
 local function mayHaveLines(p)
 	if type(p) ~= "table" then return false end
-	local c = p.blockCounts
-	if type(c) == "table" and (tonumber(c.total) or 0) > 0 then return true end
+	if History.CountTotal(p.blockCounts) > 0 then return true end
 	if type(p.blockHistory) == "table" and next(p.blockHistory) ~= nil then return true end
 	for _, f in ipairs(OLD_COUNTERS) do
 		if (tonumber(p[f]) or 0) > 0 then return true end
@@ -1165,11 +1314,9 @@ function M.PSS_ForgetPlayer(name, note)
 	if M.PSS_KeepBlockedOnBuiltIn then M.PSS_KeepBlockedOnBuiltIn(p and p.name or name, note) end
 	local owner = History.PlayerKey(p and p.name or name)
 	-- a line is only ever added with a count, so with nothing counted for
-	-- them there is nothing to clear and the block history (Logging) is
-	-- not loaded for it
-	if owner and (History.Loaded() or mayHaveLines(p)) then
-		History.Clear(function(h) return h.o == owner end)
-	end
+	-- them there are no saved lines; the block history (Logging) is never
+	-- loaded for it (History.ClearOwner marks them until it loads)
+	History.ClearOwner(owner, mayHaveLines(p))
 	History.ForgetRecent(owner)
 	if p then PourSocialScoreDB.playerData[key] = nil end
 end
@@ -1189,8 +1336,9 @@ function M.PSS_TidyPlayerData()
 	ensureDB()
 	local db = PourSocialScoreDB
 	local listed = {}
-	for i, name in ipairs(db.ignoreList or {}) do
-		if (db.typeList[i] or "player") == "player" then
+	for _, e in ipairs(db.list or {}) do
+		local name = e.name
+		if (e.kind or "player") == "player" then
 			local k = normalizePlayer(name)
 			if k then listed[k] = true end
 		end
@@ -1222,24 +1370,22 @@ end
 
 -- The note of list entry index.
 function M.PSS_SetNote(index, note)
-	if not PourSocialScoreDB.ignoreList[index] then return end
-	PourSocialScoreDB.notes[index] = note
+	M.PSS_SetEntryNote(index, note)
 end
 
 -- Days after the date added that list entry index expires (0 = never).
 function M.PSS_SetExpiry(index, days)
-	if not PourSocialScoreDB.ignoreList[index] then return end
-	PourSocialScoreDB.expList[index] = days
+	M.PSS_SetEntryExp(index, days)
 end
 
 -- Per-player block parameters
-local PLAYER_FIELDS = { whispersBlocked = true, partyInvitesBlocked = true, guildInvitesBlocked = true, partyRaidBlocked = true, channelsBlocked = true }
+local PLAYER_FIELDS = M.PSS_BLOCK_FIELD_SET
 function M.PSS_SetPlayerSetting(name, field, value)
 	local p = ensurePlayer(name)
 	if not p or not PLAYER_FIELDS[field] then return end
-	local was = p[field] == true
-	p[field] = value == true
-	if p[field] and not was then
+	local was = p[field] ~= false
+	if value == true then p[field] = nil else p[field] = false end
+	if p[field] ~= false and not was then
 		-- newly blocked: clear what they already said (whisper / chat
 		-- switches) and decline an invite from them that is still open
 		if field == "whispersBlocked" or field == "partyRaidBlocked" or field == "channelsBlocked" then
@@ -1309,14 +1455,6 @@ function M.PSS_GetPlayerBlockCounts(nameOrRecord)
 	return p.blockCounts
 end
 
--- total, whispers, chat messages, invites
-function M.PSS_GetPlayerBlockTotals(name)
-	local p = M.PSS_GetPlayerRecord(name)
-	if not p then return 0, 0, 0, 0 end
-	local c = M.PSS_GetPlayerBlockCounts(p)
-	return c.total, c.whisper, c.partyRaid + c.world, c.partyInvite + c.guildInvite
-end
-
 -- Log key of a listed player (record or name).
 function M.PSS_PlayerHistoryKey(nameOrRecord)
 	if type(nameOrRecord) == "table" then return History.PlayerKey(nameOrRecord.name) end
@@ -1335,7 +1473,7 @@ function M.PSS_ResetPlayerBlockHistory(name)
 	local p = ensurePlayer(name)
 	if p then
 		local key = History.PlayerKey(p.name or name)
-		History.Clear(function(h) return h.o == key end)
+		History.ClearOwner(key)
 		History.ForgetRecent(key)
 		p.blockHistory = nil
 		p.blockedWhispers, p.blockedWhisperMessages, p.blockedPrivateMessages = nil, nil, nil
@@ -1356,10 +1494,10 @@ function M.PSS_MarkIgnoreIndexDirty() idx.dirty = true end
 
 local function rebuildIndex()
 	local players, pos, npcs, servers = {}, {}, {}, {}
-	local list = PourSocialScoreDB and PourSocialScoreDB.ignoreList or {}
-	local types = PourSocialScoreDB and PourSocialScoreDB.typeList or {}
-	for i, name in ipairs(list) do
-		local t = types[i] or "player"
+	local list = PourSocialScoreDB and PourSocialScoreDB.list or {}
+	for i, e in ipairs(list) do
+		local name = e.name
+		local t = e.kind or "player"
 		if type(name) == "string" then
 			if t == "player" then
 				local c = canonPlayer(name)
@@ -1379,7 +1517,7 @@ local function rebuildIndex()
 end
 
 local function ensureIndex()
-	local n = PourSocialScoreDB and PourSocialScoreDB.ignoreList and #PourSocialScoreDB.ignoreList or 0
+	local n = PourSocialScoreDB and PourSocialScoreDB.list and #PourSocialScoreDB.list or 0
 	-- rebuilt only when the list changed (no timed rebuilds)
 	if idx.dirty or n ~= idx.count then rebuildIndex() end
 end
@@ -1389,7 +1527,7 @@ local function listedName(canon)
 	ensureIndex()
 	local name = idx.players[canon]
 	if not name then return nil end
-	if PourSocialScoreDB.ignoreList[idx.pos[canon]] ~= name then
+	if M.PSS_EntryName(idx.pos[canon]) ~= name then
 		rebuildIndex()
 		name = idx.players[canon]
 	end
@@ -1410,20 +1548,37 @@ end
 ------------------------------------------------------------------------
 -- "player" person source for the core
 ------------------------------------------------------------------------
+-- reused (P4, N35): the entry of each listed person, at most LOOKUP_KEEP
+-- of them, and the option context (used at once, never kept)
+local LOOKUP_KEEP = 300
+local lookupKept, lookupKeptCount = {}, 0
+local optCtx = {}
+
 if M.PSS_RegisterBlockSource then
 	M.PSS_RegisterBlockSource({
 		id = "player", order = 10, label = "Player Ignore List",
 		lookup = function(canon)
 			local name = listedName(canon)
 			if not name then return nil end
-			return { name = name, p = ensurePlayer(name) }
+			local p = ensurePlayer(name)
+			-- the entry of a listed person is kept for their next line
+			-- (P4, N35); checked against the current name and record
+			local e = lookupKept[canon]
+			if e and e.name == name and e.p == p then return e end
+			if lookupKept[canon] == nil then
+				if lookupKeptCount >= LOOKUP_KEEP then lookupKept, lookupKeptCount = {}, 0 end
+				lookupKeptCount = lookupKeptCount + 1
+			end
+			e = { name = name, p = p }
+			lookupKept[canon] = e
+			return e
 		end,
 		decide = function(e, cat, ctx)
 			local p = e.p
-			if cat == "whisper" then return p.whispersBlocked == true
-			elseif cat == "partyRaid" then return p.partyRaidBlocked == true
-			elseif cat == "partyInvite" then return p.partyInvitesBlocked == true
-			elseif cat == "guildInvite" then return p.guildInvitesBlocked == true
+			if cat == "whisper" then return p.whispersBlocked ~= false
+			elseif cat == "partyRaid" then return p.partyRaidBlocked ~= false
+			elseif cat == "partyInvite" then return p.partyInvitesBlocked ~= false
+			elseif cat == "guildInvite" then return p.guildInvitesBlocked ~= false
 			elseif cat == "world" then return p.channelsBlocked ~= false	-- C: channels, say, yell, emotes
 			elseif cat == "duel" then return opt("declineDuel", { person = p.opts }) ~= false
 			elseif cat == "trade" then return opt("declineTrade", { person = p.opts }) ~= false
@@ -1435,7 +1590,7 @@ if M.PSS_RegisterBlockSource then
 			local inviteKind = (cat == "partyInvite" and "group") or (cat == "guildInvite" and "guild") or nil
 			M.PSS_RecordPlayerBlock(e.name, ctx.event, ctx.msg, inviteKind, cat)
 		end,
-		optionContext = function(e) return { person = e.p.opts } end,
+		optionContext = function(e) optCtx.person = e.p.opts; return optCtx end,
 		describe = function(e) return "Player Ignore List (" .. tostring(e.name) .. ")" end,
 	})
 end
@@ -1486,9 +1641,6 @@ if M.PSS_RegisterBlockHandler then
 		if doLoginIgnore and V.PSS_Loaded and since > 90 then doLoginIgnore = false end
 		if doLoginIgnore or (V.PSS_InSync == true and PourSocialScoreDB and M.PSS_Opt("chatmsg") == false) then
 			if message == ERR_IGNORE_NOT_FOUND or message == ERR_FRIEND_ERROR then return true end
-			for _, fmt in ipairs({ ERR_IGNORE_ADDED_S, ERR_IGNORE_REMOVED_S, ERR_IGNORE_ALREADY_S }) do
-				if type(fmt) == "string" and message:find((fmt:gsub("%%s", "")), 1, true) then return true end
-			end
 		end
 
 		-- "<Name> has come online / gone offline" for listed players and servers

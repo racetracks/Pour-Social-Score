@@ -40,17 +40,6 @@ local function isSecret(v)
 end
 M.PSS_IsSecret = isSecret
 
--- A unit's "Name-Realm" ("Name" on your own realm), or nil when there is no
--- such unit or its name is secret (Retail 12.x, while restricted).
-function M.PSS_UnitFullName(unit)
-	local name, server = UnitName(unit)
-	if type(name) ~= "string" or isSecret(name) or name == "" then return nil end
-	if type(server) == "string" and not isSecret(server) and server ~= "" then
-		return name .. "-" .. server
-	end
-	return name
-end
-
 local trim = M.trim
 
 local realmCache
@@ -67,11 +56,40 @@ local function ownRealm()
 end
 M.PSS_OwnRealm = ownRealm
 
--- "Name" / "Name-Realm" / "Name-Aerie Peak" -> "name-realm" as chat writes it.
-function M.PSS_NormalizePlayer(name)
+-- A unit on your own realm has no realm to give, so a second value from
+-- UnitName is a surname: Camelot's "First Last" characters arrive as
+-- ("First", "Last") with UnitRealmRelationship 1 (confirmed in game,
+-- 2026-10-08). Clients without the API keep the value as a realm.
+-- Your own character is always on your own realm, so its second value is
+-- always a surname.
+local REALM_SAME = LE_REALM_RELATION_SAME or 1
+local function isSurname(unit)
+	if unit == "player" then return true end
+	if not unit or not UnitRealmRelationship then return false end
+	local rel = UnitRealmRelationship(unit)
+	return not isSecret(rel) and rel == REALM_SAME
+end
+
+-- The one place a name and a realm are joined: "Name" / "Name-Realm" as
+-- given, or name and realm from a unit API (unit given: the surname rule
+-- above, "First Last-<own realm>"). nil when secret or empty.
+local function joinName(name, realm, unit)
 	if type(name) ~= "string" or isSecret(name) then return nil end
 	name = trim(name)
 	if name == "" then return nil end
+	if type(realm) == "string" and not isSecret(realm) then
+		realm = trim(realm)
+		if realm ~= "" then
+			if isSurname(unit) then return name .. " " .. realm .. "-" .. ownRealm() end
+			return name .. "-" .. realm
+		end
+	end
+	return name
+end
+
+-- Storage key: "Name" / "Name-Realm" / "Name-Aerie Peak" -> "name-realm" as
+-- chat writes it.
+local function keyOf(name)
 	local dash = name:find("-", 1, true)
 	if not dash then
 		name = name .. "-" .. ownRealm()
@@ -83,15 +101,77 @@ end
 
 -- Matching key: like the above, but the realm is also stripped of
 -- apostrophes, so "Aman'Thul" / "AmanThul" / "Area 52" / "Area52" all match.
-function M.PSS_CanonPlayer(name)
-	if type(name) ~= "string" or isSecret(name) then return nil end
-	name = trim(name)
-	if name == "" then return nil end
+local function canonOf(name)
 	local base, realm = name:match("^([^%-]+)%-(.+)$")
 	if not base then base, realm = name, ownRealm() end
 	base = trim(base):gsub("%s+", " ")			-- "First  Last" == "First Last"
 	realm = (realm or ""):gsub("[%s%-']", "")
 	return (base .. "-" .. realm):lower()
+end
+
+local function displayOf(name)
+	if M.Proper then return M.Proper(M.addServer and M.addServer(name) or name) end
+	return name
+end
+
+-- M.PSS_NormName(name [, realm [, unit]]) -> display, key, canon, or nil when
+-- secret or empty. Every name builder goes through it (core uplift N1).
+function M.PSS_NormName(name, realm, unit)
+	local full = joinName(name, realm, unit)
+	if not full then return nil end
+	return displayOf(full), keyOf(full), canonOf(full)
+end
+
+-- A unit's "Name-Realm" ("Name" on your own realm, "First Last-Realm" for a
+-- surname), or nil when there is no such unit or its name is secret (Retail
+-- 12.x, while restricted).
+function M.PSS_UnitFullName(unit)
+	local name, server = UnitName(unit)
+	return joinName(name, server, unit)
+end
+
+-- Your own character's "Name-Realm" display ("First Last-Realm" with a
+-- surname), the same shape as M.Proper(M.addServer(name)).
+function M.PSS_PlayerDisplayName()
+	if not UnitName then return nil end
+	local n, r = UnitName("player")
+	return (M.PSS_NormName(n, r, "player"))
+end
+
+-- A "First-Last" name handed to a hook (Blizzard's Ignore from a unit menu)
+-- is "First Last-<own realm>" when a unit the player can be acting on has
+-- that name and surname; anything else is returned as it is. Hook paths only.
+local FIX_UNITS = { "target", "mouseover", "focus" }
+local function unitHasSurname(u, base, rest)
+	if not UnitExists or not UnitExists(u) then return false end
+	local n, r = UnitName(u)
+	if type(n) ~= "string" or type(r) ~= "string" or isSecret(n) or isSecret(r) then return false end
+	return n == base and r == rest and isSurname(u)
+end
+function M.PSS_FixUnitName(name)
+	if type(name) ~= "string" or isSecret(name) or not UnitName then return name end
+	local base, rest = name:match("^([^%s%-]+)%-([^%s%-]+)$")
+	if not base then return name end
+	for _, u in ipairs(FIX_UNITS) do
+		if unitHasSurname(u, base, rest) then return base .. " " .. rest .. "-" .. ownRealm() end
+	end
+	if IsInGroup and IsInGroup() and GetNumGroupMembers then
+		local prefix = IsInRaid and IsInRaid() and "raid" or "party"
+		for i = 1, GetNumGroupMembers() do
+			if unitHasSurname(prefix .. i, base, rest) then return base .. " " .. rest .. "-" .. ownRealm() end
+		end
+	end
+	return name
+end
+
+function M.PSS_NormalizePlayer(name)
+	local full = joinName(name)
+	return full and keyOf(full)
+end
+
+function M.PSS_CanonPlayer(name)
+	local full = joinName(name)
+	return full and canonOf(full)
 end
 local canonPlayer = M.PSS_CanonPlayer
 
@@ -101,11 +181,19 @@ function M.PSS_CanonRealm(realm)
 	return realm ~= "" and realm or nil
 end
 
+-- guild name -> canon, for the names seen on chat lines (P4, N28): a small
+-- table that starts over when it fills
+local guildCanons, guildCanonCount = {}, 0
 function M.PSS_CanonGuild(name)
 	if type(name) ~= "string" or isSecret(name) then return nil end
-	name = trim(name):gsub("%s+", " ")
-	if name == "" then return nil end
-	return name:lower()
+	local c = guildCanons[name]
+	if c ~= nil then return c or nil end
+	local n = trim(name):gsub("%s+", " ")
+	c = n ~= "" and n:lower() or false
+	if guildCanonCount >= 500 then guildCanons, guildCanonCount = {}, 0 end
+	guildCanons[name] = c
+	guildCanonCount = guildCanonCount + 1
+	return c or nil
 end
 
 function M.PSS_NowString()
@@ -113,9 +201,9 @@ function M.PSS_NowString()
 end
 
 function M.PSS_DisplayPlayer(name)
-	if not name then return "" end
-	if M.Proper then return M.Proper(M.addServer and M.addServer(name) or name) end
-	return name
+	local full = joinName(name)
+	if not full then return "" end
+	return displayOf(full)
 end
 
 ------------------------------------------------------------------------
@@ -148,19 +236,16 @@ local EVENT_CATEGORY = {
 	CHAT_MSG_MONSTER_WHISPER = "npc", CHAT_MSG_MONSTER_YELL = "npc",
 	CHAT_MSG_SYSTEM = "system",
 }
-M.PSS_EVENT_CATEGORY = EVENT_CATEGORY
 function M.PSS_EventCategory(event) return EVENT_CATEGORY[event] end
 
 -- Categories chat filters (custom text logic) may act on.
 local TEXT_CATEGORIES = { whisper = true, partyRaid = true, world = true, guildChat = true }
 
--- Labels for history/UI.
-M.PSS_BLOCK_CATEGORIES = { "whisper", "partyInvite", "partyRaid", "world", "guildInvite" }
-M.PSS_BLOCK_LABELS = {
-	whisper = "Whisper", partyInvite = "Party Invite", partyRaid = "Party/Raid",
-	world = "World Chat", guildInvite = "Guild Invite", guildChat = "Guild Chat",
-	other = "Other", duel = "Duel", trade = "Trade",
-}
+-- Labels for history/UI: History's categories and words, plus the extra kinds.
+M.PSS_BLOCK_LABELS = { other = "Other", duel = "Duel", trade = "Trade" }
+for cat, label in pairs(M.PSS_History.CAT_LABEL) do
+	if cat ~= "unknown" then M.PSS_BLOCK_LABELS[cat] = label end
+end
 
 local EVENT_CHANNEL = {
 	CHAT_MSG_WHISPER = "Whisper", CHAT_MSG_BN_WHISPER = "Battle.net Whisper",
@@ -225,7 +310,6 @@ function M.PSS_RegisterBlockSource(def)
 	table.sort(sources, function(a, b) return (a.order or 50) < (b.order or 50) end)
 end
 
-function M.PSS_GetBlockSources() return sources end
 
 -- kind: "system", "npc", "realm", "text"; fn(ctx) -> blocked[, info]
 function M.PSS_RegisterBlockHandler(kind, id, fn)
@@ -287,7 +371,7 @@ local function isSelf(canon, guid)
 	if not playerGUID then playerGUID = UnitGUID and UnitGUID("player") end
 	if not playerCanon and UnitName then
 		local n, r = UnitName("player")
-		if n then playerCanon = canonPlayer((r and r ~= "") and (n .. "-" .. r) or n) end
+		playerCanon = select(3, M.PSS_NormName(n, r, "player"))
 	end
 	return (guid and playerGUID and guid == playerGUID) or (canon and canon == playerCanon)
 end
@@ -538,14 +622,15 @@ end
 M.PSS_CoreFilter = CoreFilter
 
 -- Dry-run explanation for diagnostics: { {source=, listed=true, blocked={cat=bool}} }
+local EXPLAIN_ORDER = { "whisper", "partyRaid", "world", "guildChat", "partyInvite", "guildInvite", "duel", "trade" }
 function M.PSS_ExplainPerson(name)
 	local canon = canonPlayer(name)
-	local out = { canon = canon, sources = {} }
+	local out = { canon = canon, sources = {}, order = EXPLAIN_ORDER }
 	if not canon then return out end
 	local found = lookupPeople(canon, {})
 	for _, f in ipairs(found or {}) do
 		local row = { src = f.src, entry = f.entry, blocked = {} }
-		for _, cat in ipairs({ "whisper", "partyRaid", "world", "guildChat", "partyInvite", "guildInvite", "duel", "trade" }) do
+		for _, cat in ipairs(EXPLAIN_ORDER) do
 			local ok, b = pcall(f.src.decide, f.entry, cat, {})
 			row.blocked[cat] = ok and b == true
 		end
@@ -578,7 +663,6 @@ local function chatFrames()
 	end
 	return list
 end
-M.PSS_ChatFrames = chatFrames
 
 function M.PSS_PurgeChatFrom(keys)
 	if type(keys) ~= "table" or not next(keys) then return end
@@ -765,7 +849,6 @@ M.PSS_FilterAvailable = type(AddFilter) == "function"
 if M.PSS_FilterAvailable then
 	for event in pairs(EVENT_CATEGORY) do AddFilter(event, CoreFilter) end
 end
-M.PSS_CoreEvents = EVENT_CATEGORY
 
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PARTY_INVITE_REQUEST")
@@ -800,7 +883,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
 	if not ok then noteError(err) end
 end)
 
--- Test hooks for an offline test harness (not shipped with the addon).
+-- Test hooks for an offline test harness (used only by tools/harness).
 M.PSS__CoreTest = {
 	handlePartyInvite = handlePartyInvite, handleGuildInvite = handleGuildInvite,
 	handleDuel = handleDuel, handleTrade = handleTrade, handleWhisperSent = handleWhisperSent,

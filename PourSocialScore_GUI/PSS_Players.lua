@@ -51,7 +51,7 @@ local function DrawRow(row, i)
 	cells.name:SetTextColor(M.PSS_ClassColor(r.record and r.record.class))
 	cells.server:SetText(r.server)
 	cells.type:SetText(M.PSS_PlayerTypeText(r))
-	cells.listed:SetText(r.listed .. "d")
+	cells.listed:SetText(M.PSS_PlayerListedText(r))
 	cells.expire:SetText(M.PSS_PlayerExpireText(r))
 	cells["metric:total"]:SetText(r.record and M.PSS_PlayerTotal(r.record) or "")
 	row.sel:SetShown(r.entry == sel)
@@ -65,22 +65,6 @@ end
 ------------------------------------------------------------------------
 -- Detail pane
 ------------------------------------------------------------------------
-local function Line(parent, y)
-	local fs = ns.NewText(parent, 12)
-	fs:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y)
-	fs:SetPoint("RIGHT", parent, "RIGHT", -10, 0)
-	fs:SetJustifyH("LEFT")
-	return fs
-end
-
-local function Label(parent, text)
-	local fs = ns.NewText(parent, 12)
-	fs:SetPoint("LEFT", parent, "LEFT", 0, 0)
-	fs:SetText(text)
-	fs:SetAlpha(0.7)
-	return fs
-end
-
 -- The note and expiry boxes save to the entry that was shown when typing
 -- started, even when the click that ends it selects another entry.
 local function EditStart()
@@ -130,7 +114,7 @@ local function BuildPane(parent)
 	pane.pages = dp
 
 	-- Summary: the counts and the period pie
-	pane.counts = Line(dp.summary, -6)
+	pane.counts = ns.NewLine(dp.summary, -6)
 	pane.player[#pane.player + 1] = pane.counts
 	pane.summary = ns.NewSummary(dp.summary, page, -30)
 	pane.sumSpec = { specFn = M.PSS_PlayerEventsSpec, who = "this player" }
@@ -138,18 +122,16 @@ local function BuildPane(parent)
 	-- View/Edit Rule
 	local rule = dp.rule
 	local y = -2
-	pane.typeLine = Line(rule, y); y = y - LINE_H
-	pane.addedLine = Line(rule, y); y = y - LINE_H
-	pane.guildLine = Line(rule, y); y = y - LINE_H
-	pane.inviteLine = Line(rule, y); y = y - LINE_H - 6
+	pane.typeLine = ns.NewLine(rule, y); y = y - LINE_H
+	pane.addedLine = ns.NewLine(rule, y); y = y - LINE_H
+	pane.guildLine = ns.NewLine(rule, y); y = y - LINE_H
+	pane.inviteLine = ns.NewLine(rule, y); y = y - LINE_H - 6
 	pane.player[#pane.player + 1] = pane.guildLine
 	pane.player[#pane.player + 1] = pane.inviteLine
 
 	-- expiry: days after the date added, 0 = never
-	local expRow = CreateFrame("Frame", nil, rule)
-	expRow:SetPoint("TOPLEFT", rule, "TOPLEFT", 10, y)
-	expRow:SetSize(DETAIL_W - 20, 22)
-	Label(expRow, "Expires after")
+	local expRow = ns.NewStrip(rule, y, 22, DETAIL_W - 20)
+	ns.NewLabel(expRow, "Expires after")
 	local exp = ns.NewNumberBox(expRow, 44)
 	exp:SetPoint("LEFT", expRow, "LEFT", 90, 0)
 	exp:SetMaxLetters(4)
@@ -163,10 +145,8 @@ local function BuildPane(parent)
 	pane.expireBox = exp
 	y = y - 26
 
-	local noteRow = CreateFrame("Frame", nil, rule)
-	noteRow:SetPoint("TOPLEFT", rule, "TOPLEFT", 10, y)
-	noteRow:SetSize(DETAIL_W - 20, 22)
-	Label(noteRow, "Note")
+	local noteRow = ns.NewStrip(rule, y, 22, DETAIL_W - 20)
+	ns.NewLabel(noteRow, "Note")
 	local note = ns.NewEditBox(noteRow, 200, 128)
 	note:SetPoint("LEFT", noteRow, "LEFT", 94, 0)
 	note:SetPoint("RIGHT", noteRow, "RIGHT", -4, 0)
@@ -178,24 +158,24 @@ local function BuildPane(parent)
 	y = y - 28
 
 	-- W I G P C (ticked = allowed)
-	local exRow = CreateFrame("Frame", nil, rule)
-	exRow:SetPoint("TOPLEFT", rule, "TOPLEFT", 10, y)
-	exRow:SetSize(DETAIL_W - 20, 24)
-	Label(exRow, "Allowed")
-	pane.excl = {}
-	local prev
-	for _, e in ipairs(M.EXCL) do
-		local c = ns.NewCheck(exRow)
-		if prev then c:SetPoint("LEFT", prev, "RIGHT", 22, 0) else c:SetPoint("LEFT", exRow, "LEFT", 90, 0) end
-		local letter = ns.NewText(exRow, 12)
-		letter:SetPoint("LEFT", c, "RIGHT", 0, 0)
-		letter:SetText(e.letter)
-		ns.TipOn(c, c, e.label .. "\n\nTicked = allowed from this player, unticked = blocked.")
-		c:SetScript("OnClick", function(self) M.PSS_PlayerToggleAllowed(sel, e.field, self:GetChecked()) end)
-		pane.excl[e.cat] = c
-		prev = letter
-	end
+	local exRow
+	pane.excl, exRow = ns.NewAllowedBoxes(rule, y, DETAIL_W - 20, "Ticked = allowed from this player, unticked = blocked.",
+		function(_, box, _, e) M.PSS_PlayerToggleAllowed(sel, e.field, box:GetChecked()) end)
 	pane.player[#pane.player + 1] = exRow
+	y = y - 28
+
+	-- Also on Blizzard's ignore list (off by default)
+	local bzRow = ns.NewStrip(rule, y, 24, DETAIL_W - 20)
+	ns.NewLabel(bzRow, "Blizzard")
+	local bz = ns.NewCheck(bzRow)
+	bz:SetPoint("LEFT", bzRow, "LEFT", 90, 0)
+	local bzText = ns.NewText(bzRow, 12)
+	bzText:SetPoint("LEFT", bz, "RIGHT", 0, 0)
+	bzText:SetText(M.PSS_BLIZZARD_TEXT)
+	ns.TipOn(bz, bz, M.PSS_BLIZZARD_TIP)
+	bz:SetScript("OnClick", function(self) M.PSS_PlayerToggleBlizzard(sel, self:GetChecked()) end)
+	pane.blizzard = bz
+	pane.player[#pane.player + 1] = bzRow
 	y = y - 28
 
 	-- exceptions to the Options for this player (ticked = it happens)
@@ -251,7 +231,7 @@ function ns.ShowPlayerDetail(newEntry)
 	pane.heading:SetText(M.PSS_PlayerHeading(r))
 	pane.typeLine:SetText(M.PSS_PlayerTypeLine(r))
 	pane.addedLine:SetText(M.PSS_PlayerAddedLine(r))
-	if not pane.expireBox:HasFocus() then pane.expireBox:SetText(tostring(tonumber(r.expire) or 0)) end
+	if not pane.expireBox:HasFocus() then pane.expireBox:SetText(M.PSS_PlayerExpireBoxText(r)) end
 	pane.expireNote:SetText(M.PSS_PlayerExpireNote(r))
 	if not pane.noteBox:HasFocus() then pane.noteBox:SetText(r.note or "") end
 
@@ -262,15 +242,16 @@ function ns.ShowPlayerDetail(newEntry)
 	end
 	pane.guildLine:SetText(M.PSS_PlayerGuildLine(p))
 	pane.inviteLine:SetText(M.PSS_PlayerInviteLine(p))
-	local guild, listed = M.PSS_PlayerGuildState(p)
+	local guild, listed, guildText = M.PSS_PlayerGuildState(p)
 	if guild then
 		pane.addGuild.guild = guild
-		pane.addGuild:SetText(listed and "Guild listed" or "Add Guild")
+		pane.addGuild:SetText(guildText)
 		pane.addGuild:SetEnabled(not listed)
 		pane.addGuild:Show()
 	end
 
 	for _, e in ipairs(M.EXCL) do pane.excl[e.cat]:SetChecked(M.PSS_PlayerAllowed(p, e.field)) end
+	pane.blizzard:SetChecked(M.PSS_PlayerOnBlizzard(p))
 	pane.exceptions:Set(p, "person", "this player")
 
 	local c = M.PSS_GetPlayerBlockCounts(p)
@@ -279,8 +260,19 @@ function ns.ShowPlayerDetail(newEntry)
 	-- read again only when the entry or its count changed; the block
 	-- history (PourSocialScore_Logging) loads only when asked for
 	pane.hist:Set(r.entry, c.total or 0, M.PSS_GetPlayerBlockHistory, newEntry)
+	pane.summary:Set(M.PSS_PlayerSummarySpec(r, c, pane.sumSpec))
+end
+
+-- A block only changes the counts: the counts line, the history and the
+-- Summary (the rest of the pane is as it was). Anything else: the whole pane.
+function ns.ShowPlayerCounts()
+	local p = pane and pane.record
+	if not (p and sel and pane.body:IsShown()) then return ns.ShowPlayerDetail() end
+	local c = M.PSS_GetPlayerBlockCounts(p)
+	pane.counts:SetText(M.PSS_CountsText(c))
+	pane.hist:Set(sel, c.total or 0, M.PSS_GetPlayerBlockHistory)
 	local s = pane.sumSpec
-	s.owner, s.allTime, s.title, s.id = M.PSS_PlayerHistoryKey(r.entry), c.total or 0, r.name or r.entry, r.entry
+	s.allTime = c.total or 0
 	pane.summary:Set(s)
 end
 
@@ -340,69 +332,26 @@ local function ClosePicker()
 	return true
 end
 
-local function DrawPick(row, i)
-	local it = picker.items[i]
-	local c = row.cells
-	if not it then
-		for _, fs in pairs(c) do fs:SetText("") end
-		row.sel:Hide()
-		return
-	end
-	M.PSS_PlayerPickerCells(it, pickCells)
-	c.tick:SetText(it.listed and "|cff808080[x]|r" or (it.ticked and "|cff00ff00[x]|r" or "[  ]"))
-	c.name:SetText(pickCells.name)
-	c.level:SetText(pickCells.level)
-	c.class:SetText(pickCells.class)
-	c.guild:SetText(pickCells.guild)
-	c.state:SetText(it.listed and "|cff808080listed|r" or "")
-	row.sel:SetShown(it.ticked and not it.listed)
-end
-
 local function BuildPicker(parent)
-	picker = CreateFrame("Frame", nil, parent)
-	picker:SetPoint("TOPLEFT", lf, "TOPLEFT", 0, 0)
-	picker:SetPoint("BOTTOMRIGHT", lf, "BOTTOMRIGHT", 0, 0)
-	picker:Hide()
-	picker.items = {}
-	picker.title = ns.NewText(picker, 12)
-	picker.title:SetPoint("TOPLEFT", picker, "TOPLEFT", 4, -4)
-	picker.title:SetPoint("RIGHT", picker, "RIGHT", -4, 0)
-	picker.title:SetJustifyH("LEFT")
-	local rf = CreateFrame("Frame", nil, picker)
-	rf:SetPoint("TOPLEFT", picker, "TOPLEFT", 0, -24)
-	rf:SetPoint("BOTTOMRIGHT", picker, "BOTTOMRIGHT", 0, 34)
-	picker.list = ns.NewRows(rf, {
-		rowH = 20, height = 240,
+	picker = ns.NewPicker(parent, lf, {
 		cols = {
-			{ key = "tick", text = "", width = 36, justify = "CENTER" },
 			{ key = "name", text = "Name" },
 			{ key = "level", text = "Level", width = 44, justify = "RIGHT" },
 			{ key = "class", text = "Class", width = 86 },
 			{ key = "guild", text = "Guild", width = 120 },
-			{ key = "state", text = "", width = 54 },
 		},
-		draw = DrawPick,
-		click = function(_, i)
-			if M.PSS_PickerToggle(picker.items[i]) then picker.list:Redraw() end
+		fill = function(c, it)
+			M.PSS_PlayerPickerCells(it, pickCells)
+			c.name:SetText(pickCells.name)
+			c.level:SetText(pickCells.level)
+			c.class:SetText(pickCells.class)
+			c.guild:SetText(pickCells.guild)
 		end,
+		toggle = M.PSS_PickerToggle,
+		tickAll = M.PSS_PickerTickAll,
+		save = function(items) M.PSS_PlayerPickerSave(items) end,
+		close = ClosePicker,
 	})
-	local save = ns.NewButton(picker, "Save", 90, function()
-		M.PSS_PlayerPickerSave(picker.items)
-		ClosePicker()
-	end)
-	save.pssPrimary = true
-	save.pssPaint()
-	save:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 4, 4)
-	picker.saveButton = save
-	local all = ns.NewButton(picker, "Tick All", 90, function()
-		M.PSS_PickerTickAll(picker.items)
-		picker.list:Redraw()
-	end)
-	all:SetPoint("LEFT", save, "RIGHT", 6, 0)
-	picker.allButton = all
-	local cancel = ns.NewButton(picker, "Cancel", 90, ClosePicker)
-	cancel:SetPoint("LEFT", all, "RIGHT", 6, 0)
-	picker.cancelButton = cancel
 end
 
 -- the /who answer (Libraries M.PSS_PlayerSearchFromText calls it)
@@ -416,11 +365,8 @@ local function ShowSearchResults(found, query)
 		return
 	end
 	M.PSS_PlayerPickerItems(found, picker.items)
-	picker.title:SetText(M.PSS_PlayerPickerTitle(#found, query))
 	lf:Hide()
-	picker:Show()
-	picker.list:SetCount(#picker.items)
-	picker.list:Top()
+	picker:ShowItems(M.PSS_PlayerPickerTitle(#found, query))
 end
 
 local function ConfirmPrune()
@@ -445,11 +391,7 @@ ns.TabBuilders.players = function(pg)
 	pg.count:SetPoint("LEFT", search, "RIGHT", 12, 0)
 	pg.count:SetAlpha(0.7)
 
-	local add = ns.NewEditBox(pg, 150, 64)
-	local addHint = ns.NewText(add, 12)
-	addHint:SetPoint("LEFT", add, "LEFT", 2, 0)
-	addHint:SetAlpha(0.4)
-	addHint:SetText("Name-Realm")
+	local add = ns.NewEditBox(pg, 150, 64, "Name-Realm")
 	local function AddPlayer()
 		local text = add:GetText()
 		add:SetText("")
@@ -467,7 +409,6 @@ ns.TabBuilders.players = function(pg)
 	searchButton:SetPoint("RIGHT", addButton, "LEFT", -6, 0)
 	searchButton:SetEnabled(not M.PSS_ScanCooldownActive())
 	add:SetPoint("RIGHT", searchButton, "LEFT", -8, 0)
-	add:SetScript("OnTextChanged", function(self) addHint:SetShown((self:GetText() or "") == "") end)
 	add:SetScript("OnEnterPressed", AddPlayer)
 	add:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 	ns.TipOn(addButton, addButton, "Adds the player typed in the box (Name or Name-Realm). With the box empty, adds your target if it is a player of your faction. Everything from them is blocked until you tick what to allow.")
@@ -543,7 +484,7 @@ end)
 local redrawCounts = M.PSS_Throttle(function()
 	if page and page:IsVisible() then
 		list:Redraw()
-		ns.ShowPlayerDetail()
+		ns.ShowPlayerCounts()
 	end
 end)
 ns.Listen("PLAYER_BLOCKED", function()

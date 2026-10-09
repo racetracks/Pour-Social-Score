@@ -19,6 +19,7 @@
 --   M.PSS_FilterNew()                   a new custom filter's number
 --   M.PSS_FilterTestText(filter, line)  BLOCKED / PASSED / FILTER ERROR
 --   M.PSS_AllFiltersSpec(), M.PSS_FilterEventsSpec(i)
+--   M.PSS_FilterSummarySpec(r, into)    fills the pane's Summary spec from row r
 ------------------------------------------------------------------------
 local addon = PourSocialScore_NS
 local M = addon.M
@@ -155,6 +156,12 @@ function M.PSS_AllFiltersSpec()
 		reset = M.PSS_ResetAllFilterHistory,
 	}
 	return allFilters
+end
+
+-- the Summary spec (history owner, all-time count, title, id) of a row
+function M.PSS_FilterSummarySpec(r, into)
+	into.owner, into.allTime, into.title, into.id = M.PSS_FilterOwnerKey(r.index), r.blocked or 0, r.desc, r.index
+	return into
 end
 
 local lrow = {}

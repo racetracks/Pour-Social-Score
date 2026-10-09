@@ -19,7 +19,6 @@
 ------------------------------------------------------------------------
 local addonName, addon = ...
 local L = addon.L
-local V = addon.V
 local M = addon.M
 
 local OPTIONS = {
@@ -33,7 +32,6 @@ local OPTIONS = {
 	{ key = "showWarning",		kind = "bool",		default = true, section = 1, label = L["OPT_18"] },
 	{ key = "defexpire",		kind = "number", default = 0,		section = 1, label = L["OPT_5"] },
 	-- Blocking (people)
-	{ key = "blizzardSync",		kind = "bool",		default = false, section = 1, label = "Also put listed players on Blizzard's ignore list (it ignores exclusions)" },
 	{ key = "ignoreResponse", kind = "bool",	default = false,	section = 2, label = L["OPT_24"], target = true },
 	{ key = "showDeclines",		kind = "bool",		default = false,		section = 2, label = L["OPT_28"], target = true },
 	{ key = "declineDuel",		kind = "bool",		default = true,		section = 2, label = "Decline duels from blocked players", target = true },
@@ -88,7 +86,7 @@ local charKeyCache
 local function charKey()
 	if not charKeyCache and UnitName then
 		local n, r = UnitName("player")
-		if n then charKeyCache = M.PSS_NormalizePlayer((r and r ~= "") and (n .. "-" .. r) or n) end
+		charKeyCache = select(2, M.PSS_NormName(n, r, "player"))
 	end
 	return charKeyCache
 end
@@ -102,7 +100,22 @@ function M.PSS_Opt(key, ctx)
 		if type(guild) == "table" and guild[key] ~= nil then return guild[key] end
 	end
 	local db = PourSocialScoreDB
-	if db and db[key] ~= nil then return db[key] end
+	if db then
+		local v
+		if def then
+			-- an option is saved in PSS_OptionsDB: read it there, without the
+			-- router's __index (P4, N26); a value PourSocialScoreDB still holds
+			-- (before the split moved it) wins, as through the router
+			v = rawget(db, key)
+			if v == nil then
+				local o = PSS_OptionsDB
+				if o then v = o[key] end
+			end
+		else
+			v = db[key]
+		end
+		if v ~= nil then return v end
+	end
 	if def then return def.default end
 	return nil
 end
@@ -118,7 +131,6 @@ function M.PSS_SetOpt(key, scope, value, target)
 	local db = PourSocialScoreDB
 	if not db then return end
 	local def = REG[key]
-	local before = M.PSS_Opt(key)
 	if scope == "global" then
 		-- the default is not saved
 		if def and value == def.default then value = nil end
@@ -133,20 +145,22 @@ function M.PSS_SetOpt(key, scope, value, target)
 	M.Events.Fire("OPTION_CHANGED", key)
 	-- a smaller history buffer frees the memory now, not only as lines arrive
 	if key == "historyTotal" and M.PSS_TrimAllHistory then M.PSS_TrimAllHistory() end
-	-- options read only at login (def.reload: the prompt text)
-	if def and def.reload and scope == "global" and M.PSS_Opt(key) ~= before and M.PSS_AskReload then
-		M.PSS_AskReload(def.reload:format(M.PSS_Opt(key) and "on" or "off"))
-	end
 end
 
 -- Saved values equal to their default are dropped (3.0: only changes are
 -- saved; M.PSS_Opt returns the default for a missing value). Every login.
 -- (The 2.0.12 switch-off of ignoreResponse and blizzardSync is upgrade
--- step 5 now, PSS_Upgrade.lua.)
+-- step 5 now, PSS_Upgrade.lua. blizzardSync is a per-player tick from
+-- 3.4.1.35: step 8.) Returns the number of values dropped.
 function M.PSS_ApplyOptionDefaults()
 	local db = PourSocialScoreDB
-	if not db then return end
+	if not db then return 0 end
+	local n = 0
 	for _, o in ipairs(OPTIONS) do
-		if db[o.key] ~= nil and db[o.key] == o.default then db[o.key] = nil end
+		if db[o.key] ~= nil and db[o.key] == o.default then
+			db[o.key] = nil
+			n = n + 1
+		end
 	end
+	return n
 end

@@ -10,6 +10,8 @@
 -- Scan All (top of the Guild Ignore List, or the key binding) walks every
 -- guild row A-Z the same way, each guild swept to the end before the next.
 --
+-- Moved to Libraries with P6 (3.4.1): core keeps the key binding and loader
+-- stubs for what its scan code calls (PSS_Whois.lua).
 -- This file only plans the searches and keeps the sweep state (session
 -- only). Sending the /who is PSS_Whois.lua; storing what it finds is
 -- PSS_GuildIgnoreList.lua (M.PSS_ScanGuild, finishScan), which calls:
@@ -18,11 +20,10 @@
 --   M.PSS_HarvestAnswered(scan, numWhos, total) -> searches split off
 ------------------------------------------------------------
 
-local addonName, addon = ...
+local addon = PourSocialScore_NS
 local M = addon.M
 
-local WHO_CAP = 50
-M.PSS_WHO_CAP = WHO_CAP
+local WHO_CAP = M.PSS_WHO_CAP
 
 local sweeps = {}		-- [guildKey] = { name, queue = { items }, sent, capped, gaveUp, seen, added, moved, done }
 local sweepRound = 0	-- Scan All rounds completed this session
@@ -279,12 +280,3 @@ function M.PSS_ScanAll()
 	end
 	return M.PSS_ScanGuild(g.name, "sweep")
 end
-
--- Key binding (Bindings.xml): Key Bindings > AddOns > Pour Social Score.
-BINDING_HEADER_POURSOCIALSCORE = "Pour Social Score"
-BINDING_NAME_PSS_SCAN_ALL = "Scan All: next guild /who"
-function PSS_ScanAllBinding() M.PSS_ScanAll() end
-
--- This session's /who totals (the table itself, read only) and the number
--- of Scan All rounds completed; the Scan tooltip shows them.
-function M.PSS_HarvestStats() return stats, sweepRound end

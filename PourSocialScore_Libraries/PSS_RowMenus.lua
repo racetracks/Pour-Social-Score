@@ -131,7 +131,7 @@ function M.PSS_MemberMenu(m, gkey)
 	if type(m) ~= "table" then return nil end
 	local _, g = M.PSS_FindGuildRule(gkey)
 	local t = {}
-	Title(t, tostring(m.name))
+	Title(t, tostring(M.PSS_MemberName(m)))
 	Divider(t)
 	Button(t, HistoryText(M.PSS_MemberBlockTotal(m)), "history")
 	Button(t, L["HISTORY_RESET"] or "Reset Block History", "resetHistory")

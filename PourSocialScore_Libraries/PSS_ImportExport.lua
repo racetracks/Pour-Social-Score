@@ -7,11 +7,13 @@
 --
 -- Format:  PSS1:<checksum>:<base64 payload>
 -- The payload is a small typed serialisation (never executed as code), so
--- an import string can only ever contain data.
+-- an import string can only ever contain data. Its field v is the format
+-- version: 2 (3.4.1.47, core uplift U3) adds "more" to a player, guild or
+-- member: the record's fields this version does not know (a newer
+-- version's), kept so a version that knows them gets them back. Older
+-- versions ignore v and more; the tag stays PSS1, so they still read it.
 ------------------------------------------------------------------------
 local addon = PourSocialScore_NS
-local L = addon.L
-local V = addon.V
 local M = addon.M
 
 local FORMAT_TAG = "PSS1"
@@ -154,8 +156,9 @@ end
 ------------------------------------------------------------------------
 -- Build / apply
 ------------------------------------------------------------------------
-local PREF_FIELDS = { "whispersBlocked", "partyInvitesBlocked", "guildInvitesBlocked", "partyRaidBlocked", "channelsBlocked", "nickname" }
-local BLOCK_CATS = { "whisper", "partyInvite", "guildInvite", "partyRaid", "world" }
+local PREF_FIELDS = { unpack(M.PSS_BLOCK_FIELDS) }
+PREF_FIELDS[#PREF_FIELDS + 1] = "nickname"
+local BLOCK_CATS = M.PSS_EXCL_CATS
 -- W I G P C flags (true/false; missing = inherit for members)
 local function copyBlock(b)
 	if type(b) ~= "table" then return nil end
@@ -174,6 +177,45 @@ local function copyFields(src, fields)
 		if type(v) == "string" or type(v) == "number" or type(v) == "boolean" then t[f] = v end
 	end
 	return t
+end
+
+-- a plain copy of saved data (no functions, no shared tables)
+local function plain(v, depth)
+	if type(v) ~= "table" then
+		local t = type(v)
+		return (t == "string" or t == "number" or t == "boolean") and v or nil
+	end
+	if depth > 8 then return nil end
+	local t = {}
+	for k, x in pairs(v) do
+		if type(k) == "string" or type(k) == "number" then t[k] = plain(x, depth + 1) end
+	end
+	return t
+end
+
+-- The fields of record src this version does not know (schema kind), or nil
+-- (export format 2). The _ fields are runtime fields, never exported.
+local function moreFields(src, kind)
+	if type(src) ~= "table" or not M.PSS_SchemaKnows then return nil end
+	local t
+	for k, v in pairs(src) do
+		if type(k) == "string" and k:sub(1, 1) ~= "_" and not M.PSS_SchemaKnows(kind, k) then
+			t = t or {}
+			t[k] = plain(v, 0)
+		end
+	end
+	return t
+end
+
+-- An import's "more" fields onto record dst: only those this version does
+-- not know, never over a field it has.
+local function keepMore(dst, more, kind)
+	if type(dst) ~= "table" or type(more) ~= "table" or not M.PSS_SchemaKnows then return end
+	for k, v in pairs(more) do
+		if type(k) == "string" and k:sub(1, 1) ~= "_" and not M.PSS_SchemaKnows(kind, k) and dst[k] == nil then
+			dst[k] = plain(v, 0)
+		end
+	end
 end
 
 local function copyOpts(o)
@@ -207,20 +249,51 @@ local function importedOption(def, v)
 	return false
 end
 
+-- one guild rule (and its stored members) as an export entry
+local function guildEntry(key, g, members)
+	local e = copyFields(g, GUILD_FIELDS)
+	e.block = copyBlock(M.PSS_GuildBlock and M.PSS_GuildBlock(g) or g.block)
+	e.name = g.name or key
+	e.opts = copyOpts(g.opts)
+	e.more = moreFields(g, "guild")
+	if members then
+		e.members = {}
+		for mk, m in pairs(g.members or {}) do
+			if type(m) == "table" then
+				local me = copyFields(m, MEMBER_FIELDS)
+				-- every field, filled through the accessors (S3 stops saving some)
+				me.name, me.guild, me.whenBlocked = M.PSS_MemberName(m, mk), M.PSS_MemberGuildName(m, g), M.PSS_MemberWhenBlocked(m)
+				me.block = copyBlock(M.PSS_MemberBlock and M.PSS_MemberBlock(m) or m.block)
+				me.key = mk
+				me.opts = copyOpts(m.opts)
+				me.more = moreFields(m, "member")
+				e.members[#e.members + 1] = me
+			end
+		end
+	end
+	return e
+end
+
 -- sections: { players, guilds, members, filters, builtins, options }
 function M.PSS_BuildExport(sections)
 	local db = PourSocialScoreDB
-	local data = { v = 1, addon = "PourSocialScore", made = date("%Y-%m-%d %H:%M"), by = M.PSS_CharKey and M.PSS_CharKey() or "" }
+	local data = { v = 2, addon = "PourSocialScore", made = date("%Y-%m-%d %H:%M"), by = M.PSS_CharKey and M.PSS_CharKey() or "" }
 	if sections.players then
 		data.players = {}
-		for i, name in ipairs(db.ignoreList or {}) do
+		for _, le in ipairs(db.list or {}) do
+			local name = le.name
 			local e = {
-				name = name, type = db.typeList[i] or "player", note = db.notes[i] or "",
-				date = db.dateList[i] or "", exp = tonumber(db.expList[i]) or 0, faction = db.factionList[i] or "",
+				name = name, type = le.kind or "player", note = le.note or "",
+				date = le.date or "", exp = tonumber(le.exp) or 0, faction = le.faction or "",
 			}
 			if e.type == "player" then
 				local p = M.PSS_GetPlayerRecord and M.PSS_GetPlayerRecord(name)
-				if p then e.prefs = copyFields(p, PREF_FIELDS); e.opts = copyOpts(p.opts) end
+				if p then
+					e.prefs = copyFields(p, PREF_FIELDS)
+					-- W I G P C: every switch, a missing one blocks (S3 saves only the false ones)
+					for _, f in ipairs(PREF_FIELDS) do if f ~= "nickname" then e.prefs[f] = p[f] ~= false end end
+					e.opts = copyOpts(p.opts); e.more = moreFields(p, "player")
+				end
 			end
 			data.players[#data.players + 1] = e
 		end
@@ -228,25 +301,7 @@ function M.PSS_BuildExport(sections)
 	if sections.guilds then
 		data.guilds = {}
 		for key, g in pairs(db.guildData or {}) do
-			if type(g) == "table" then
-				local e = copyFields(g, GUILD_FIELDS)
-				e.block = copyBlock(M.PSS_GuildBlock and M.PSS_GuildBlock(g) or g.block)
-				e.name = g.name or key
-				e.opts = copyOpts(g.opts)
-				if sections.members then
-					e.members = {}
-					for mk, m in pairs(g.members or {}) do
-						if type(m) == "table" then
-							local me = copyFields(m, MEMBER_FIELDS)
-							me.block = copyBlock(M.PSS_MemberBlock and M.PSS_MemberBlock(m) or m.block)
-							me.key = mk
-							me.opts = copyOpts(m.opts)
-							e.members[#e.members + 1] = me
-						end
-					end
-				end
-				data.guilds[#data.guilds + 1] = e
-			end
+			if type(g) == "table" then data.guilds[#data.guilds + 1] = guildEntry(key, g, sections.members) end
 		end
 	end
 	if sections.filters then
@@ -296,7 +351,7 @@ function M.PSS_ApplyImport(data, mode, sections)
 	if not M.PSS__purgeBatch then ownBatch = {}; M.PSS__purgeBatch = ownBatch end
 	if sections.players and type(data.players) == "table" then
 		if replace and M.PSS_RemoveListEntryAt then
-			for i = #db.ignoreList, 1, -1 do M.PSS_RemoveListEntryAt(i) end
+			for i = #db.list, 1, -1 do M.PSS_RemoveListEntryAt(i) end
 		end
 		local added = 0
 		for _, e in ipairs(data.players) do
@@ -305,7 +360,7 @@ function M.PSS_ApplyImport(data, mode, sections)
 				local exists
 				if t == "player" then exists = M.PSS_IsPlayerListed(e.name)
 				elseif t == "npc" then exists = M.hasNPCIgnored(e.name) > 0
-				else exists = false; for i, n in ipairs(db.ignoreList) do if db.typeList[i] == "server" and n == e.name then exists = true end end end
+				else exists = false; for _, le in ipairs(db.list) do if le.kind == "server" and le.name == e.name then exists = true end end end
 				if not exists and M.PSS_ImportListEntry then
 					M.PSS_ImportListEntry(e.name, e.faction, e.note, t, e.date, e.exp)
 					added = added + 1
@@ -313,8 +368,13 @@ function M.PSS_ApplyImport(data, mode, sections)
 				if t == "player" then
 					local p = M.PSS_GetPlayerPrefs(e.name)
 					if p and type(e.prefs) == "table" and (replace or not exists) then
-						for _, f in ipairs(PREF_FIELDS) do if e.prefs[f] ~= nil then p[f] = e.prefs[f] end end
+						for _, f in ipairs(PREF_FIELDS) do
+							local v = e.prefs[f]
+							-- (a switch that blocks is not stored)
+							if v ~= nil then p[f] = (f ~= "nickname" and v == true) and nil or v end
+						end
 						p.opts = copyOpts(e.opts)
+						keepMore(p, e.more, "player")
 					end
 				end
 			end
@@ -323,12 +383,13 @@ function M.PSS_ApplyImport(data, mode, sections)
 	end
 
 	if sections.guilds and type(data.guilds) == "table" then
-		if replace then db.guildData = {} end
+		if replace then M.PSS_ClearGuildRules() end
 		local addedG, addedM = 0, 0
 		for _, ge in ipairs(data.guilds) do
 			if type(ge) == "table" and type(ge.name) == "string" and ge.name ~= "" then
-				local key = M.PSS_CanonGuild(ge.name)
-				local existed = db.guildData[key] ~= nil
+				-- the key guild rules are stored under (N45)
+				local key = M.PSS_NormalizeGuild(ge.name)
+				local existed = key ~= nil and db.guildData[key] ~= nil
 				local g = M.PSS_GetGuild(ge.name)
 				if g then
 					if not existed then
@@ -337,31 +398,40 @@ function M.PSS_ApplyImport(data, mode, sections)
 						g.opts = copyOpts(ge.opts)
 						-- older export strings have no W I G P C: rebuild from their old fields
 						g.block = copyBlock(ge.block)
+						keepMore(g, ge.more, "guild")
 					end
 					if sections.members and type(ge.members) == "table" then
 						for _, me in ipairs(ge.members) do
 							if type(me) == "table" and type(me.name) == "string" and me.name ~= "" then
-								local mk = (type(me.key) == "string" and me.key:find("-", 1, true)) and me.key or M.PSS_NormalizePlayer(me.name)
-								if mk and not g.members[mk] then
+								-- one key for every name; a shipped member merges into the shipped record
+								local mk = M.PSS_NormalizePlayer((type(me.key) == "string" and me.key:find("-", 1, true)) and me.key or me.name)
+								local ck = mk and M.PSS_CanonPlayer(mk)
+								local shipped
+								if mk and not g.members[mk] and ck and M.PSS_MergeIntoShipped then
+									local m = copyFields(me, MEMBER_FIELDS)
+									m.opts = copyOpts(me.opts)
+									m.block = copyBlock(me.block)
+									shipped = M.PSS_MergeIntoShipped(key, ck, m)
+								end
+								if mk and not shipped and not g.members[mk] then
 									local m = copyFields(me, MEMBER_FIELDS)
 									m.opts = copyOpts(me.opts)
 									m.block = copyBlock(me.block)	-- nil = converted from the old Allow fields
 									m.guild = g.name
 									m.whenBlocked = m.whenBlocked or M.PSS_NowString()
+									keepMore(m, me.more, "member")
 									for _, f in ipairs({ "excludedGroup", "excludedGuildInvite", "excludedWhispers", "excludedChat" }) do
 										if m[f] ~= true then m[f] = nil end
 									end
 									if M.PSS_CompactMember then M.PSS_CompactMember(m) end		-- only non-default fields are kept
 									g.members[mk] = m
 									addedM = addedM + 1
-									local ck = M.PSS_GuildRuleActive(g) and M.PSS_CanonPlayer(me.name)
-									if ck and M.PSS__purgeBatch then M.PSS__purgeBatch[ck] = true end
+									if ck and M.PSS_GuildRuleActive(g) and M.PSS__purgeBatch then M.PSS__purgeBatch[ck] = true end
 								end
 							end
 						end
 					end
-					g.memberCount = 0
-					for _ in pairs(g.members) do g.memberCount = g.memberCount + 1 end
+					M.PSS_StoreMemberCount(g)
 					if M.PSS_RefreshGuildActive then M.PSS_RefreshGuildActive(g) end
 				end
 			end
@@ -409,7 +479,7 @@ function M.PSS_ApplyImport(data, mode, sections)
 			local ok, value = importedOption(def, v)
 			if ok then
 				-- through the setter: defaults are not stored, the windows
-				-- repaint (OPTION_CHANGED), a login-only option asks to reload
+				-- repaint (OPTION_CHANGED)
 				M.PSS_SetOpt(key, "global", value)
 				n = n + 1
 			end
@@ -425,9 +495,34 @@ function M.PSS_ApplyImport(data, mode, sections)
 	-- an imported guild rule may be on: load the shipped member lists
 	if M.PSS_LoadActiveManagedData then M.PSS_LoadActiveManagedData() end
 	if M.PSS_RequestGC then M.PSS_RequestGC("import") end
-	V.needSorted = true
 	M.Events.Fire("PLAYERS_CHANGED", true)
 	M.Events.Fire("GUILDS_CHANGED")
 	M.Events.Fire("FILTERS_CHANGED")
 	return table.concat(report, ", ")
+end
+
+-- /pss export unused (core uplift U3): the saved rules and settings this
+-- version cannot use (M.PSS_UnusableRules), every field, as an export string
+-- a version that knows them can import. nil when there are none.
+function M.PSS_UnusedExportText()
+	local db = PourSocialScoreDB
+	local u = M.PSS_UnusableRules()
+	if #u.filters + #u.guilds + #u.options == 0 then return nil end
+	local data = { v = 2, addon = "PourSocialScore", made = date("%Y-%m-%d %H:%M"), by = M.PSS_CharKey and M.PSS_CharKey() or "",
+		unused = true }
+	if #u.filters > 0 then
+		data.filters = {}
+		for _, i in ipairs(u.filters) do
+			data.filters[#data.filters + 1] = { desc = db.filterDesc[i] or "", filter = db.filterList[i] or "", active = db.filterActive[i] == true }
+		end
+	end
+	if #u.guilds > 0 then
+		data.guilds = {}
+		for _, key in ipairs(u.guilds) do data.guilds[#data.guilds + 1] = guildEntry(key, db.guildData[key], true) end
+	end
+	if #u.options > 0 then
+		data.options = {}
+		for _, key in ipairs(u.options) do data.options[key] = plain(PSS_OptionsDB[key], 0) end
+	end
+	return M.PSS_EncodeExport(data)
 end

@@ -1,6 +1,151 @@
 POUR SOCIAL SCORE - VERSION HISTORY
 (newest first)
 
+=> 3.4.1.53 - Core uplift: fixes, a readable upgrade report, smaller and forward-compatible saves
+
+- Names with a surname (WoW Forever / Camelot): a player called "First Last" is now listed by the whole name from every place you add them (the right-click menu, Blizzard's Ignore, /pss add on your target, players seen for guild rules), instead of as "First" on a realm called "Last" that never blocked. /pss add, remove and expire take two words as the name (a one-word name with a note goes in quotes). Names already saved the old way are repaired once at the first login, and entries that only ever had a first name are listed in chat so you can add them again. The shipped guild lists were rebuilt without these broken names (7634 to 7438 entries).
+- Pour Social Score is now in charge of its own ignore list. "Also put listed players on Blizzard's ignore list" is a tick box per player (View/Edit Rule), off by default. Ignoring someone through Blizzard lists them in Pour Social Score with the note "Synced from Blizzard ignore list on <date>" and takes them off Blizzard's list; people already on Blizzard's list are listed and ticked and stay there. Removing a player from either list removes them from both. If you had the old setting on, your listed players on Blizzard's list are ticked for you. Blizzard's own "is now being ignored" lines are no longer hidden.
+- The right-click menu on a player has one "PSS" heading with "Block Player" and "Block Guild" (or "Unblock ..." when already listed). Block Guild is not offered without a player in view, for a player with no guild, or for your own guild.
+- After every update the first login says in plain words what changed in your saved data: one line per feature, the "SavedVariables performance cleanup" line, then "Saved data upgraded to <version> (step N)." Going back to an older version says so in one line and keeps the newer data. A step that has to wait says so in red and tries again next login.
+- Your saved data is much smaller and safer across versions. Guild members, counts, player switches and the block log save only what is not obvious (on a large save the guild file is about half its size and about 290 KB less is held in memory after login), each guild rule keeps at most 1500 stored members, and the Player Ignore List is saved as one record per person. Data a newer version saved is kept when you go back and forth. A rule this version cannot use is kept, not applied, named at login, and "/pss export unused" copies it out. Export strings carry every field and older versions still read them. Every number you see is unchanged.
+- Custom chat filters have a permanent id: editing a filter keeps its history and counts, and Copy starts a new one.
+- Fixes: ignore list expiry now happens by itself (at login, after combat once a day, and when the window or /pss list opens); the Unit Menu and LFG options apply without a /reload; [talent=N] works as a filter tag; Import with Replace keeps the default guild lists; the party warning names only who is in your group now; /pss list no longer errors on an entry with no note; errors in the window or a guild scan are shown once in chat.
+- The window: a long line in a guild list's detail pane wraps and pushes the lines below it down; the Chat Filters tab redraws at most 4 times a second while lines are blocked; guild rows dim as soon as their rule is turned off; Dark right-click menus show every entry up to 400 pixels tall and as wide as the longest entry; Modern falls back to Classic when any of its art is missing. The copy and import box now shares its text area with the Chat Filters box.
+- Lighter and quicker: removing a player, member or filter no longer loads the block history (their lines are taken out the next time it opens); garbage collection runs only on events, never on a timer; target, mouseover and /who events are heard only while they can be used; a blocked line makes less garbage; rarely used parts load only when needed (about 63 KB less at login); the reload popup, unused code and /pss test are gone.
+- Going back to an older version after this update is not recommended. 3.4.0.29 does not show your Player Ignore List (the list stays in the save) and deletes your custom chat filters and their counts at its first logout; 3.4.1.50 and older may show a few more guild members until the shipped lists load. Players you add while on an older version are not kept when you come back to this version.
+
+=> 3.4.1.52 - Core uplift: sparse saves, core performance, window tidy
+
+- Your saved data is much smaller. Guild member records, block counts, player switches and the block log keep only what is not obvious, so the guild file is about half its size and the addon holds roughly 290 KB less in memory after login on a large save. The first login after the update tidies the save once (the report shows "SavedVariables performance cleanup"). Every number you see is unchanged.
+- Each guild rule keeps at most 1500 stored members. On Camelot, names saved as "First-Last" by the old unit lookup are repaired once: merged into the shipped lists or an existing record, or renamed to "First Last". Entries that only ever had a first name are listed once in chat so you can add them again.
+- Custom chat filters now have a permanent id. Editing a filter keeps its history and counts, and Copy starts a new one.
+- Going back to an older version afterwards: 3.4.1.50 and older may show a few more guild members until the shipped lists load, and 3.4.0.29 will not show your Player Ignore List or custom filters that have an id. Your data stays in the save.
+- Less work in the background. Garbage collection is driven by events only (no timers), the addon listens for target, mouseover and /who events only while it can use them, a blocked chat line allocates less, and a full outbox trims in batches. The reload popup, a dead compatibility file and about 20 KB of unused code are gone, and /pss test is removed.
+- Several rarely used parts (player list rows and sorting, the save check, the Scan All planner, Camelot repair) load only when something needs them, so about 63 KB less sits in memory at login.
+- The PSS window: the same look in Modern, Classic and Dark, with its logic moved out of the drawing files and fewer redraws when a block is counted. The copy and import box shares its text area with the Chat Filters box, so check it once in your look.
+
+=> 3.4.1.51 - Player list: one record per entry
+
+- Your Player Ignore List is now saved as one small record per person instead of eight lists that had to be kept in step. Notes, expiry, added date, faction and the other details stay attached to the right person, and removing someone is one step. Your saved data is moved over once at the first login (the report shows "Player Ignore List: N entries moved to one record each"). Nothing you can see changes. Going back to an older version afterwards will not show these entries or notes.
+
+=> 3.4.1.50 - Core uplift S2: member field accessors
+
+- Nothing you can see changes. Every place that reads a guild member's name, guild, added date, shipped-list mark or a block total now asks one function, so the next build can save these records smaller without anything reading a missing field.
+- A guild member's block total is now never read lower than its counts added up.
+
+=> 3.4.1.49 - Core uplift S1: purge by owner
+
+- Removing a player, a guild member or a chat filter, or resetting their block history, no longer loads the block history in the background. Their lines are marked and taken out the next time the history opens, so someone you remove and list again shows only their new lines.
+- Clearing one person's or filter's lines is much faster (a few hundredths of a millisecond instead of several milliseconds) and makes no garbage.
+
+=> 3.4.1.48 - Core uplift U3 fix: /pss export unused and Export
+
+- Fixed in 3.4.1.47's test: "/pss export unused" did nothing, and the Export button on the Import/Export tab gave no string. One window file used a name it had not declared, so the window's files stopped loading part way. Both work again.
+
+=> 3.4.1.47 - Core uplift U3: forward compatibility
+
+- Your saved data now works across versions in both directions. From this version on, going back to an older version and forward again keeps everything a newer version saved, even the parts the older one does not know.
+- A saved rule this version cannot use (a chat filter with a tag from a newer version, a guild rule from a newer version, or a setting it does not have) is not applied and is kept unchanged. The first login after a version change says how many there are, per feature. "/pss export unused" copies them so you can keep them outside the game; a version that knows them can import them.
+- Export strings now carry every field of a player, guild rule and member, including any from a newer version, and importing keeps them. Older versions still read the new strings.
+- Block history and 24-hour counts saved by a newer version are kept as they are. Blocks are still counted, but that session's lines are not added to the history.
+
+=> 3.4.1.46 - Core uplift U2: the upgrade report
+
+- After an update, the first login now says in plain words what was upgraded in your saved data, all at once: a line "Updated from <old version> to <new version>. Upgrading your saved data:", one line for each feature that changed (Chat Filtering, Player Ignore List, Guild Ignore List, Managed Communities, Block History, Options), the "SavedVariables performance cleanup" line every time (what it tidied, or "nothing to tidy"), then "Saved data upgraded to <version> (step N)." as before. The next login says nothing. A brand new save says nothing either.
+- Going back to an older version than the one that last wrote your saved data now says so in one line ("Running X, older than your saved data (Y). Nothing was upgraded.") and keeps the newer version's record, instead of quietly overwriting it.
+- If an upgrade step has to wait (for example a folder is missing), a red line says which step paused; it tries again at the next login.
+- The note about old folders that are safe to delete is now on the cleanup line.
+
+=> 3.4.1.45 - Upgrade step registry (U1)
+
+- Nothing you can see changes. The steps that upgrade your saved data at login are now grouped by feature (Chat Filtering, Player Ignore List, Guild Ignore List, Managed Communities, Block History, Options) and count what they change, ready for the readable upgrade report in the next build.
+- Settings that no version reads any more are kept in one list and removed at every login; only settings named there are ever removed, so data written by a newer version is kept.
+
+=> 3.4.1.44 - F2: Chat Filters redraw, guild rule dim, Dark menu height, Modern art check
+
+- Chat Filters tab: with the tab open while chat filters block lines, the list and the pane now redraw at most 4 times a second instead of on every blocked line. The Blocked column still counts up and still re-sorts.
+- Guilds tab: turning a default guild list's rule (for example Managed Communities) on or off on the Chat Filters tab now updates the guild rows (dimmed while the rule is off) the next time you look at the Guilds tab. Before, they kept the old state until something else changed.
+- Dark look: right-click menus show every entry up to 400 pixels tall (as Blizzard's menus do in Modern and Classic), so "Remove Player" no longer needs the mouse wheel, and the menu is as wide as its longest entry, including entries further down.
+- Modern look: the check for Blizzard's new Social window art now covers every piece Modern draws (the red button's middle, right end and its pressed, disabled and highlight art, the greyed-out tick and the search icon). A client missing any of them shows the Classic look instead of empty art.
+
+=> 3.4.1.43 - Docs: F1 marked merged; later builds renumbered
+
+- No change to the addon: project notes only (F1 recorded as merged, and the planned build numbers for the rest of the project written down).
+
+=> 3.4.1.42 - Fixes: expiry, option hooks, talent tag, import Replace, listener errors, group warning, /pss list
+
+- Ignore list expiry now works by itself: an entry listed with an expiry (for example 30 days) is removed once that many days have passed. It happens at login, when combat ends (once a day), and when the window or /pss list opens. Before, it only happened on /pss sync.
+- Options, "Enable Unit Menu ignore hack" and "Enable LFG Tool warnings and hacks": turning either one off or on now applies straight away, without a /reload ("Requires reload" is gone from their labels).
+- Chat Filters: the link converter's [talent=N] is now a tag the filter language knows (as the readme describes), so a converted talent link makes a working filter. [talent] on its own matches any talent link.
+- Import with Replace on guild rules keeps the default guild lists (Managed Communities). Before, they stopped blocking until a /reload.
+- An error inside the window or a guild scan is now shown once in chat and counted in /pssguild status, instead of being lost.
+- The party warning lists only the listed players in your group now, not everyone it warned about since you joined.
+- /pss list no longer stops with a Lua error on an entry that has no note.
+
+=> 3.4.1.41 - Guilds tab detail pane: wrapped lines fit their text
+
+- Guilds tab, a default guild list's detail pane: the fix in 3.4.1.40 did not take in game, so a long "Rule on the Chat Filters tab" line still ran into "Rule is ON". Each line now has a set width and takes the height of its wrapped text, so the lines and charts below move down. The heights are worked out again when the font changes.
+
+=> 3.4.1.40 - Guilds tab detail pane: a wrapped line pushes the lines below it down
+
+- Fixed the Guilds tab detail pane for a default guild list (for example Managed Communities): a long line that wrapped, such as "Rule on the Chat Filters tab: ...", ran into the line below it. Each line now sits under the one above, so a wrapped line pushes the rest down, and the charts start below the last line. The text is unchanged.
+
+=> 3.4.1.39 - Docs, code map and changes in train
+
+- Documentation only: a code map of the addon and a list of the changes in train, for use as context. Nothing in the addon changes.
+
+=> 3.4.1.38 - Docs: harness notes for the shipped list rebuild; N3 marked merged
+
+- Documentation only: notes for rebuilding the shipped guild lists. Nothing in the addon changes.
+
+=> 3.4.1.37 - Core uplift N3: shipped lists rebuilt without surname-as-realm names
+
+- Managed Communities: the shipped guild lists held 212 names saved as "First-Last" (on Camelot the surname was read as the realm), which could never match chat. 196 of them were already listed under their full name and are removed; the other 16 are now listed as "First Last" on ClassicBetaPvP. The lists go from 7634 to 7438 entries.
+- The list builder now checks every name against the realms the lists come from, so these names cannot ship again.
+
+=> 3.4.1.36 - Core uplift B2, the right-click PSS menu
+
+- The right-click menu on a player (in the world, in a group or a chat name) now has one "PSS" heading with two entries: "Block Player" and "Block Guild". Each reads "Unblock Player" or "Unblock Guild" when that player or guild is already listed.
+- "Block Guild" adds the player's guild as a guild rule. It is not shown when the menu has no player in view (a name clicked in chat), when the player has no guild, or for your own guild.
+
+=> 3.4.1.35 - B1: PSS is authoritative over Blizzard's ignore list
+
+- Pour Social Score is now in charge of its own ignore list. "Also put listed players on Blizzard's ignore list" is no longer one setting for everyone: it is a tick box for each player (View/Edit Rule, "Also on Blizzard's ignore list"), off by default. Ticked, the player is also put on Blizzard's list (up to 50); unticked, taken off it.
+- Ignoring someone with Blizzard's own Ignore (or /ignore) lists them in Pour Social Score with the note "Synced from Blizzard ignore list on <date>" and takes them off Blizzard's list, so their blocks follow your W I G P C boxes. Someone already listed comes off too and keeps their note.
+- The first time you log in, anyone already on Blizzard's ignore list is listed with that note and ticked, and stays on Blizzard's list. Nobody is taken off it by this.
+- Removing a player from either list removes them from both.
+- If you had the old setting on, every listed player who is on Blizzard's list is ticked, then the old setting is dropped (saved data upgrade, step 8).
+- Blizzard's own "is now being ignored" lines are no longer hidden after login.
+
+=> 3.4.1.34 - Core uplift: B1 and B2 planned
+
+- No change in game: the plan now includes PSS taking over Blizzard's ignore list and a PSS section in the right-click menu.
+
+=> 3.4.1.33 - Core uplift N2: every name caller
+
+- On WoW Forever, a player with a surname ("First Last") is now listed by their whole name from every place you can add them: the PSS entry of the right-click menu, Blizzard's own Ignore, /pss add on your target, and players seen around you for guild rules. Before, they were saved as "First" on a realm called "Last" and never blocked.
+- On WoW Forever, /pss add, /pss remove and /pss expire take two words as the name: /pss add John Smith 30 spams trade. A one-word name with a note goes in quotes: /pss add "Bob" spams.
+- Your own character's surname is no longer read as a realm (your own lines, and adding yourself by mistake).
+- Importing a guild list no longer stores a second copy of someone already on a shipped list; their note and settings go onto the shipped entry.
+- Shipped guild members you changed are saved a little smaller (three internal fields are no longer written).
+- Realm names are shown as before.
+
+=> 3.4.1.32 - Core uplift N1: one name normaliser
+
+- Groundwork for the WoW Forever name fixes: every name and realm is now joined in one place.
+- On WoW Forever, a player you target with a surname ("First Last") is now read as "First Last" on your realm, not as "First" on a realm called "Last". This applies where your target fills in the name: /pss add with no name, and Add Player with an empty box.
+- Nothing else changes: every saved name and key stays the same.
+
+=> 3.4.1.31 - Core uplift: the plan and working rules
+
+- Nothing changes in game.
+- The plan for the next releases is set: fixes for names with a space (WoW Forever), managed guild members found twice, expiry and a few smaller bugs; a short, readable report after each update; smaller and forward-compatible saved data; then core speed and a tidy of the window.
+
+=> 3.4.1.30 - Mirror carries the release's files
+
+- Nothing changes in game.
+- The public copy of each full release (racetracks/Pour-Social-Score) now carries the addon's files, not only the release download: each full release's folders are committed to it, and the release sits on that commit. 3.4.0.29 is brought across this way when this build merges.
+
 => 3.4.0.29 - The new Pour Social Score window
 
 - One new Pour Social Score window replaces both old windows (the classic PSS window and the EllesmereUI window). /pss (also /pss gui, ui or eui), the Addon Compartment and your Friends or Social window open it; /pss help lists the chat commands.

@@ -21,9 +21,10 @@
 -- (for the line), navReset() (as it opens) and navClose() (closes an
 -- overlay; true if one was open).
 --
--- Blizzard look: a Blizzard window frame (ButtonFrameTemplate) behind our
--- frame, with its own art only. Dark look: a flat fill, a dark title
--- strip, a thin frame and a plain close glyph.
+-- Modern and Classic looks: a Blizzard window frame (ButtonFrameTemplate)
+-- behind our frame, with its own art only (Modern's 12.x art, Classic's
+-- templates). Dark look: a flat fill, a dark title strip, a thin frame and
+-- a plain close glyph.
 ------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
 local M = ns.M
@@ -124,7 +125,6 @@ local function BuildTab(id)
 		local ok, refresh = xpcall(function() return build(page) end, geterrorhandler())
 		if ok then
 			page.refresh = refresh
-			if page.note then page.note:Hide() end
 		end
 	end
 	return page
@@ -201,14 +201,27 @@ local function PlaceCrumbs(parts)
 	win.where:SetText(text)
 end
 
+-- reused by every navigation
+local navParts, navFirst, navSecond, tabResets = {}, {}, {}, {}
+
 local function UpdateNav()
 	win.back:SetEnabled(nav:CanBack())
 	win.forward:SetEnabled(nav:CanForward())
 	local tab, view = ShownState()
 	local page = win.pages[tab]
-	local parts = { { text = TABS[tab].text, go = function() ResetTab(tab) end } }
-	if view ~= nil and page.navTitle then parts[2] = { text = page.navTitle(view) } end
-	PlaceCrumbs(parts)
+	local first = navFirst
+	first.text = TABS[tab].text
+	first.go = tabResets[tab]
+	if not first.go then
+		first.go = function() ResetTab(tab) end
+		tabResets[tab] = first.go
+	end
+	navParts[1], navParts[2] = first, nil
+	if view ~= nil and page.navTitle then
+		navSecond.text = page.navTitle(view)
+		navParts[2] = navSecond
+	end
+	PlaceCrumbs(navParts)
 end
 
 -- After the user changed the view: a new step (dropping any forward steps).
@@ -246,7 +259,6 @@ function ResetTab(id)
 	SelectTab(id)
 	ns.NavRecord()
 end
-ns.ResetTab = function(id) ResetTab(id or curTab) end
 
 -- The Events tab, built if need be; prepare() then sets what it shows, as
 -- a step of its own (pies and View Events).
@@ -336,12 +348,6 @@ local function BuildTabs()
 		page:SetPoint("TOPLEFT", win, "TOPLEFT", 10, TOP - TAB_H - NAV_H - 8)
 		page:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -10, 10)
 		page:Hide()
-		-- until its stage is built
-		local note = ns.NewText(page, 12)
-		note:SetPoint("CENTER")
-		note:SetText(t.text .. " comes in a later 3.4.0 build.")
-		note:SetAlpha(0.7)
-		page.note = note
 		win.pages[i] = page
 	end
 

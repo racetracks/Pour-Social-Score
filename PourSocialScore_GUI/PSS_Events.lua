@@ -35,10 +35,10 @@ local function Apply(top)
 	ui.timeDrop:SetLabel(view:TimeLabel())
 	ui.typeDrop:SetLabel(view:TypesLabel())
 	ui.sourceDrop:SetLabel(view:SourceLabel())
-	local custom = view.q.period == "custom"
+	local custom = view:IsCustom()
 	ui.custom:SetShown(custom)
 	ui.listFrame:SetPoint("TOPLEFT", page, "TOPLEFT", 8, custom and -88 or -62)
-	ui.resetButton:SetShown(view.q.scope ~= nil)
+	ui.resetButton:SetShown(view:Scoped())
 	list:SetEmptyText(view:EmptyText())
 end
 
@@ -122,7 +122,7 @@ ns.TabBuilders.events = function(pg)
 	bar:SetHeight(22)
 	ui.timeDrop = ns.NewDropdown(bar, 190, function(m)
 		for _, t in ipairs(M.PSS_EVENT_TIMES) do
-			m:Radio(t.text, function() return (view.q.period or "all") == t.key end, function()
+			m:Radio(t.text, function() return view:PeriodIs(t.key) end, function()
 				view:SetPeriod(t.key)
 				if t.key == "custom" then
 					local from, to = view:RangeTexts()
@@ -148,8 +148,8 @@ ns.TabBuilders.events = function(pg)
 	end)
 	ui.typeDrop:SetPoint("LEFT", ui.timeDrop, "RIGHT", 6, 0)
 	ui.sourceDrop = ns.NewDropdown(bar, 230, function(m)
-		if view.q.scope then
-			m:Check("Only " .. (view.name or "?"), true, function()
+		if view:Scoped() then
+			m:Check(view:ScopeText(), true, function()
 				view:ScopeOff()
 				Changed()
 			end)

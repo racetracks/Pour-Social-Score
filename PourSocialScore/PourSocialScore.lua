@@ -17,10 +17,8 @@ V.lastFilterError		= false
 -- PSS_GuildIgnoreList.lua and PSS_ChatFilters.lua.
 local PSSFRAME			= nil
 local gotLoaded			= false
-local gotUpdate			= false
 local gotEntering		= false
 local safeToLoad		= false
-local gotGroup			= IsInGroup()
 V.groupWarning			= {}
 
 ----------------------------------
@@ -31,17 +29,18 @@ V.groupWarning			= {}
 -- no longer on the Player Ignore List, of guild members in no guild rule
 -- (whose rule is gone too) and of chat filters that no longer exist are
 -- dropped; rule tags that point at a removed rule are cleared. Block counts
--- are not changed. Returns the number of lines removed.
+-- are not changed. A line of a kind of owner this version does not make is
+-- kept. Returns the number of lines removed.
 function M.PSS_TidyBlockHistory()
 	local db = PourSocialScoreDB
 	local History = M.PSS_History
 	if type(db) ~= "table" or not History then return 0 end
 	local alive = {}
-	if type(db.ignoreList) == "table" and type(db.typeList) == "table" and M.PSS_PlayerHistoryKey then
+	if type(db.list) == "table" and M.PSS_PlayerHistoryKey then
 		local listed = {}
-		for i, name in ipairs(db.ignoreList) do
-			if (db.typeList[i] or "player") == "player" then
-				local k = M.PSS_PlayerHistoryKey(name)
+		for _, e in ipairs(db.list) do
+			if (e.kind or "player") == "player" then
+				local k = M.PSS_PlayerHistoryKey(e.name)
 				if k then listed[k] = true end
 			end
 		end
@@ -64,10 +63,17 @@ function M.PSS_TidyBlockHistory()
 		for i = 1, #db.filterList do
 			keys[M.PSS_FilterOwnerKey(i)] = true
 			local id = db.filterID[i]
-			if id and id ~= "" then ids[id] = true end
+			if id and id ~= "" then
+				ids[id] = true
+				-- lines still under the filter's text (S3: a filter saved by an older
+				-- version after it was given its id) are kept
+				keys[M.PSS_History.FilterKey("", db.filterList[i])] = true
+			end
 		end
-		alive.f = function(o) return keys[o] == true end
-		alive.rule = function(id) return ids[id] == true end
+		-- an owner or rule tag of a form this version does not make (a newer
+		-- version's) is kept (U3); a number id is this version's (S3)
+		alive.f = function(o) return keys[o] == true or not (o:find("^f:t:") or o:find("^f:PSS%d+$") or o:find("^f:%d+$")) end
+		alive.rule = function(id) return ids[id] == true or not tostring(id):find("^PSS%d+$") end
 	end
 	return History.Tidy(alive)
 end
@@ -96,14 +102,8 @@ local function ApplicationStartup(self)
 	if not M.PSS_PrepareSavedData({ quiet = fresh, startup = true }) then starting = false return end
 
 	-- Ensure all core list fields exist before any UI or upgrade code uses #field.
-	PourSocialScoreDB.ignoreList = PourSocialScoreDB.ignoreList or {}
-	PourSocialScoreDB.factionList = PourSocialScoreDB.factionList or {}
-	PourSocialScoreDB.dateList = PourSocialScoreDB.dateList or {}
-	PourSocialScoreDB.notes = PourSocialScoreDB.notes or {}
-	PourSocialScoreDB.expList = PourSocialScoreDB.expList or {}
-	PourSocialScoreDB.typeList = PourSocialScoreDB.typeList or {}
+	PourSocialScoreDB.list = PourSocialScoreDB.list or {}
 	PourSocialScoreDB.delList = PourSocialScoreDB.delList or {}
-	PourSocialScoreDB.syncInfo = PourSocialScoreDB.syncInfo or {}
 	PourSocialScoreDB.playerData = PourSocialScoreDB.playerData or {}
 	PourSocialScoreDB.guildData = PourSocialScoreDB.guildData or {}
 	if PourSocialScoreDB.imported == nil then PourSocialScoreDB.imported = false end
@@ -112,11 +112,11 @@ local function ApplicationStartup(self)
 	if PourSocialScoreDB.defexpire ~= nil and not tonumber(PourSocialScoreDB.defexpire) then
 		PourSocialScoreDB.defexpire = nil
 	end
-	M.PSS_ApplyOptionDefaults()
+	local defaults = M.PSS_ApplyOptionDefaults()
 
 	-- saved data upgrades that run before the built-in filters are rebuilt
 	-- (PSS_Upgrade.lua)
-	M.PSS_RunUpgradeFields()
+	M.PSS_RunUpgradeFields(fresh, defaults)
 
 	-- Built-in rules come from code; SavedVariables only hold their on/off state.
 	M.PSS_ExpandFilters()
@@ -133,6 +133,10 @@ local function ApplicationStartup(self)
 
 	-- the rest of the upgrade steps, then the upgrade record
 	M.PSS_RunUpgradeData(fresh)
+	-- entries past their expiry go now (N40), then once a day after combat
+	M.PSS_ExpireEntries()
+	-- the lists are in their final form: hear unit and /who captures only if they can be used (P3)
+	if M.PSS_ApplyCapture then M.PSS_ApplyCapture() end
 	-- PourSocialScore_Logging was loaded for the upgrade: add the waiting
 	-- lines, trim and tidy the history now
 	local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
@@ -140,7 +144,6 @@ local function ApplicationStartup(self)
 
 	M.PSS_HookFunctions()
 
-	self:UnregisterEvent("IGNORELIST_UPDATE")
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	self:UnregisterEvent("ADDON_LOADED")
 
@@ -194,27 +197,28 @@ function M.PSS_ImportLegacyDB()
 end
 
 -- Warn about players on any list in the group (once per player per group).
+-- The list is rebuilt from the roster on each check, so a player who left
+-- is not named again; the warning shows when someone new joins (N47).
 local rosterCheckQueued, rosterCheckDeferred = false, false
 local function CheckGroupForIgnored()
 	rosterCheckQueued = false
 	if not IsInGroup() or not PourSocialScoreDB then return end
 	if M.PSS_Opt("listWarnings") == false then return end
 	if InCombatLockdown and InCombatLockdown() then rosterCheckDeferred = true return end
-	gotGroup = true
 	local prefix	= IsInRaid() and "raid" or "party"
 	local doWarn	= false
+	local inGroup = {}
 	for count = 1, GetNumGroupMembers() do
 		local name = GetUnitName(prefix..count, true)
 		-- O(1) lookups on the raw name (every list); the display name is
 		-- only built for a player who is actually listed
 		if type(name) == "string" and not M.PSS_IsSecret(name) and name ~= "" and M.PSS_PersonListed(name) then
 			name = M.Proper(M.addServer(name))
-			if M.hasGroupWarning(name) == 0 then
-				doWarn = true
-				V.groupWarning[#V.groupWarning + 1] = name
-			end
+			if M.hasGroupWarning(name) == 0 then doWarn = true end
+			inGroup[#inGroup + 1] = name
 		end
 	end
+	V.groupWarning = inGroup
 	if doWarn then
 		M.ShowMsg(format(L["CHAT_1"], #V.groupWarning, table.concat(V.groupWarning, "\n")))
 		M.Events.Fire("GROUP_WARNING", V.groupWarning)
@@ -232,6 +236,8 @@ local function EventHandler (self, event, sender, ...)
 	if event == "PLAYER_LOGOUT" then
 		-- Fires on logout and /reload, before SavedVariables are written.
 		M.PSS_CollapseFilters()
+		-- the player records are saved sparse (S3)
+		if M.PSS_CompactPlayers then pcall(M.PSS_CompactPlayers) end
 		-- managed guild lists: write only the delta
 		if M.PSS_FlushManaged then pcall(M.PSS_FlushManaged) end
 		-- this session's counts are not kept past it
@@ -246,10 +252,6 @@ local function EventHandler (self, event, sender, ...)
 		gotLoaded = true
 	end
 
-	if event == "IGNORELIST_UPDATE" then
-		gotUpdate = true
-	end
-
 	if event == "PLAYER_ENTERING_WORLD" then
 		gotEntering = true
 		-- sender = isInitialLogin, then isReloadingUi: a login or /reload starts
@@ -261,16 +263,19 @@ local function EventHandler (self, event, sender, ...)
 		-- Raids fire this many times in a row: check once, 1 s after the
 		-- last one, and never while in combat (checked when combat ends).
 		if not IsInGroup() then
-			gotGroup		= false
 			V.groupWarning = {}
 		elseif V.PSS_Loaded and PourSocialScoreDB and not rosterCheckQueued then
 			rosterCheckQueued = true
 			C_Timer.After(1, CheckGroupForIgnored)
 		end
 	end
-	if event == "PLAYER_REGEN_ENABLED" and rosterCheckDeferred then
-		rosterCheckDeferred = false
-		CheckGroupForIgnored()
+	if event == "PLAYER_REGEN_ENABLED" then
+		if rosterCheckDeferred then
+			rosterCheckDeferred = false
+			CheckGroupForIgnored()
+		end
+		-- a quiet moment: entries that expired since the last check (N40)
+		if V.PSS_Loaded then M.PSS_ExpireEntries(false, true) end
 	end
 
 	-- Party/guild invites, duels and trades: handled by PSS_ChatBlock.lua
@@ -292,7 +297,6 @@ PSSFRAME = CreateFrame("FRAME")
 
 PSSFRAME:RegisterEvent("PLAYER_ENTERING_WORLD")
 PSSFRAME:RegisterEvent("ADDON_LOADED")
-PSSFRAME:RegisterEvent("IGNORELIST_UPDATE")
 PSSFRAME:RegisterEvent("GROUP_ROSTER_UPDATE")
 PSSFRAME:RegisterEvent("PLAYER_LOGOUT")
 PSSFRAME:RegisterEvent("PLAYER_REGEN_ENABLED")

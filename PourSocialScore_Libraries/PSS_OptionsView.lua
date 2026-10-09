@@ -17,10 +17,11 @@
 --   M.PSS_IO, M.PSS_IO_PARTS, M.PSS_IO_MODES   what to include, the mode
 --   M.PSS_IOSet(key, on), M.PSS_IOSetMode(key) set them
 --   M.PSS_IOPartOff(key)               a part that cannot be ticked now
---   M.PSS_ExportText()                 the export string
---   M.PSS_ImportCheck(str)             data, or nil and the error text
---   M.PSS_ImportReplaceText(data)      the confirm's text (mode replace) or nil
---   M.PSS_ImportApply(data)            applies it; the report line
+--   M.PSS_IOOn(key), M.PSS_IOMode()    a tick, the mode
+--   M.PSS_ExportText()                 the export string, and the box's subtitle
+--   M.PSS_ImportStart(str)             error text, or nil, the confirm's text
+--                                      (mode replace, else nil) and apply()
+--   M.PSS_ImportCheck(str), M.PSS_ImportReplaceText(data), M.PSS_ImportApply(data)
 ------------------------------------------------------------------------
 local addon = PourSocialScore_NS
 local M = addon.M
@@ -141,6 +142,8 @@ M.PSS_IO = { players = true, guilds = true, members = false, filters = true, bui
 -- the tab's ticks and mode (kept for the session)
 function M.PSS_IOSet(key, on) M.PSS_IO[key] = on == true end
 function M.PSS_IOSetMode(key) M.PSS_IO.mode = key end
+function M.PSS_IOOn(key) return M.PSS_IO[key] == true end
+function M.PSS_IOMode() return M.PSS_IO.mode end
 M.PSS_IO_PARTS = {
 	{ key = "players", text = "Player Ignore List" },
 	{ key = "guilds", text = "Guild Ignore List" },
@@ -171,7 +174,8 @@ function M.PSS_IOModeText()
 end
 
 function M.PSS_ExportText()
-	return M.PSS_EncodeExport(M.PSS_BuildExport(Sections()))
+	local text = M.PSS_EncodeExport(M.PSS_BuildExport(Sections()))
+	return text, ("Copy the string below (%d characters)"):format(#text)
 end
 
 function M.PSS_ImportCheck(str)
@@ -190,4 +194,13 @@ function M.PSS_ImportApply(data)
 	local mode = M.PSS_IO.mode == "replace" and "replace" or "merge"
 	local report = M.PSS_ApplyImport(data, mode, Sections())
 	return (mode == "replace" and "Replaced: " or "Merged: ") .. tostring(report)
+end
+
+-- the whole import decision: error text; or nil, the confirm's text (nil
+-- when the import needs none) and the function that applies it (returns
+-- the report line)
+function M.PSS_ImportStart(str)
+	local data, err = M.PSS_ImportCheck(str)
+	if not data then return err end
+	return nil, M.PSS_ImportReplaceText(data), function() return M.PSS_ImportApply(data) end
 end

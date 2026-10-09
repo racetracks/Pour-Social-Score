@@ -12,7 +12,7 @@
 -- them), every type starts ticked.
 --   M.PSS_PERIODS                         { key, text, r, g, b } x 3
 --   M.PSS_PeriodOn(key) / M.PSS_SetPeriodOn(key, on)
---   M.PSS_TypeOff(cat) / M.PSS_SetTypeOff(cat, off) / M.PSS_AnyTypeOff()
+--   M.PSS_SetTypeOff(cat, off)
 --   M.PSS_WidestPeriodOn()                "day", "session" or nil (all time)
 --   M.PSS_TypesOn()                       { [cat] = true } of the ticked, nil if all
 --   M.PSS_SummaryValues(spec, into)       into.session / day / all
@@ -32,12 +32,20 @@
 --   M.PSS_HistHidden(type) / M.PSS_SetHistHidden(type, hidden)   the block
 --                                         history lists' type ticks
 --   M.PSS_HistFilter(all, out)            the lines of the ticked types; n
+--   M.PSS_HistEmptyText                   shown when every line is ticked off
+--   M.PSS_HistCells(h, into)              a line's time, kind, name, message
+--   M.PSS_HistTip(h, canOpen)             a line's tooltip text
+--   M.PSS_TypeTip(title, sl, canOpen)     a type pie slice's tooltip
+--   M.PSS_SpecCopy(spec)                  a copy of an Events spec
 ------------------------------------------------------------------------
 local addon = PourSocialScore_NS
 local M = addon.M
 local History = M.PSS_History
 
 local ipairs, pairs, next, tonumber, tostring, max, min = ipairs, pairs, next, tonumber, tostring, math.max, math.min
+local date = date
+
+local TIME_FMT = "%Y/%m/%d %H:%M:%S"
 
 M.PSS_PERIODS = {
 	{ key = "session", text = "This session", r = 0.31, g = 0.76, b = 0.97 },
@@ -50,9 +58,7 @@ local typeOff = {}
 
 function M.PSS_PeriodOn(key) return periodOn[key] == true end
 function M.PSS_SetPeriodOn(key, on) periodOn[key] = on and true or false end
-function M.PSS_TypeOff(cat) return typeOff[cat] == true end
 function M.PSS_SetTypeOff(cat, off) typeOff[cat] = off and true or nil end
-function M.PSS_AnyTypeOff() return next(typeOff) ~= nil end
 
 function M.PSS_WidestPeriodOn()
 	if periodOn.all then return nil end
@@ -149,12 +155,24 @@ function M.PSS_PeriodTip(title, sl, click, typed)
 	return t
 end
 
+-- a type pie slice's tip: the type's all-time count
+function M.PSS_TypeTip(title, sl, click)
+	return ("%s\n%s: %d blocked (all time)"):format(title or "", sl.text, sl.value or 0)
+		.. (click and "\n\n|cffaaaaaaClick: these events in the Events tab.|r" or "")
+end
+
+-- a spec copied, as a slice sets the period it opens on
+function M.PSS_SpecCopy(spec)
+	local copy = {}
+	for k, v in pairs(spec) do copy[k] = v end
+	return copy
+end
+
 local function HexColor(hex)
 	hex = tostring(hex or "ffffffff")
 	return (tonumber(hex:sub(3, 4), 16) or 255) / 255, (tonumber(hex:sub(5, 6), 16) or 255) / 255,
 		(tonumber(hex:sub(7, 8), 16) or 255) / 255
 end
-M.PSS_HexColor = HexColor
 
 -- All time by type as slices, in the core's type order, at most max (7)
 -- types with a count. A type unticked draws nothing (draw = 0) but keeps
@@ -312,4 +330,25 @@ function M.PSS_HistFilter(all, out)
 	end
 	for i = #out, n + 1, -1 do out[i] = nil end
 	return n
+end
+
+M.PSS_HistEmptyText = "Every line here is of a type ticked off above."
+
+-- a block history line's cells (the Events tab shows the same line through
+-- M.PSS_EventCells): time, coloured type, sender without the server, text
+function M.PSS_HistCells(h, into)
+	local ts = tonumber(h.ts)
+	into.time = ts and ts > 0 and date(TIME_FMT, ts) or History.UNKNOWN
+	into.kind = "|c" .. (History.CAT_COLOR[h.cat or "unknown"] or "ffffffff") .. M.PSS_EventType(h) .. "|r"
+	into.name = M.removeServer and M.removeServer(h.member or "", true) or (h.member or "")
+	local msg = h.message or ""
+	into.message = msg ~= "" and msg or "|cff888888(no message text)|r"
+	return into
+end
+
+function M.PSS_HistTip(h, canOpen)
+	local ts = tonumber(h.ts)
+	return (ts and ts > 0 and date(TIME_FMT, ts) or "") .. "  " .. (h.channel or "")
+		.. ((h.member or "") ~= "" and ("  " .. h.member) or "") .. "\n\n" .. (h.message or "")
+		.. (canOpen and "\n\n|cffaaaaaaDouble-click: these events in the Events tab.|r" or "")
 end

@@ -15,6 +15,7 @@
 -- the accept button in the accent. Escape cancels in every look.
 ------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
+local M = ns.M
 
 local DARK = ns.DARK
 local POP_FILL = { 0.077, 0.068, 0.058, 1 }
@@ -24,11 +25,9 @@ local DIM = { 0, 0, 0, 0.25 }
 -- A popup button: the kit's button; Dark gives it a dark fill and an edge,
 -- in the accent for the button that accepts.
 local function PopupButton(parent, w, h, accept)
-	local b = ns.NewButton(parent, "", w)
-	b:SetHeight(h)
 	-- Modern: the accepting button is the red one
-	b.pssPrimary = accept and true or false
-	b.pssPaint()
+	local b = ns.NewButton(parent, "", w, nil, accept and true or false)
+	b:SetHeight(h)
 	ns.OnPaint(function(dark)
 		local p = b.pssParts
 		if dark then
@@ -186,18 +185,10 @@ local function BuildText()
 	f.subtitle:SetPoint("TOP", f, "TOP", 0, -40)
 	f.subtitle:SetTextColor(1, 1, 1)
 	f.subtitle:SetAlpha(0.45)
-	local box = ns.NewPanel(f, true)
+	local box = ns.NewTextArea(f, 11, nil, 6)
 	box:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -58)
 	box:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -20, 52)
-	local sf = ns.NewScrollFrame(box)
-	sf:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -6)
-	sf:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -24, 6)
-	local eb = CreateFrame("EditBox", nil, sf)
-	eb:SetMultiLine(true)
-	eb:SetAutoFocus(false)
-	eb:SetFontObject(ns.Font(11, "ChatFontNormal"))
-	eb:SetWidth(440)
-	sf:SetScrollChild(eb)
+	local eb = box.edit
 	eb:SetScript("OnEscapePressed", function() f:Hide() end)
 	-- copy: the text stays as given, all of it selected
 	eb:SetScript("OnTextChanged", function(self, user)
@@ -205,12 +196,6 @@ local function BuildText()
 			self:SetText(textOpts.text or "")
 			self:HighlightText()
 		end
-	end)
-	eb:SetScript("OnCursorChanged", function(self, _, y, _, h)
-		-- keep the cursor in view while typing or pasting
-		local top = sf:GetVerticalScroll()
-		if -y < top then sf:SetVerticalScroll(-y)
-		elseif -y + h > top + sf:GetHeight() then sf:SetVerticalScroll(-y + h - sf:GetHeight()) end
 	end)
 	f.edit = eb
 	f.accept = PopupButton(f, 120, 26, true)
@@ -261,4 +246,9 @@ local function ShowText(opts, readOnly)
 end
 
 function ns.CopyText(opts) return ShowText(opts, true) end
+
+-- /pss export unused (Libraries PSS_Commands.lua): the copy box on its own
+function M.PSS_CopyTextBox(title, subtitle, text)
+	return ns.CopyText({ title = title, subtitle = subtitle, text = text })
+end
 function ns.ImportText(opts) return ShowText(opts, false) end

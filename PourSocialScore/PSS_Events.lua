@@ -46,12 +46,26 @@ function Events.Unregister(event, id)
 	if listeners[event] then listeners[event][id] = nil end
 end
 
+-- A listener (or /who handler) that errors is reported in chat the first
+-- time for each event name, and counted for /pssguild status (N46).
+local errors = { count = 0, last = nil, shown = {} }
+Events.errors = errors
+
+function M.PSS_NoteListenerError(where, err)
+	errors.count = errors.count + 1
+	errors.last = where .. ": " .. tostring(err)
+	if not errors.shown[where] then
+		errors.shown[where] = true
+		M.ChatMsg("|cffff5555Pour Social Score error in " .. where .. " (shown once, see /pssguild status):|r " .. tostring(err))
+	end
+end
+
 -- A listener that errors does not stop the others.
 function Events.Fire(event, ...)
 	local list = listeners[event]
 	if not list then return end
 	for _, fn in pairs(list) do
 		local ok, err = pcall(fn, ...)
-		if not ok and M.debugMsg then M.debugMsg("PSS event " .. event .. ": " .. tostring(err)) end
+		if not ok then M.PSS_NoteListenerError(event, err) end
 	end
 end

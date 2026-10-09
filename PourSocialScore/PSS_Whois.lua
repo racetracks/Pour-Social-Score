@@ -104,12 +104,13 @@ local function send(filter)
 	return false
 end
 
-local finish
+local finish, applyEvents
 
 function Whois.Request(req)
 	if not send(req.filter) then return false end
 	req.startedAt = GetTime()
 	pending = req
+	applyEvents()
 
 	-- after the /who: cooldown on the next frame, give up if nobody answers
 	C_Timer.After(0, Whois.StartCooldown)
@@ -139,7 +140,7 @@ local function call(stage, ...)
 	for _, h in ipairs(listeners) do
 		if h[stage] then
 			local ok, err = pcall(h[stage], ...)
-			if not ok and M.debugMsg then M.debugMsg("PSS whois " .. stage .. ": " .. tostring(err)) end
+			if not ok then M.PSS_NoteListenerError("whois " .. stage, err) end
 		end
 	end
 end
@@ -161,6 +162,7 @@ finish = function(numWhos, total, how)
 	local req = pending
 	pending = nil
 	inAnswer = false
+	applyEvents()
 	call("finish", req, numWhos, total, how)
 	if req and req.onFinish then pcall(req.onFinish, req, numWhos, total, how) end
 	M.Events.Fire("WHOIS_ANSWERED", req)
@@ -281,14 +283,13 @@ local function onChatLine(msg)
 	end
 end
 
+-- The answer events are heard only while a /who of ours is waiting
+-- (pending), or while the guild source wants /who results typed by hand
+-- (Whois.SetCapture; it asks only when a guild rule or listed player can
+-- use them). Nothing is registered otherwise (core uplift P3, 3.4.1.52).
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(self, event, arg1)
-	if event == "PLAYER_LOGIN" then
-		self:UnregisterEvent("PLAYER_LOGIN")
-		self:RegisterEvent("WHO_LIST_UPDATE")
-		self:RegisterEvent("CHAT_MSG_SYSTEM")
-	elseif event == "CHAT_MSG_SYSTEM" then
+	if event == "CHAT_MSG_SYSTEM" then
 		-- /who results printed in chat (Who window closed)
 		pcall(onChatLine, arg1)
 	elseif event == "WHO_LIST_UPDATE" then
@@ -296,11 +297,43 @@ frame:SetScript("OnEvent", function(self, event, arg1)
 	end
 end)
 
+local capture, listening = false, false
+applyEvents = function()
+	local on = pending ~= nil or capture
+	if on == listening then return end
+	listening = on
+	if on then
+		frame:RegisterEvent("WHO_LIST_UPDATE")
+		frame:RegisterEvent("CHAT_MSG_SYSTEM")
+	else
+		frame:UnregisterEvent("WHO_LIST_UPDATE")
+		frame:UnregisterEvent("CHAT_MSG_SYSTEM")
+	end
+end
+
+function Whois.SetCapture(on)
+	capture = on == true
+	applyEvents()
+end
+
 ------------------------------------------------------------------------
--- older names, still used across the addon
+-- names used across the addon
 ------------------------------------------------------------------------
 M.PSS_ScanCooldownActive	= Whois.CooldownActive
-M.PSS_ScanCooldownRemaining = Whois.CooldownRemaining
-M.PSS_StartScanCooldown		= Whois.StartCooldown
 M.PSS_ScanBlockedMsg		= Whois.BlockedMsg
 function M.PSS_WhoPending() return pending ~= nil end
+
+------------------------------------------------------------------------
+-- The scan planner (PSS_WhoisHarvest.lua) is in Libraries (3.4.1 P6): a
+-- scan starts from the window, a command or the key binding, and loads it
+-- by its first call.
+------------------------------------------------------------------------
+M.PSS_WHO_CAP = 50
+for _, fname in ipairs({ "PSS_HarvestNext", "PSS_HarvestSent", "PSS_HarvestAnswered", "PSS_CapWhoFilter", "PSS_ScanAll" }) do
+	M.PSS_Stub(fname, "Libraries")
+end
+
+-- Key binding (Bindings.xml): Key Bindings > AddOns > Pour Social Score.
+BINDING_HEADER_POURSOCIALSCORE = "Pour Social Score"
+BINDING_NAME_PSS_SCAN_ALL = "Scan All: next guild /who"
+function PSS_ScanAllBinding() M.PSS_ScanAll() end

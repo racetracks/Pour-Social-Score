@@ -158,30 +158,26 @@ end
 -- Import/Export
 ------------------------------------------------------------------------
 local function Export()
-	local text = M.PSS_ExportText()
-	ns.CopyText({ title = "Export", subtitle = ("Copy the string below (%d characters)"):format(#text), text = text })
+	local text, subtitle = M.PSS_ExportText()
+	ns.CopyText({ title = "Export", subtitle = subtitle, text = text })
 end
 
 local function Import()
 	ns.ImportText({ title = "Import", subtitle = "Paste a Pour Social Score export string below",
 		accept = "Import", onAccept = function(str)
-			local data, err = M.PSS_ImportCheck(str)
-			if not data then
+			local err, ask, apply = M.PSS_ImportStart(str)
+			if err then
 				M.ShowMsg(err)
-				return
+			elseif not ask then
+				M.ShowMsg(apply())
+			else
+				ns.Confirm({ title = "Replace on Import?", text = ask, accept = "Replace", onAccept = function() M.ShowMsg(apply()) end })
 			end
-			local ask = M.PSS_ImportReplaceText(data)
-			if not ask then
-				M.ShowMsg(M.PSS_ImportApply(data))
-				return
-			end
-			ns.Confirm({ title = "Replace on Import?", text = ask, accept = "Replace", onAccept = function() M.ShowMsg(M.PSS_ImportApply(data)) end })
 		end })
 end
 
 ns.TabBuilders.importExport = function(page)
 	ioPage = page
-	local io = M.PSS_IO
 	local checks = {}
 	local help = ns.NewText(page, 12)
 	help:SetPoint("TOPLEFT", page, "TOPLEFT", 16, -16)
@@ -209,7 +205,7 @@ ns.TabBuilders.importExport = function(page)
 	modeLabel:SetText("Import mode")
 	local mode = ns.NewDropdown(page, 220, function(m)
 		for _, md in ipairs(M.PSS_IO_MODES) do
-			m:Radio(md.text, function() return io.mode == md.key end, function()
+			m:Radio(md.text, function() return M.PSS_IOMode() == md.key end, function()
 				M.PSS_IOSetMode(md.key)
 				refresh()
 			end)
@@ -223,7 +219,7 @@ ns.TabBuilders.importExport = function(page)
 	page.checks, page.mode, page.exportButton, page.importButton = checks, mode, export, import
 	refresh = function()
 		for key, t in pairs(checks) do
-			t[1]:SetChecked(io[key] == true)
+			t[1]:SetChecked(M.PSS_IOOn(key))
 			local off = M.PSS_IOPartOff(key)
 			t[1]:SetEnabled(not off)
 			t[2]:SetAlpha(off and 0.4 or 1)

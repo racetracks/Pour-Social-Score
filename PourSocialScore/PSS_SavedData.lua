@@ -59,15 +59,17 @@ local ON_DEMAND = { PourSocialScore_Logging = "Logging" }
 -- M.PSS_OPTIONS (PSS_Options.lua) are added to "options".
 -- Retired keys stay listed so an upgrade step can still clear them in
 -- PSS_OptionsDB (charOptions, optionsV2012; euiIntegration, no longer an
--- option from 3.4.0.25).
+-- option from 3.4.0.25; blizzardSync, a per-player tick from 3.4.1.35; the
+-- seven parallel player arrays at the end of "players", replaced by "list"
+-- in 3.4.1.51).
 local LAYOUT = {
 	options	= { "showIgnoreDebug", "windowSizes", "windowPoints", "columnWidths", "charOptions", "optionsV2012",
-				"euiIntegration" },
-	players	= { "ignoreList", "typeList", "factionList", "dateList", "notes", "expList", "delList",
-				"syncInfo", "playerData" },
+				"euiIntegration", "blizzardSync" },
+	players	= { "list", "delList", "playerData",
+				"ignoreList", "typeList", "factionList", "dateList", "notes", "expList", "syncInfo" },
 	guilds	= { "guildData", "guildExclusions", "guildGroupOpen", "scanFieldsDefaultV1", "guildPlayerCleanupV3" },
 	rules	= { "filterList", "filterDesc", "filterActive", "filterID", "builtinRules", "filterFormat",
-				"optInFiltersV1" },
+				"optInFiltersV1", "nextFilterId" },
 	counts	= { "blockStats", "historyFormat", "hiddenTotal", "filterTotal", "filterWhisperTotal",
 				"filterPrivateTotal", "filterCount", "filterBlocked", "filterBlockedLast", "builtinStats",
 				"guildRuleCountsV1" },
@@ -111,6 +113,11 @@ local function loaded(name)
 	local f = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
 	return f ~= nil and f(name) and true or false
 end
+
+-- The saved data check is in Libraries (PSS_Validate.lua, 3.4.1 P6): it loads
+-- for /pss check and at the one login where saved keys move.
+M.PSS_Stub("PSS_Validate", "Libraries")
+M.PSS_Stub("PSS_PrintValidation", "Libraries")
 
 local function counts()
 	return M.PSS_Validate and M.PSS_Validate().n or {}
@@ -206,8 +213,9 @@ function M.PSS_PrepareSavedData(opts)
 	if #keys == 0 then return true end
 
 	-- count, move (a key PourSocialScoreDB holds wins: it is what code reads
-	-- today), validate
-	local before = counts()
+	-- today), validate (not for a new or reset save: nothing to lose, and the
+	-- check is in Libraries)
+	local before = not (opts.wipe or (opts.quiet and opts.startup)) and counts() or nil
 	local old = {}
 	for _, k in ipairs(keys) do
 		local t = _G[GROUPS[ROUTE[k]]]
@@ -215,7 +223,7 @@ function M.PSS_PrepareSavedData(opts)
 		t[k] = rawget(db, k)
 		rawset(db, k, nil)
 	end
-	local diff = compare(before, counts())
+	local diff = before and compare(before, counts()) or ""
 	if diff ~= "" then
 		-- undo: put every key back; the step is not recorded, so it runs again
 		-- at the next login

@@ -10,9 +10,10 @@
 -- Blizzard: Blizzard's menus (MenuUtil, the Menu API). Dark, or a client
 -- without the Menu API: our menu list (PSS_Menu), built on first use: a
 -- dark list with a faint edge, the picked or ticked entries marked in the
--- accent, at most 200 tall and scrolled by the mouse wheel. A drop-down's
--- list has the port's 26 px items; a right-click menu is compact (20 px
--- items, a slim title and divider, as wide as its longest entry).
+-- accent, scrolled by the mouse wheel past its height cap. A drop-down's
+-- list has the port's 26 px items and is at most 200 tall; a right-click
+-- menu is compact (20 px items, a slim title and divider, as wide as its
+-- longest entry) and at most 400 tall, where Blizzard's menu scrolls.
 --   ns.NewDropdown(parent, w, build)   dd:SetLabel(text)
 --   ns.ContextMenu(owner, build)       at the cursor
 --   ns.RowMenu(owner, entries, run)    a row's right-click menu from the
@@ -22,7 +23,7 @@
 local ADDON_NAME, ns = ...
 
 local DARK = ns.DARK
-local ITEM_H, MAX_H, PAD = 26, 200, 1
+local ITEM_H, PAD = 26, 1
 local MENU_FILL = { 0.103, 0.095, 0.088, 0.98 }
 local MENU_EDGE = { 1, 1, 1, 0.20 }
 local floor, max, min = math.floor, math.max, math.min
@@ -81,10 +82,11 @@ local menu, slots, catcher
 local shown, offset, owner = nil, 0, nil
 
 -- Two sizes: a drop-down's list (the port's 26 px items) and a compact
--- right-click menu. Titles and dividers take less room than items.
+-- right-click menu. Titles and dividers take less room than items; cap is
+-- the height past which the menu scrolls.
 local SIZES = {
-	list = { item = ITEM_H, title = 22, divider = 9, font = 13, inset = 10 },
-	compact = { item = 20, title = 18, divider = 7, font = 12, inset = 8 },
+	list = { item = ITEM_H, title = 22, divider = 9, font = 13, inset = 10, cap = 200 },
+	compact = { item = 20, title = 18, divider = 7, font = 12, inset = 8, cap = 400 },
 }
 local size = SIZES.list
 
@@ -99,7 +101,7 @@ local function FitsFrom(first)
 	local h = 0
 	for i = first, #shown do
 		h = h + HeightOf(shown[i])
-		if h > MAX_H - PAD * 2 then return false end
+		if h > size.cap - PAD * 2 then return false end
 	end
 	return true
 end
@@ -107,7 +109,6 @@ end
 local function Close()
 	if menu then menu:Hide() end
 end
-ns.CloseMenu = Close
 
 local function MakeSlot(i)
 	local sl = CreateFrame("Button", nil, menu)
@@ -129,12 +130,15 @@ local function MakeSlot(i)
 	sl.text:SetJustifyH("LEFT")
 	sl.text:SetWordWrap(false)
 	sl.line = sl:CreateTexture(nil, "ARTWORK")
-	sl.line:SetHeight(1)
+	ns.NoSnap(sl.line)
 	sl.line:SetPoint("LEFT", sl, "LEFT", 8, 0)
 	sl.line:SetPoint("RIGHT", sl, "RIGHT", -8, 0)
 	sl.line:SetColorTexture(1, 1, 1, 0.10)
 	sl:SetScript("OnEnter", function(self) self.text:SetAlpha(1) end)
-	sl:SetScript("OnLeave", function() ns.DrawMenu() end)
+	sl:SetScript("OnLeave", function(self)
+		local e = self.entry
+		self.text:SetAlpha(e and e.kind == "title" and 0.41 or 0.53)
+	end)
 	sl:SetScript("OnClick", function(self)
 		local e = self.entry
 		if not e then return end
@@ -155,7 +159,7 @@ local function Draw()
 	for i = offset + 1, #shown do
 		local e = shown[i]
 		local h = HeightOf(e)
-		if y + h > MAX_H - PAD then break end
+		if y + h > size.cap - PAD then break end
 		n = n + 1
 		local sl = slots[n] or MakeSlot(n)
 		sl.entry = e
@@ -173,6 +177,7 @@ local function Draw()
 		sl.text:SetTextColor(1, 1, 1)
 		sl.text:SetAlpha(title and 0.41 or 0.53)
 		sl.line:SetShown(divider)
+		if divider then sl.line:SetHeight(ns.OnePixel(sl)) end
 		local on = (e.kind == "radio" or e.kind == "check") and IsOn(e)
 		sl.mark:SetShown(on)
 		sl.mark:SetColorTexture(ns.Accent())
@@ -237,6 +242,10 @@ local function BuildMenu()
 		owner = nil
 	end)
 	ns.EscapeCloses(menu, "PSS_Menu")	-- after its OnHide (SetScript drops hooks)
+	-- measures every entry for a right-click menu's width, shown or not
+	menu.measure = ns.NewText(menu, 13)
+	menu.measure:SetPoint("TOPLEFT")
+	menu.measure:SetAlpha(0)
 	slots = {}
 	menu.slots = slots
 end
@@ -332,10 +341,15 @@ function ns.ContextMenu(by, build)
 	OpenOurs(list, width, function(m)
 		m:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", (x or 0) / scale, (y or 0) / scale)
 	end, by, true)
-	-- as wide as its longest entry, no wider
-	local widest = 0
-	for _, sl in ipairs(slots) do
-		if sl:IsShown() then widest = max(widest, sl.text:GetStringWidth()) end
+	-- as wide as its longest entry, no wider (every entry, also those below
+	-- the cap)
+	local widest, fs = 0, menu.measure
+	for _, e in ipairs(list) do
+		if e.kind ~= "divider" then
+			fs:SetFontObject(ns.Font(e.kind == "title" and size.font - 1 or size.font))
+			fs:SetText(e.text or "")
+			widest = max(widest, fs:GetStringWidth())
+		end
 	end
 	menu:SetWidth(max(width, widest + 28))
 end

@@ -27,7 +27,7 @@ local PREFIX = { players = "p:", guilds = "G:", filters = "f:" }
 
 local function add(into, c)
 	if type(c) ~= "table" then return end
-	into.total = into.total + (tonumber(c.total) or 0)
+	into.total = into.total + History.CountTotal(c)
 	for _, cat in ipairs(History.ALL_CATS) do
 		into[cat] = into[cat] + (tonumber(c[cat]) or 0)
 	end
@@ -39,8 +39,8 @@ function M.PSS_ListTotals(kind, into, guildRows)
 	for _, cat in ipairs(History.ALL_CATS) do into[cat] = 0 end
 	local db = PourSocialScoreDB
 	if kind == "players" then
-		for _, name in ipairs(db.ignoreList or {}) do
-			local p = M.PSS_GetPlayerRecord(name)
+		for _, entry in ipairs(db.list or {}) do
+			local p = M.PSS_GetPlayerRecord(entry.name)
 			if p then add(into, M.PSS_GetPlayerBlockCounts(p)) end
 		end
 	elseif kind == "guilds" then

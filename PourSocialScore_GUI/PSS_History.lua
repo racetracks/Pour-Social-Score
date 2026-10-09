@@ -15,8 +15,8 @@ local ADDON_NAME, ns = ...
 local M = ns.M
 local History = M.PSS_History
 
-local TIME_FMT = "%Y/%m/%d %H:%M:%S"
 local EMPTY = {}
+local cellBuf = {}
 
 local lists = {}
 
@@ -58,7 +58,7 @@ function Filter(hv)
 	local n = M.PSS_HistFilter(hv.all, hv.shown)
 	hv.list:SetCount(n)
 	if #hv.all > 0 and n == 0 then
-		hv.list:SetEmptyText("Every line here is of a type ticked off above.")
+		hv.list:SetEmptyText(M.PSS_HistEmptyText)
 	else
 		hv.list:SetEmptyText(hv.emptyText)
 	end
@@ -71,21 +71,17 @@ local function Draw(hv, row, i)
 		for _, fs in pairs(cells) do fs:SetText("") end
 		return
 	end
-	local ts = tonumber(h.ts)
-	cells.time:SetText(ts and ts > 0 and date(TIME_FMT, ts) or History.UNKNOWN)
-	cells.kind:SetText("|c" .. (History.CAT_COLOR[h.cat or "unknown"] or "ffffffff") .. M.PSS_EventType(h) .. "|r")
-	if cells.name then cells.name:SetText(M.removeServer and M.removeServer(h.member or "", true) or (h.member or "")) end
-	local msg = h.message or ""
-	cells.message:SetText(msg ~= "" and msg or "|cff888888(no message text)|r")
+	local c = M.PSS_HistCells(h, cellBuf)
+	cells.time:SetText(c.time)
+	cells.kind:SetText(c.kind)
+	if cells.name then cells.name:SetText(c.name) end
+	cells.message:SetText(c.message)
 end
 
 local function Tip(hv, row, i)
 	local h = hv.shown[i]
 	if not h then return end
-	local ts = tonumber(h.ts)
-	ns.Tip(row, (ts and ts > 0 and date(TIME_FMT, ts) or "") .. "  " .. (h.channel or "")
-		.. ((h.member or "") ~= "" and ("  " .. h.member) or "") .. "\n\n" .. (h.message or "")
-		.. ((hv.open and ns.OpenEvents) and "\n\n|cffaaaaaaDouble-click: these events in the Events tab.|r" or ""))
+	ns.Tip(row, M.PSS_HistTip(h, hv.open and ns.OpenEvents and true or false))
 end
 
 -- a second left click on the same line opens the Events tab
@@ -123,10 +119,10 @@ HV.__index = HV
 -- only when id or its count changed. fresh scrolls back to the top.
 function HV:Set(id, total, read, fresh)
 	local ready = M.PSS_LoggingReady()
-	local key = tostring(id) .. "\001" .. total .. "\001" .. tostring(ready)
-	if key == self.key then return end
+	if self.set and self.id == id and self.total == total and self.ready == ready then return end
 	fresh = fresh or self.id ~= id
-	self.key, self.id, self.total, self.read = key, id, total, read
+	self.set, self.ready = true, ready
+	self.id, self.total, self.read = id, total, read
 	if total > 0 and not ready then
 		-- not loaded yet: offer it rather than load it for a click on a row
 		self.all = EMPTY
@@ -145,7 +141,7 @@ end
 
 -- Forget what is shown (the next Set reads again).
 function HV:Clear()
-	self.key, self.id, self.read = nil, nil, nil
+	self.set, self.id, self.read = nil, nil, nil
 end
 
 -- body: the page; y: top of the list; opts.names adds a Name column,
@@ -182,7 +178,7 @@ function ns.NewHistory(body, y, opts)
 	hv.gate = ns.NewButton(lf, "Show Block History", 170, function()
 		if not M.PSS_LoadLogging() then return end
 		local id, total, read = hv.id, hv.total, hv.read
-		hv.key = nil
+		hv.set = nil
 		if read then hv:Set(id, total, read, true) end
 	end)
 	hv.gate:SetPoint("TOP", lf, "TOP", 0, -36)

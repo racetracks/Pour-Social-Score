@@ -107,10 +107,9 @@ local function scanUnit(unit)
 	if type(name) ~= "string" or isSecret(name) or name == "" then return end
 	if realm ~= nil and (type(realm) ~= "string" or isSecret(realm)) then return end
 
-	local fullName = name
-	if realm and realm ~= "" and (not GetNormalizedRealmName or realm ~= GetNormalizedRealmName()) then
-		fullName = name .. "-" .. realm
-	end
+	-- one join for every name (a Camelot surname is not a realm)
+	local fullName = M.PSS_UnitFullName(unit)
+	if not fullName then return end
 
 	local guild = GetGuildInfo and GetGuildInfo(unit) or ""
 	if type(guild) ~= "string" or isSecret(guild) then guild = "" end
@@ -125,6 +124,198 @@ end
 local function memberKey(name)
 	return normalizePlayer(name)
 end
+
+------------------------------------------------------------------------
+-- MEMBER RECORD FIELDS (core uplift S2, 3.4.1.50; S3, 3.4.1.52)
+-- Every read of a member field that is not saved goes through one of
+-- these: the runtime fields (_playerKey, _canon, _gkey, _managed,
+-- _virtual), guild, name, whenBlocked and the rule's memberCount.
+-- tools/check_fields.lua fails any of the runtime fields or memberCount
+-- outside this block. k: the member's stored key, when the caller has it;
+-- g: its guild rule, when the caller has it.
+-- A saved record (S3) keeps only what is not derivable: the key is not in
+-- it, the name when it is the key's form, the guild when it is the rule's
+-- name, no "Managed list" date and no runtime fields. A record that is not
+-- given its key or rule is found by where it is stored: a weak map from
+-- record to stored key (homeKey), filled in one walk over the rules the first
+-- time one is missing and emptied whenever the members change; the rule is
+-- the one that holds the record under that key.
+------------------------------------------------------------------------
+-- (member fields)
+local WEAK = { __mode = "k" }
+local homeKey = setmetatable({}, WEAK)		-- record -> its stored key
+local homeMiss = setmetatable({}, WEAK)		-- records that are in no rule
+
+-- the members changed: what was learned about where records are is dropped
+local function forgetHome()
+	homeKey, homeMiss = setmetatable({}, WEAK), setmetatable({}, WEAK)
+end
+
+-- the stored key of a record (nil: it is in no rule)
+local function keyOf(m)
+	local k = homeKey[m]
+	if k ~= nil then return k end
+	if homeMiss[m] then return nil end
+	for _, rule in pairs((PourSocialScoreDB and PourSocialScoreDB.guildData) or {}) do
+		if type(rule) == "table" and type(rule.members) == "table" then
+			for key, rec in pairs(rule.members) do
+				if type(rec) == "table" then homeKey[rec] = key end
+			end
+		end
+	end
+	k = homeKey[m]
+	if k == nil then homeMiss[m] = true end
+	return k
+end
+
+-- the guild rule that holds a record (and its stored key)
+local function ruleOf(m)
+	local k = keyOf(m)
+	if k == nil then return nil end
+	for _, rule in pairs((PourSocialScoreDB and PourSocialScoreDB.guildData) or {}) do
+		if type(rule) == "table" and type(rule.members) == "table" and rule.members[k] == m then return rule, k end
+	end
+end
+
+-- the canonical name (the member index and log owner "g:<canon>"). A record
+-- with a name of its own (a new one, not stored yet) never walks the rules.
+local function memberCanon(m, k)
+	local c = canonPlayer(type(k) == "string" and k or nil)
+	if c or type(m) ~= "table" then return c end
+	c = canonPlayer(m._playerKey) or canonPlayer(homeKey[m])
+	if c then return c end
+	if m.name then return canonPlayer(m.name) end
+	return canonPlayer(keyOf(m))
+end
+M.PSS_MemberCanon = memberCanon
+
+-- the Player Ignore List form of the name (a playerData key)
+local function memberPlayerKey(m)
+	if type(m) ~= "table" then return nil end
+	if m._playerKey then return m._playerKey end
+	local key = homeKey[m]
+	if key then return key end
+	if m.name then return normalizePlayer(m.name) end
+	return keyOf(m)
+end
+M.PSS_MemberPlayerKey = memberPlayerKey
+
+local function setMemberPlayerKey(m, key) m._playerKey = key end
+local function keepMemberPlayerKey(m, fallback)
+	m._playerKey = m._playerKey or normalizePlayer(m.name) or fallback
+end
+
+-- the name as shown
+local function memberName(m, k)
+	if type(m) ~= "table" then return nil end
+	if m.name then return m.name end
+	if type(k) ~= "string" then k = keyOf(m) end
+	return type(k) == "string" and displayPlayer(k) or nil
+end
+M.PSS_MemberName = memberName
+
+-- the guild they were last seen in (the rule's guild when not known)
+local function memberGuildName(m, g)
+	if type(m) ~= "table" then return nil end
+	if m.guild then return m.guild end
+	if type(g) ~= "table" then g = ruleOf(m) end
+	return g and g.name or nil
+end
+M.PSS_MemberGuildName = memberGuildName
+
+-- is the record a shipped member's (not found in game)? A saved one has no
+-- date: a stored member of a managed rule with no whenBlocked is a shipped
+-- member that was changed; one found in game always has its date. g: the
+-- record's rule, when the caller has it.
+local function memberShipped(m, g)
+	if type(m) ~= "table" then return false end
+	if m._managed ~= nil then return m._managed == true end
+	if m.whenBlocked ~= nil and m.whenBlocked ~= "Managed list" then return false end
+	if type(g) ~= "table" then g = ruleOf(m) end
+	return g ~= nil and g.managed ~= nil
+end
+M.PSS_MemberShipped = memberShipped
+
+-- when they were added ("Managed list" for a shipped member)
+local function memberWhenBlocked(m)
+	if type(m) ~= "table" then return nil end
+	return m.whenBlocked or (memberShipped(m) and "Managed list") or nil
+end
+M.PSS_MemberWhenBlocked = memberWhenBlocked
+
+-- did /who or an invite give the record its player key? (the Camelot name
+-- repair leaves those alone, step 10)
+function M.PSS_MemberHasPlayerKey(m) return type(m) == "table" and m._playerKey ~= nil end
+
+-- A shipped member's record built this session (vrec): it knows its
+-- canonical name and its rule until it is saved.
+local function newShippedRecord(name, guildName, ck, gkey)
+	return {
+		name = displayPlayer(name), guild = guildName, whenBlocked = "Managed list",
+		_managed = true, _virtual = true, _canon = ck, _gkey = gkey,
+		_playerKey = normalizePlayer(name),
+	}
+end
+local function shippedOnly(r) return type(r) == "table" and r._virtual == true end
+local function shippedCanon(r) return r._canon end
+local function shippedRule(r) return r._gkey end
+
+-- A record as it is saved: no runtime fields, and nothing the key, the rule
+-- or the shipped list gives back. k: the stored key; g: the rule. The home
+-- is remembered, so the record reads the same afterwards. Returns true when
+-- a field went.
+local function sparseMember(m, k, g)
+	if type(m) ~= "table" then return false end
+	local n = 0
+	local function drop(f) if m[f] ~= nil then m[f] = nil; n = n + 1 end end
+	drop("_virtual"); drop("_canon"); drop("_gkey")
+	if type(k) == "string" and type(g) == "table" then
+		homeKey[m] = k
+		if m._playerKey == k then drop("_playerKey") end
+		if m.name == displayPlayer(k) then drop("name") end
+		if m.guild == g.name then drop("guild") end
+		-- shipped is only given back in a managed rule (a shipped member kept
+		-- in another rule keeps its mark and its date)
+		if g.managed ~= nil then
+			if m._managed == true or m.whenBlocked == "Managed list" then drop("whenBlocked") end
+			drop("_managed")
+		end
+	end
+	return n > 0
+end
+
+-- Upgrade step 10, before the records are made sparse: a stored member of a
+-- managed rule that is not marked shipped and has no date is a found one
+-- whose date was lost; it is stamped so a record without a date only ever
+-- means a shipped member (memberShipped).
+local function stampFound(m)
+	if m._managed ~= true and m.whenBlocked == nil then
+		m.whenBlocked = nowString()
+		return true
+	end
+	return false
+end
+
+-- a record merged into a shipped one keeps the shipped one's name fields
+local function dropOwnFields(m) m._playerKey, m.guild, m.whenBlocked = nil, nil, nil end
+
+-- the rule's member count: worked out, no longer saved (S3; display only,
+-- M.PSS_GuildMemberCount is the count every reader uses)
+local function storeMemberCount(g, n)
+	if n == nil then
+		n = 0
+		for _ in pairs(g.members or {}) do n = n + 1 end
+	end
+	return n
+end
+M.PSS_StoreMemberCount = storeMemberCount
+local function dropMemberCount(g) g.memberCount = nil end
+
+-- fields a merge never copies from one record into another: the ones the key,
+-- the rule and the shipped list give (the target has its own) and the runtime
+-- fields (S3)
+local function derivedField(f) return type(f) == "string" and (f == "name" or f == "guild" or f == "whenBlocked" or f:sub(1, 1) == "_") end
+-- (/member fields)
 
 -- Custom Scan Fields: one free-text /who filter sent with the guild name.
 -- Older saves had separate Start/End Level values; carry them over once as
@@ -177,8 +368,14 @@ local function guildBlock(g)
 			world = on,
 		}
 	end
-	for _, c in ipairs(EXCL_CATS) do g.block[c] = g.block[c] == true end
-	return g.block
+	-- written only when a flag is not yet a boolean (P4, N28)
+	local b = g.block
+	for i = 1, #EXCL_CATS do
+		local c = EXCL_CATS[i]
+		local v = b[c]
+		if v ~= true and v ~= false then b[c] = false end
+	end
+	return b
 end
 M.PSS_GuildBlock = guildBlock
 
@@ -242,8 +439,26 @@ M.PSS_RefreshGuildActive = refreshGuildActive
 -- added later) is linked to that rule: with the rule off, none of its guilds
 -- block, neither the shipped members nor the ones found in game and stored
 -- in SavedVariables (they live on the same guild row, g.managed).
+-- A guild rule this version cannot use (a newer version's: a shipped list
+-- it does not have, or a field it does not know) is never applied; it stays
+-- saved unchanged (core uplift U3, M.PSS_GuildRuleUnusable). The set holds
+-- only those rules (normally none); worked out on first use and again after
+-- the guild rules change (markMemberIndexDirty).
+local unusableRules
+local function ruleUnusable(g)
+	local u = unusableRules
+	if not u then
+		u = {}
+		for _, r in pairs((PourSocialScoreDB and PourSocialScoreDB.guildData) or {}) do
+			if M.PSS_GuildRuleUnusable and M.PSS_GuildRuleUnusable(r) then u[r] = true end
+		end
+		unusableRules = u
+	end
+	return u[g] == true
+end
+
 local function guildRuleActive(g)
-	if type(g) ~= "table" or not g.enabled then return false end
+	if type(g) ~= "table" or not g.enabled or ruleUnusable(g) then return false end
 	if g.managed then return M.PSS_ManagedGroupActive ~= nil and M.PSS_ManagedGroupActive(g.managed) end
 	return true
 end
@@ -266,7 +481,6 @@ local function ensureGuild(name)
 			block = { whisper = true, partyInvite = true, guildInvite = true, partyRaid = true, world = true },
 			customScan = M.PSS_DEFAULT_SCAN_FIELDS,
 			members = {},
-			memberCount = 0,
 		}
 		PourSocialScoreDB.guildData[key] = g
 	else
@@ -278,7 +492,6 @@ local function ensureGuild(name)
 		M.PSS_MigrateCustomScan(g)
 		g.scan, g.scanTotal, g.scanBrackets = nil, nil, nil		-- the old Scan n/9 progress
 		g.members = g.members or {}
-		g.memberCount = tonumber(g.memberCount) or 0
 	end
 	-- Block history and counters live on the MEMBER records only (see the
 	-- GUILD BLOCK RECORDING section), so they travel with a player whenever
@@ -293,15 +506,6 @@ end
 
 function M.PSS_GetGuild(name)
 	return ensureGuild(name)
-end
-
-local function findGuildForPlayer(name)
-	local key = memberKey(name)
-	if not key then return nil end
-	for guildKey, g in pairs(PourSocialScoreDB.guildData or {}) do
-		if g.members and g.members[key] then return g, guildKey, g.members[key] end
-	end
-	return nil
 end
 
 function M.PSS_UpdatePlayerUnit(name, unit, guild)
@@ -367,7 +571,6 @@ function M.PSS_UpdateGuildMember(guildName, playerName, unit)
 		if faction and not isSecret(faction) then m.faction = faction end
 	end
 	g.members[pkey] = m
-	if isNew then g.memberCount = (tonumber(g.memberCount) or 0) + 1 end
 	return m, g, gkey
 end
 
@@ -392,18 +595,11 @@ end
 
 -- Entries, categories, counts and the history UI: PSS_ChatHistory.lua
 local History = M.PSS_History
-local CAT_ORDER, CAT_LABEL, CAT_COLOR = History.CAT_ORDER, History.CAT_LABEL, History.CAT_COLOR
-M.PSS_GUILD_BLOCK_CATEGORIES = CAT_ORDER
-M.PSS_GUILD_BLOCK_LABELS = CAT_LABEL
+local parseTimeString = History.ParseTime
+local CAT_LABEL = History.CAT_LABEL
 
 -- Event categories and channel labels are shared with the core.
-local eventCategory = M.PSS_EventCategory
-M.PSS_GuildEventCategory = eventCategory
 local channelLabel = M.PSS_ChannelLabel
-local parseTimeString = History.ParseTime
-local normalizeEntry = History.Normalize
-
-local entrySig = History.Sig
 
 -- Bring a member record to the current block-data format. Older counter
 -- fields are folded in once (flag _blockV2). Old per-member history lists
@@ -432,7 +628,7 @@ local function ensureMemberBlockData(m, create)
 				if History.Normalize(h) then
 					local sig = History.Sig(h)
 					if sig ~= prev then
-						h.member = h.member or m.name
+						h.member = h.member or memberName(m)
 						out[#out + 1] = h
 						m.blockCounts[h.cat] = (m.blockCounts[h.cat] or 0) + 1
 					end
@@ -463,8 +659,8 @@ M.PSS_EnsureMemberBlockData = ensureMemberBlockData
 -- 1.2 KB each, which full guild sweeps (2.0.19) multiplied by thousands.
 local DROP_ALWAYS = { "online", "race", "className" }	-- never read for members
 local ALLOW_FLAGS = { "excludedGroup", "excludedGuildInvite", "excludedWhispers", "excludedChat" }
-local function compactMember(m)
-	if type(m) ~= "table" then return end
+local function compactMember(m, k, g)
+	if type(m) ~= "table" then return false end
 	ensureMemberBlockData(m)
 	if type(m.block) ~= "table" then memberBlock(m) end		-- folds true Allow flags into m.block
 	for _, f in ipairs(ALLOW_FLAGS) do
@@ -474,24 +670,42 @@ local function compactMember(m)
 	if m.lastBlockedInvite == "" then m.lastBlockedInvite = nil end
 	local bc = m.blockCounts
 	if type(bc) == "table" then
-		local zero = (tonumber(bc.total) or 0) == 0
-		for _, c in ipairs(History.ALL_CATS) do
-			if (tonumber(bc[c]) or 0) ~= 0 then zero = false break end
-		end
-		if zero then m.blockCounts = nil end
+		-- (S3) zero types and a total equal to the sum are not saved
+		if History.CountTotal(bc) == 0 or not History.CompactCounts(bc) then m.blockCounts = nil end
 	end
 	if m._blockV2 and not hasLegacyBlockData(m) then m._blockV2 = nil end
 	for _, f in ipairs(DROP_ALWAYS) do m[f] = nil end
+	-- (S3) what the key, the rule and the shipped list give back is not saved
+	if k ~= nil then return sparseMember(m, k, g) end
+	return false
 end
 M.PSS_CompactMember = compactMember
 
--- every stored member of every guild rule
-local function compactAllMembers()
+-- (step 10) the found members of managed rules without a date get one; how many
+function M.PSS_StampFoundMembers()
 	local n = 0
 	for _, g in pairs((PourSocialScoreDB and PourSocialScoreDB.guildData) or {}) do
-		if type(g) == "table" and type(g.members) == "table" then
+		if type(g) == "table" and g.managed and type(g.members) == "table" then
 			for _, m in pairs(g.members) do
-				if type(m) == "table" then compactMember(m); n = n + 1 end
+				if type(m) == "table" and stampFound(m) then n = n + 1 end
+			end
+		end
+	end
+	return n
+end
+
+-- every stored member of every guild rule, saved sparse (S3); the rule's
+-- saved memberCount goes (it is worked out). Returns the number of records
+-- that lost a field.
+local function compactAllMembers()
+	local n = 0
+	for gkey, g in pairs((PourSocialScoreDB and PourSocialScoreDB.guildData) or {}) do
+		if type(g) == "table" then
+			dropMemberCount(g)
+			if type(g.members) == "table" then
+				for k, m in pairs(g.members) do
+					if type(m) == "table" and compactMember(m, k, g) then n = n + 1 end
+				end
 			end
 		end
 	end
@@ -504,14 +718,6 @@ local function clearMemberBlockData(m)
 	m.blockHistory, m.blockCounts, m.lastBlockedInvite, m._blockV2 = nil, nil, nil, nil
 	for _, f in ipairs(LEGACY_COUNT_FIELDS) do m[f] = nil end
 end
-
--- Fields that must never be copied by reference between member records.
-local BLOCK_FIELDS = {
-	blockCounts = true, blockHistory = true, _blockV2 = true,
-	blockedWhispers = true, blockedPrivateMessages = true, blockedChatMessages = true, blockedInvites = true,
-	privateMessagesBlocked = true, chatMessagesBlocked = true, partyInvitesBlocked = true,
-	partyRaidMessagesBlocked = true,
-}
 
 -- Merge src's blocked counts INTO dst (used whenever a player moves between
 -- guild rules). Counts are summed (only one record is ever hit for a given
@@ -683,7 +889,6 @@ function M.PSS_ManagedStats()
 end
 
 function M.PSS_ManagedGroups() return buildManaged().groups end
-function M.PSS_ManagedGroupOfGuild(gkey) return buildManaged().groupOf[gkey] end
 
 -- shipped (static) guild rule? (those can't be removed)
 local function isStaticGuild(gkey) return buildManaged().groupOf[gkey] ~= nil end
@@ -709,18 +914,14 @@ M.PSS_IsManagedStaticMember = isStaticMember
 -- The record for a shipped member (one per character while in use).
 local function vrec(ck, gkey)
 	local r = vkeep[ck] or vcache[ck]
-	if r and r._gkey == gkey then return r end
+	if r and shippedRule(r) == gkey then return r end
 	local m = buildManaged()
 	local gk, pos = shippedOf(ck)
 	local names = gk == gkey and shippedNames(gkey)
 	local name = names and names[pos]
 	if not name then return nil end
 	-- flags, counts and block choices are created when first set
-	r = {
-		name = displayPlayer(name), guild = m.guildName[gkey] or gkey, whenBlocked = "Managed list",
-		_managed = true, _virtual = true, _canon = ck, _gkey = gkey,
-		_playerKey = normalizePlayer(name),
-	}
+	r = newShippedRecord(name, m.guildName[gkey] or gkey, ck, gkey)
 	vcache[ck] = r
 	return r
 end
@@ -728,7 +929,7 @@ M.PSS_ManagedRecord = vrec
 
 -- A shipped member's record was changed: hold it until it is saved.
 local function keepManaged(r)
-	if type(r) == "table" and r._virtual and r._canon then vkeep[r._canon] = r end
+	if shippedOnly(r) and shippedCanon(r) then vkeep[shippedCanon(r)] = r end
 end
 M.PSS_KeepManaged = keepManaged
 
@@ -738,7 +939,7 @@ local function managedDirty(r)
 	if type(r.note) == "string" and r.note ~= "" then return true end
 	if type(r.block) == "table" and next(r.block) ~= nil then return true end
 	if type(r.opts) == "table" and next(r.opts) ~= nil then return true end
-	if type(r.blockCounts) == "table" and (tonumber(r.blockCounts.total) or 0) > 0 then return true end
+	if History.CountTotal(r.blockCounts) > 0 then return true end
 	if (r.lastBlockedInvite or "") ~= "" then return true end
 	return false
 end
@@ -749,11 +950,11 @@ local function tombstone(gkey, ck)
 	if not g then return end
 	g.managedGone = type(g.managedGone) == "table" and g.managedGone or {}
 	g.managedGone[ck] = true
-	if vcache[ck] and vcache[ck]._gkey == gkey then vcache[ck] = nil end
-	if vkeep[ck] and vkeep[ck]._gkey == gkey then vkeep[ck] = nil end
+	if vcache[ck] and shippedRule(vcache[ck]) == gkey then vcache[ck] = nil end
+	if vkeep[ck] and shippedRule(vkeep[ck]) == gkey then vkeep[ck] = nil end
 	local key
 	for k, mm in pairs(g.members or {}) do
-		if type(mm) == "table" and (canonPlayer(type(k) == "string" and k or nil) or canonPlayer(mm.name)) == ck then key = k break end
+		if type(mm) == "table" and (memberCanon(mm, k)) == ck then key = k break end
 	end
 	if key then g.members[key] = nil end
 end
@@ -769,7 +970,7 @@ local function forEachMember(g, gkey, fn, includeUntouched)
 	for k, m in pairs(g.members or {}) do
 		if type(m) == "table" then
 			if seen then
-				local ck = canonPlayer(type(k) == "string" and k or nil) or canonPlayer(m.name)
+				local ck = memberCanon(m, k)
 				if ck then seen[ck] = true end
 			end
 			fn(m, k, false)
@@ -791,7 +992,7 @@ local function forEachMember(g, gkey, fn, includeUntouched)
 		local done = {}
 		for _, t in ipairs({ vkeep, vcache }) do
 			for ck, r in pairs(t) do
-				if r._gkey == gkey and not seen[ck] and not done[ck] and not isGone(g, ck) then
+				if shippedRule(r) == gkey and not seen[ck] and not done[ck] and not isGone(g, ck) then
 					done[ck] = true
 					fn(r, nil, true)
 				end
@@ -875,10 +1076,10 @@ function M.PSS_GuildMemberCount(g, gkey)
 	if not m.dataLoaded then
 		-- lists not loaded: shipped count from the manifest, minus those who
 		-- left, plus stored members that are not shipped ones (a changed
-		-- shipped member is saved with _managed)
+		-- shipped member is saved marked as one, memberShipped)
 		n = (m.count[gkey] or 0) - gone
 		for _, mm in pairs(g.members or {}) do
-			if not (type(mm) == "table" and mm._managed) then n = n + 1 end
+			if not memberShipped(mm, g) then n = n + 1 end
 		end
 		n = math.max(0, n)
 		c = c or {}
@@ -888,7 +1089,7 @@ function M.PSS_GuildMemberCount(g, gkey)
 	end
 	n = m.names[gkey] and (m.count[gkey] or 0) or 0
 	for k, mm in pairs(g.members or {}) do
-		local ck = canonPlayer(type(k) == "string" and k or nil) or (type(mm) == "table" and canonPlayer(mm.name))
+		local ck = memberCanon(mm, k)
 		if not (ck and shippedOf(ck) == gkey) then n = n + 1 end
 	end
 	for ck in pairs(g.managedGone or {}) do
@@ -901,10 +1102,14 @@ function M.PSS_GuildMemberCount(g, gkey)
 	return n
 end
 
--- Create / tag the shipped guild rules (startup).
+-- Create / tag the shipped guild rules (startup). Returns the number of
+-- rules created (the upgrade report).
 local function ensureManagedRules()
 	local m = buildManaged()
+	local made = 0
 	for gkey, groupKey in pairs(m.groupOf) do
+		local key = normalizeGuild(m.guildName[gkey])
+		if key and PourSocialScoreDB.guildData[key] == nil then made = made + 1 end
 		local g = ensureGuild(m.guildName[gkey])
 		if g then
 			g.managed = groupKey
@@ -913,8 +1118,46 @@ local function ensureManagedRules()
 			if type(g.managedGone) ~= "table" or next(g.managedGone) == nil then g.managedGone = nil end
 		end
 	end
+	return made
 end
 M.PSS_EnsureManagedRules = ensureManagedRules
+
+-- Stored members of one guild rule are capped (core uplift S3; Dan's code
+-- review decision 6): over the cap, the oldest members that hold nothing of
+-- the player's own (no note, no W I G P C choice, no counts, no history) go.
+-- A member with any of those is never dropped, so a rule can stay over the
+-- cap. Returns how many went.
+M.PSS_MEMBER_CAP = 1500
+local function capMembers(g)
+	local members = type(g) == "table" and g.members
+	if type(members) ~= "table" then return 0 end
+	local n = 0
+	for _ in pairs(members) do n = n + 1 end
+	if n <= M.PSS_MEMBER_CAP then return 0 end
+	local plain = {}
+	for k, m in pairs(members) do
+		if type(m) == "table" and not managedDirty(m) and not hasLegacyBlockData(m)
+			and m.excludedGroup ~= true and m.excludedGuildInvite ~= true and m.excludedWhispers ~= true and m.excludedChat ~= true then
+			plain[#plain + 1] = { k = k, t = parseTimeString(m.whenBlocked) or 0 }
+		end
+	end
+	table.sort(plain, function(a, b)
+		if a.t ~= b.t then return a.t < b.t end
+		return tostring(a.k) < tostring(b.k)
+	end)
+	local drop = math.min(n - M.PSS_MEMBER_CAP, #plain)
+	for i = 1, drop do members[plain[i].k] = nil end
+	if drop > 0 and M.PSS_MarkGuildIndexDirty then M.PSS_MarkGuildIndexDirty() end
+	return drop
+end
+M.PSS_CapMembers = capMembers
+
+-- every rule's stored members past the cap go; how many
+function M.PSS_CapAllMembers()
+	local n = 0
+	for _, g in pairs((PourSocialScoreDB and PourSocialScoreDB.guildData) or {}) do n = n + capMembers(g) end
+	return n
+end
 
 -- Logout: keep only the delta. Changed shipped members are written into
 -- the guild record; unchanged shipped members are dropped from it.
@@ -922,13 +1165,15 @@ function M.PSS_FlushManaged()
 	if not PourSocialScoreDB or not PourSocialScoreDB.guildData then return end
 	for _, t in ipairs({ vkeep, vcache }) do
 		for ck, r in pairs(t) do
-			local g = PourSocialScoreDB.guildData[r._gkey]
+			local g = PourSocialScoreDB.guildData[shippedRule(r)]
 			if g and not isGone(g, ck) and managedDirty(r) then
 				g.members = g.members or {}
-				local key = r._playerKey or normalizePlayer(r.name)
+				local key = memberPlayerKey(r)
 				if key and not g.members[key] then
-					r._virtual = nil
+					-- saved sparse: the runtime fields and what the key and the rule
+					-- give back are rebuilt when the lists load (S3)
 					g.members[key] = r
+					sparseMember(r, key, g)
 				end
 			end
 		end
@@ -937,13 +1182,13 @@ function M.PSS_FlushManaged()
 		if type(g) == "table" and g.managed and type(g.members) == "table" then
 			local drop = {}
 			for k, mm in pairs(g.members) do
-				local ck = canonPlayer(type(k) == "string" and k or nil) or (type(mm) == "table" and canonPlayer(mm.name))
+				local ck = memberCanon(mm, k)
 				if ck and isStaticMember(gkey, ck) and not managedDirty(mm) then drop[#drop + 1] = k end
 			end
 			for _, k in ipairs(drop) do g.members[k] = nil end
-			g.memberCount = nil
 		end
 	end
+	M.PSS_CapAllMembers()
 	compactAllMembers()
 end
 
@@ -959,7 +1204,9 @@ local memberIndexG, memberIndexK, memberIndexDirty, memberIndexBuilt = {}, {}, t
 
 local function markMemberIndexDirty()
 	memberIndexDirty = true
+	unusableRules = nil
 	memberCountGen = memberCountGen + 1
+	forgetHome()
 end
 M.PSS_MarkGuildIndexDirty = markMemberIndexDirty
 
@@ -970,12 +1217,11 @@ local function rebuildMemberIndex()
 		if type(g) == "table" and type(g.members) == "table" then
 			for storedKey, m in pairs(g.members) do
 				if type(m) == "table" then
-					local ck = canonPlayer(type(storedKey) == "string" and storedKey or nil)
-						or canonPlayer(m._playerKey) or canonPlayer(m.name)
+					local ck = memberCanon(m, storedKey)
 					if ck then
 						-- Prefer an enabled rule, then the rule that best owns the
 						-- member's actual guild (duplicates across rules).
-						local actual = m.guild or ""
+						local actual = memberGuildName(m, g) or ""
 						local best = bestCache[actual]
 						if best == nil then
 							best = (M.PSS_BestGuildRowFor and M.PSS_BestGuildRowFor(actual)) or false
@@ -1043,12 +1289,11 @@ local function requestGuildUIRefresh()
 	end
 	if C_Timer and C_Timer.After then C_Timer.After(0.25, run) else run() end
 end
-M.PSS_RequestGuildUIRefresh = requestGuildUIRefresh
 
 local function recordGuildBlock(g, m, cat, event, message, channel, gkey)
 	keepManaged(m)
 	ensureMemberBlockData(m, true)
-	local entry = History.NewEntry(cat, event, message, channel, m.name)
+	local entry = History.NewEntry(cat, event, message, channel, memberName(m))
 	entry.gk = gkey			-- the rule at the time (used if they leave every rule)
 	History.Add(History.MemberKey(m), m.blockCounts, entry)
 	History.CountRecent(History.GuildKey(gkey), entry.ts, entry.cat)	-- the guild's own recent counts
@@ -1070,9 +1315,9 @@ function M.PSS_SetMemberBlock(g, member, cat, value)
 		refreshGuildActive(g)
 		-- newly blocked: clear their earlier lines from chat, decline an open invite
 		if not was and memberBlocks(g, member, cat) then
-			local ck = canonPlayer(member._playerKey) or canonPlayer(member.name)
+			local ck = memberCanon(member)
 			if ck and M.PSS_PurgeChatFrom then M.PSS_PurgeChatFrom({ [ck] = true }) end
-			if M.PSS_PersonIdentified and member.name then M.PSS_PersonIdentified(member.name) end
+			if M.PSS_PersonIdentified and memberName(member) then M.PSS_PersonIdentified(memberName(member)) end
 		end
 	end
 	if M.PSS_MarkGuildIndexDirty then M.PSS_MarkGuildIndexDirty() end
@@ -1136,8 +1381,7 @@ end
 -- count, so a member never counted has none (older saves: the old fields).
 local function memberMayHaveLines(m)
 	if type(m) ~= "table" then return false end
-	local c = m.blockCounts
-	if type(c) == "table" and (tonumber(c.total) or 0) > 0 then return true end
+	if History.CountTotal(m.blockCounts) > 0 then return true end
 	return hasLegacyBlockData(m)
 end
 
@@ -1166,7 +1410,7 @@ function M.PSS_RemoveGuildMember(guildName, playerName, sourceGuildKey, storedKe
 		local ck = canonPlayer(playerName)
 		local doomed = {}
 		for k, m in pairs(g.members) do
-			if ck and (canonPlayer(type(k) == "string" and k or nil) == ck or (type(m) == "table" and canonPlayer(m.name) == ck)) then
+			if ck and (canonPlayer(type(k) == "string" and k or nil) == ck or (type(m) == "table" and canonPlayer(memberName(m)) == ck)) then
 				doomed[#doomed + 1] = k
 			end
 		end
@@ -1177,17 +1421,14 @@ function M.PSS_RemoveGuildMember(guildName, playerName, sourceGuildKey, storedKe
 		end
 	end
 	if removed then
-		g.memberCount = 0
-		for _ in pairs(g.members) do g.memberCount = g.memberCount + 1 end
+		storeMemberCount(g)
 		markMemberIndexDirty()
 		-- in no guild rule now: their block lines go too (counts went with the
-		-- record). Never counted: no lines, and the block history (Logging)
-		-- is not loaded for it.
+		-- record). Never counted: no lines. The block history (Logging) is
+		-- never loaded for it (History.ClearOwner).
 		if rck and not lookupGuildMemberCanon(rck) then
 			local owner = "g:" .. rck
-			if History.Loaded() or mayHaveLines then
-				History.Clear(function(h) return h.o == owner end)
-			end
+			History.ClearOwner(owner, mayHaveLines)
 			History.ForgetRecent(owner)
 		end
 	end
@@ -1259,7 +1500,7 @@ local function guildLineMatcher(g, gkey)
 	local stored = {}
 	for k, m in pairs(g.members or {}) do
 		if type(m) == "table" then
-			local ck = canonPlayer(type(k) == "string" and k or nil) or canonPlayer(m._playerKey) or canonPlayer(m.name)
+			local ck = memberCanon(m, k)
 			if ck then stored[ck] = true end
 		end
 	end
@@ -1336,7 +1577,7 @@ function M.PSS_ResetMemberBlockHistory(member)
 	if type(member) ~= "table" then return end
 	local key = History.MemberKey(member)
 	if key then
-		History.Clear(function(h) return h.o == key end)
+		History.ClearOwner(key)
 		History.ForgetRecent(key)
 	end
 	clearMemberBlockData(member)
@@ -1404,7 +1645,7 @@ local function addWhoResultToGuildMember(info, guildRowName, actualGuild)
 		-- Store the canonical player key on the member record. This makes the
 		-- later exact-guild migration independent of display-name formatting,
 		-- realm-name casing, or which broad guild filter originally captured it.
-		member._playerKey = normalizePlayer(fullName)
+		setMemberPlayerKey(member, normalizePlayer(fullName))
 	end
 
 	-- Keep actual-guild metadata current for later explicit Add Guild promotion.
@@ -1623,7 +1864,7 @@ end
 -- How long Guild Search results are kept for Save (seconds).
 local GUILD_SEARCH_CACHE_TTL = 600
 
--- Saving Guild Search results (the picker is in PSS_GuildUI.lua):
+-- Saving Guild Search results (the picker is in the window, PSS_Guilds.lua):
 --   M.PSS_SaveGuildSearch     : ticked guilds become guild rules, with the
 --                               players the search saw in them as members
 --   M.PSS_SaveGuildExclusions : ticked guilds go on the Guild Exclusion List
@@ -1706,7 +1947,47 @@ local function listenUnitScans(f, on)
 	end
 end
 
+-- Capture is wanted while a listed player exists (their details are kept
+-- up to date) or a guild rule can use what is seen: a rule of the player's
+-- own, or a shipped list that is switched on. Shipped lists that are off
+-- need nothing captured. Otherwise none of these events are registered
+-- (core uplift P3, 3.4.1.52).
+local function captureNeeded()
+	local db = PourSocialScoreDB
+	if type(db) ~= "table" then return false end
+	local list = db.list		-- (not M.PSS_List: it would create the table before the layout step)
+	if type(list) == "table" and #list > 0 then return true end
+	for _, g in pairs(db.guildData or {}) do
+		if type(g) == "table" and (not g.managed or guildRuleActive(g)) then return true end
+	end
+	return false
+end
+M.PSS_CaptureNeeded = captureNeeded
+
 local frame = CreateFrame("Frame")
+local capturing, loggedIn = false, false
+local function applyCapture()
+	if not loggedIn then return end
+	local on = captureNeeded()
+	Whois.SetCapture(on)
+	if on == capturing then return end
+	capturing = on
+	if on then
+		frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+		frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+		frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+		frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+		listenUnitScans(frame, not inCombat())
+	else
+		frame:UnregisterEvent("PLAYER_TARGET_CHANGED")
+		frame:UnregisterEvent("GROUP_ROSTER_UPDATE")
+		frame:UnregisterEvent("PLAYER_REGEN_DISABLED")
+		frame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		listenUnitScans(frame, false)
+	end
+end
+M.PSS_ApplyCapture = applyCapture
+
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(self, event, arg1, ...)
 	if event == "PLAYER_LOGIN" then
@@ -1714,11 +1995,8 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
 		-- addon has not built its default lists yet. The legacy upgrade runs
 		-- from the main addon once it has finished loading (V.PSS_Loaded).
 		self:UnregisterEvent("PLAYER_LOGIN")
-		self:RegisterEvent("PLAYER_TARGET_CHANGED")
-		self:RegisterEvent("GROUP_ROSTER_UPDATE")
-		self:RegisterEvent("PLAYER_REGEN_DISABLED")
-		self:RegisterEvent("PLAYER_REGEN_ENABLED")
-		listenUnitScans(self, not inCombat())
+		loggedIn = true
+		applyCapture()
 		if V.PSS_Loaded and M.PSS_UpgradeLegacyData then M.PSS_UpgradeLegacyData() end
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		listenUnitScans(self, false)
@@ -1730,23 +2008,42 @@ frame:SetScript("OnEvent", function(self, event, arg1, ...)
 	end
 end)
 
+-- what makes capture wanted changes with these (and once the login upgrade
+-- has run: PourSocialScore.lua)
+for _, name in ipairs({ "GUILDS_CHANGED", "PLAYERS_CHANGED", "FILTERS_CHANGED" }) do
+	M.Events.Register(name, applyCapture)
+end
+
 -- (Chat lines and invites are decided by PSS_ChatBlock.lua; this file
 -- registers the "guild" person source further down.)
 
-function M.PSS_UpgradeLegacyData()
+-- tally(feature, key, n), when given, counts what this pass changed (the
+-- upgrade report, PSS_Upgrade.lua); without it nothing is counted.
+local function noTally() end
+function M.PSS_UpgradeLegacyData(tally)
+	tally = tally or noTally
 	ensureDB()
-	for i, name in ipairs(PourSocialScoreDB.ignoreList or {}) do
-		local p = ((PourSocialScoreDB.typeList or {})[i] or "player") == "player" and M.PSS_GetPlayerPrefs and M.PSS_GetPlayerPrefs(name)
+	-- (a 2.0-era save still has the parallel arrays here, before the layout
+	-- step turns them into the list; a newer save has the list)
+	local old = PourSocialScoreDB.ignoreList
+	for i, e in ipairs(old or PourSocialScoreDB.list or {}) do
+		local name, kind, when, fac
+		if old then
+			name, kind = e, (PourSocialScoreDB.typeList or {})[i]
+			when, fac = (PourSocialScoreDB.dateList or {})[i], (PourSocialScoreDB.factionList or {})[i]
+		else
+			name, kind, when, fac = e.name, e.kind, e.date, e.faction
+		end
+		local p = (kind or "player") == "player" and M.PSS_GetPlayerPrefs and M.PSS_GetPlayerPrefs(name)
 		if p then
 		p.name = name
-		p.whenBlocked = p.whenBlocked or PourSocialScoreDB.dateList[i] or nowString()
+		p.whenBlocked = p.whenBlocked or when or nowString()
 		-- (the note and expiry live in the list itself, not on the record)
-		local fac = PourSocialScoreDB.factionList[i]
 		if (p.faction or "") == "" and type(fac) == "string" and fac ~= "" then p.faction = fac end
 		end
 	end
-	cleanupLegacyGuildPlayers()
-	ensureManagedRules()
+	tally("players", "toGuilds", cleanupLegacyGuildPlayers())
+	tally("managed", "rules", ensureManagedRules())
 	-- 2.0.6: one block-history format for every list (PSS_ChatHistory.lua).
 	-- Bring stored player and member history lines up to date once; fields
 	-- that were never recorded become "Unknown". (Chat filter history is
@@ -1775,11 +2072,12 @@ function M.PSS_UpgradeLegacyData()
 			for key, m in pairs((type(g) == "table" and g.members) or {}) do
 				if type(m) == "table" then
 					ensureMemberBlockData(m)
-					upgrade(m, m.name or key)
+					upgrade(m, memberName(m, key) or key)
 				end
 			end
 		end
 		PourSocialScoreDB.historyFormat = 2
+		tally("history", "formats", 1)
 	end
 
 	-- 2.0.17: ONE shared block log with a total cap instead of a list per
@@ -1802,7 +2100,7 @@ function M.PSS_UpgradeLegacyData()
 					if type(m.blockHistory) == "table" and #m.blockHistory > 0 then
 						local owner = History.MemberKey(m) or History.MemberKey({ name = key })
 						for _, h in ipairs(m.blockHistory) do if type(h) == "table" then h.gk = gkey end end
-						sources[#sources + 1] = { list = m.blockHistory, owner = owner, member = m.name or key }
+						sources[#sources + 1] = { list = m.blockHistory, owner = owner, member = memberName(m, key) or key }
 					end
 					m.blockHistory = nil
 				end
@@ -1810,6 +2108,7 @@ function M.PSS_UpgradeLegacyData()
 		end
 		if #sources > 0 then History.Absorb(sources) end
 		PourSocialScoreDB.historyFormat = 3
+		tally("history", "formats", 1)
 	end
 	-- 2.0.37: every person keeps their newest 10 chat lines, 5 emotes,
 	-- 5 party and 5 guild invites (PourSocialScoreDB.blockKeep) when lines
@@ -1817,6 +2116,7 @@ function M.PSS_UpgradeLegacyData()
 	if (tonumber(PourSocialScoreDB.historyFormat) or 0) < 4 then
 		History.Keep()
 		PourSocialScoreDB.historyFormat = 4
+		tally("history", "formats", 1)
 	end
 	-- keep the log within the setting (it may have been lowered); lines that
 	-- leave it go to the per-player keep. (Not loaded yet: done when
@@ -1840,6 +2140,7 @@ function M.PSS_UpgradeLegacyData()
 		for _, g in pairs(PourSocialScoreDB.guildData or {}) do
 			if type(g) == "table" and (g.customScan == nil or trim(tostring(g.customScan)) == "") then
 				g.customScan = M.PSS_DEFAULT_SCAN_FIELDS
+				tally("guilds", "scanFields", 1)
 			end
 		end
 		PourSocialScoreDB.scanFieldsDefaultV1 = true
@@ -1878,8 +2179,7 @@ local function recountGuildMembers()
 	for _, g in pairs(PourSocialScoreDB.guildData or {}) do
 		if type(g) == "table" then
 			g.members = g.members or {}
-			g.memberCount = 0
-			for _ in pairs(g.members) do g.memberCount = g.memberCount + 1 end
+			storeMemberCount(g)
 		end
 	end
 end
@@ -1903,7 +2203,7 @@ local function mergeMemberRecord(existing, m)
 		M.PSS_EnsureMemberBlockData(m)
 	end
 	for field, value in pairs(m) do
-		if not MERGE_SKIP[field] and (existing[field] == nil or existing[field] == "") then existing[field] = value end
+		if not MERGE_SKIP[field] and not derivedField(field) and (existing[field] == nil or existing[field] == "") then existing[field] = value end
 	end
 	-- (only true is stored: a missing flag means false)
 	for _, f in ipairs({ "excludedGroup", "excludedGuildInvite", "excludedWhispers", "excludedChat" }) do
@@ -1915,6 +2215,23 @@ local function mergeMemberRecord(existing, m)
 		if eb[c] == nil and mb[c] ~= nil then eb[c] = mb[c] end
 	end
 	if M.PSS_MergeMemberBlockData then M.PSS_MergeMemberBlockData(existing, m) end
+end
+
+M.PSS_MergeMember = mergeMemberRecord
+
+-- Import: a shipped member's settings go into their shipped record (saved
+-- as the delta at logout), never into a second stored copy. False when ck
+-- is not a shipped member of gkey.
+function M.PSS_MergeIntoShipped(gkey, ck, m)
+	local g = PourSocialScoreDB and PourSocialScoreDB.guildData and PourSocialScoreDB.guildData[gkey]
+	if not (g and g.managed) or isGone(g, ck) then return false end
+	if M.PSS_LoadManagedData then M.PSS_LoadManagedData() end
+	local r = isStaticMember(gkey, ck) and vrec(ck, gkey)
+	if not r then return false end
+	keepManaged(r)
+	dropOwnFields(m)
+	mergeMemberRecord(r, m)
+	return true
 end
 
 -- Move every copy of a player stored under a guild rule OTHER than keepKey
@@ -1931,7 +2248,7 @@ function M.PSS_MoveOtherCopies(playerName, keepKey, target)
 			local doomed = {}
 			for k, m in pairs(g.members) do
 				if type(m) == "table" and m ~= target then
-					local mk = canonPlayer(type(k) == "string" and k or nil) or canonPlayer(m._playerKey) or canonPlayer(m.name)
+					local mk = memberCanon(m, k)
 					if mk == ck then doomed[#doomed + 1] = k end
 				end
 			end
@@ -1942,8 +2259,7 @@ function M.PSS_MoveOtherCopies(playerName, keepKey, target)
 				moved = moved + 1
 			end
 			if #doomed > 0 then
-				g.memberCount = 0
-				for _ in pairs(g.members) do g.memberCount = g.memberCount + 1 end
+				storeMemberCount(g)
 				refreshGuildActive(g)
 			end
 		end
@@ -1952,7 +2268,7 @@ function M.PSS_MoveOtherCopies(playerName, keepKey, target)
 	local sk = staticGuildOf(ck)
 	if sk and sk ~= keepKey then
 		local r = vkeep[ck] or vcache[ck]
-		if r and r ~= target and r._gkey == sk then keepManaged(target); mergeMemberRecord(target, r) end
+		if r and r ~= target and shippedRule(r) == sk then keepManaged(target); mergeMemberRecord(target, r) end
 		tombstone(sk, ck)
 		moved = moved + 1
 	end
@@ -2048,8 +2364,9 @@ function M.PSS_ReconcileGuildMembers()
 	for srcKey, src in pairs(guilds) do
 		if type(src) == "table" and type(src.members) == "table" then
 			for storedKey, m in pairs(src.members) do
-				if type(m) == "table" and canonGuild(m.guild) then
-					local bestKey = M.PSS_BestGuildRowFor(m.guild)
+				local actual = memberGuildName(m, src)
+				if type(m) == "table" and canonGuild(actual) then
+					local bestKey = M.PSS_BestGuildRowFor(actual)
 					if bestKey and bestKey ~= srcKey then
 						moves[#moves + 1] = { srcKey = srcKey, storedKey = storedKey, dstKey = bestKey }
 					end
@@ -2065,7 +2382,7 @@ function M.PSS_ReconcileGuildMembers()
 		if not idx then
 			idx = {}
 			for k, mm in pairs(guilds[dstKey].members) do
-				local ck = canonPlayer(type(k) == "string" and k or nil) or (type(mm) == "table" and canonPlayer(mm.name))
+				local ck = memberCanon(mm, k)
 				if ck then idx[ck] = k end
 			end
 			dstIndex[dstKey] = idx
@@ -2079,7 +2396,7 @@ function M.PSS_ReconcileGuildMembers()
 		local m = src and src.members and src.members[mv.storedKey]
 		if m and dst then
 			dst.members = dst.members or {}
-			local ck = canonPlayer(type(mv.storedKey) == "string" and mv.storedKey or nil) or canonPlayer(m.name)
+			local ck = memberCanon(m, mv.storedKey)
 			local idx = indexFor(mv.dstKey)
 			local tKey = ck and idx[ck]
 			local existing = tKey and dst.members[tKey]
@@ -2090,7 +2407,7 @@ function M.PSS_ReconcileGuildMembers()
 				if ck then idx[ck] = tKey end
 			end
 			mergeMemberRecord(existing, m)
-			existing._playerKey = existing._playerKey or normalizePlayer(existing.name or tKey) or tKey
+			keepMemberPlayerKey(existing, normalizePlayer(tKey) or tKey)
 			src.members[mv.storedKey] = nil
 			if ck then movedCanon[ck] = mv.dstKey end
 			moved = moved + 1
@@ -2103,8 +2420,7 @@ function M.PSS_ReconcileGuildMembers()
 		if type(src) == "table" and type(src.members) == "table" then
 			local doomed = {}
 			for storedKey, mm in pairs(src.members) do
-				local ck = canonPlayer(type(storedKey) == "string" and storedKey or nil)
-					or (type(mm) == "table" and canonPlayer(mm.name))
+				local ck = memberCanon(mm, storedKey)
 				if ck and movedCanon[ck] and movedCanon[ck] ~= srcKey then doomed[#doomed + 1] = storedKey end
 			end
 			for _, k in ipairs(doomed) do src.members[k] = nil end
@@ -2152,11 +2468,11 @@ function M.PSS_AddCapturedGuild(actualGuild, fromGroup)
 		if sourceKey ~= targetKey and type(source) == "table" and type(source.members) == "table" then
 			for storedKey, member in pairs(source.members) do
 				if type(member) == "table" then
-					local ck = canonPlayer(type(storedKey) == "string" and storedKey or nil)
-						or canonPlayer(member._playerKey) or canonPlayer(member.name)
+					local ck = memberCanon(member, storedKey)
 					if ck then
-						local pd = playerData[storedKey] or (member._playerKey and playerData[member._playerKey])
-						if canonGuild(member.guild) == targetCanon
+						local pk = memberPlayerKey(member)
+						local pd = playerData[storedKey] or (pk and playerData[pk])
+						if canonGuild(memberGuildName(member, source)) == targetCanon
 							or (pd and canonGuild(pd.currentGuild) == targetCanon) then
 							local rec = hits[ck]
 							if not rec then
@@ -2177,7 +2493,7 @@ function M.PSS_AddCapturedGuild(actualGuild, fromGroup)
 	local targetIndex = {}
 	for storedKey, member in pairs(target.members) do
 		if type(member) == "table" then
-			local ck = canonPlayer(type(storedKey) == "string" and storedKey or nil) or canonPlayer(member.name)
+			local ck = memberCanon(member, storedKey)
 			if ck then targetIndex[ck] = storedKey end
 		end
 	end
@@ -2205,8 +2521,8 @@ function M.PSS_AddCapturedGuild(actualGuild, fromGroup)
 			-- history + counts carried across into the new guild rule.
 			mergeMemberRecord(existing, hit.member)
 		end
-		existing.name = displayPlayer(existing.name or tKey)
-		existing._playerKey = existing._playerKey or normalizePlayer(existing.name) or tKey
+		existing.name = displayPlayer(memberName(existing, tKey) or tKey)
+		keepMemberPlayerKey(existing, tKey)
 		existing.guild = actualGuild
 		if rec.player then
 			rec.player.currentGuild = actualGuild
@@ -2222,8 +2538,7 @@ function M.PSS_AddCapturedGuild(actualGuild, fromGroup)
 			if sourceKey ~= targetKey and type(source) == "table" and type(source.members) == "table" then
 				local doomed = {}
 				for storedKey, member in pairs(source.members) do
-					local ck = canonPlayer(type(storedKey) == "string" and storedKey or nil)
-						or (type(member) == "table" and (canonPlayer(member._playerKey) or canonPlayer(member.name)))
+					local ck = memberCanon(member, storedKey)
 					if ck and movedCanon[ck] then doomed[#doomed + 1] = storedKey end
 				end
 				for _, storedKey in ipairs(doomed) do
@@ -2245,8 +2560,7 @@ function M.PSS_AddCapturedGuild(actualGuild, fromGroup)
 	for sourceKey, source in pairs(PourSocialScoreDB.guildData or {}) do
 		if sourceKey ~= targetKey and type(source) == "table" and type(source.members) == "table" then
 			for storedKey, member in pairs(source.members) do
-				local ck = canonPlayer(type(storedKey) == "string" and storedKey or nil)
-					or (type(member) == "table" and (canonPlayer(member._playerKey) or canonPlayer(member.name)))
+				local ck = memberCanon(member, storedKey)
 				if ck and movedCanon[ck] then leftover = leftover + 1 end
 			end
 		end
@@ -2288,8 +2602,8 @@ function M.PSS_RemoveGuild(guildNameOrKey)
 			-- Pour Social Score; otherwise discard the guild-only metadata.
 			if M.hasGlobalIgnored then
 				local stillIgnored = false
-				for _, ignoredName in ipairs(PourSocialScoreDB.ignoreList or {}) do
-					if normalizePlayer(ignoredName) == memberKey then stillIgnored = true break end
+				for _, entry in ipairs(PourSocialScoreDB.list or {}) do
+					if normalizePlayer(entry.name) == memberKey then stillIgnored = true break end
 				end
 				if not stillIgnored then PourSocialScoreDB.playerData[memberKey] = nil end
 			end
@@ -2307,31 +2621,55 @@ end
 
 cleanupLegacyGuildPlayers = function()
 	ensureDB()
-	if PourSocialScoreDB.guildPlayerCleanupV3 then return end
+	if PourSocialScoreDB.guildPlayerCleanupV3 then return 0 end
+	local removed = 0
 	local guildMembers = {}
 	for _, g in pairs(PourSocialScoreDB.guildData or {}) do
 		for key, m in pairs(g.members or {}) do
 			guildMembers[key] = guildMembers[key] or {}
-			guildMembers[key][m.whenBlocked or ""] = true
+			guildMembers[key][memberWhenBlocked(m) or ""] = true
 		end
 	end
-	PourSocialScoreDB.ignoreList = PourSocialScoreDB.ignoreList or {}
-	for i = #PourSocialScoreDB.ignoreList, 1, -1 do
-		local name = PourSocialScoreDB.ignoreList[i]
+	-- (before the layout step a 2.0-era save still has the parallel arrays)
+	local db = PourSocialScoreDB
+	local old = db.ignoreList
+	local list = old or db.list or {}
+	if not old then db.list = list end
+	for i = #list, 1, -1 do
+		local name = old and list[i] or list[i].name
 		local key = normalizePlayer(name)
-		local p = PourSocialScoreDB.playerData and PourSocialScoreDB.playerData[key]
+		local p = db.playerData and db.playerData[key]
 		if key and p and guildMembers[key] and guildMembers[key][p.whenBlocked or ""] then
-			table.remove(PourSocialScoreDB.ignoreList, i)
-			table.remove(PourSocialScoreDB.factionList, i)
-			table.remove(PourSocialScoreDB.dateList, i)
-			table.remove(PourSocialScoreDB.notes, i)
-			table.remove(PourSocialScoreDB.expList, i)
-			table.remove(PourSocialScoreDB.typeList, i)
-			table.remove(PourSocialScoreDB.syncInfo, i)
+			if old then
+				for _, k in ipairs({ "ignoreList", "factionList", "dateList", "notes", "expList", "typeList", "syncInfo" }) do
+					if db[k] then table.remove(db[k], i) end
+				end
+			else
+				table.remove(list, i)
+			end
 			PourSocialScoreDB.playerData[key] = nil
+			removed = removed + 1
 		end
 	end
 	PourSocialScoreDB.guildPlayerCleanupV3 = true
+	return removed
+end
+
+-- Import with Replace (N45): every guild rule goes except the shipped
+-- ones (their lists, switches and member changes stay), with their recent
+-- counts; the shipped rules are made sure of and the lookups rebuilt.
+function M.PSS_ClearGuildRules()
+	ensureDB()
+	local data = PourSocialScoreDB.guildData
+	for key in pairs(data) do
+		if not isStaticGuild(key) then
+			data[key] = nil
+			History.ForgetRecent(History.GuildKey(key))
+		end
+	end
+	ensureManagedRules()
+	if M.PSS_MarkGuildIndexDirty then M.PSS_MarkGuildIndexDirty() end
+	if M.PSS_TidyBlockHistory and History.Loaded() then M.PSS_TidyBlockHistory() end
 end
 
 -- Chat output for the Guild Ignore List ("PSS: ...").
@@ -2349,9 +2687,9 @@ function M.PSS_RemoveGuildNow(guildKey)
 		return
 	end
 	local name = g.name or guildKey
-	local removedGlobal, memberCount = M.PSS_RemoveGuild(guildKey)
+	local removedGlobal, members = M.PSS_RemoveGuild(guildKey)
 	M.ShowMsg(("Guild |cffffff00%s|r removed with its %d captured member(s). Your Player Ignore List was not changed.")
-		:format(tostring(name), memberCount or 0))
+		:format(tostring(name), members or 0))
 end
 
 
@@ -2360,9 +2698,10 @@ end
 --   W I G P C per guild rule, overridable per member (see EXCLUSIONS near
 --   the top of this file). Guild chat of your own guild is never touched.
 ------------------------------------------------------------------------
+local optCtx = {}		-- the option context, reused (P4, N35): used at once, never kept
 local function gopt(key, e)
-	local ctx = { person = e.m.opts, guild = e.g.opts }
-	if M.PSS_Opt then return M.PSS_Opt(key, ctx) end
+	optCtx.person, optCtx.guild = e.m.opts, e.g.opts
+	if M.PSS_Opt then return M.PSS_Opt(key, optCtx) end
 	return PourSocialScoreDB[key]
 end
 
@@ -2390,12 +2729,14 @@ if M.PSS_RegisterBlockSource then
 		end,
 		decide = function(e, cat, ctx)
 			local g, m = e.g, e.m
+			-- a rule this version cannot use blocks nothing (U3)
+			if ruleUnusable(g) then return false end
 			-- a managed group blocks only while its Chat Filters rule is on
 			if g.managed and not guildRuleActive(g) then return false end
 			-- a guild on the Guild Exclusion List is never blocked by a guild rule
-			if M.PSS_IsGuildExcluded(m.guild or g.name) then return false end
+			if M.PSS_IsGuildExcluded(memberGuildName(m, g)) then return false end
 			-- nor is your own guild
-			if M.PSS_IsOwnGuild(m.guild or g.name) then return false end
+			if M.PSS_IsOwnGuild(memberGuildName(m, g)) then return false end
 			if cat == "whisper" or cat == "partyInvite" or cat == "guildInvite" or cat == "partyRaid" or cat == "world" then
 				return memberBlocks(g, m, cat)
 			elseif cat == "duel" or cat == "trade" then
@@ -2416,10 +2757,10 @@ if M.PSS_RegisterBlockSource then
 				(cat == "partyInvite" or cat == "guildInvite") and CAT_LABEL[cat]
 					or channelLabel(ctx.event, ctx.channelString, ctx.chNumber, ctx.chName), e.gkey)
 		end,
-		optionContext = function(e) return { person = e.m.opts, guild = e.g.opts } end,
+		optionContext = function(e) optCtx.person, optCtx.guild = e.m.opts, e.g.opts; return optCtx end,
 		describe = function(e)
 			return ("Guild Ignore List <%s> (%s), stored as %s, actual guild %s"):format(
-				tostring(e.g.name), M.PSS_ExclusionText(e.g, e.m), tostring(e.storedKey), tostring(e.m.guild))
+				tostring(e.g.name), M.PSS_ExclusionText(e.g, e.m), tostring(e.storedKey), tostring(memberGuildName(e.m)))
 		end,
 		-- A guild invite names the guild: capture an unscanned inviter of an
 		-- ignored guild under the rule that owns that guild.
@@ -2437,7 +2778,7 @@ if M.PSS_RegisterBlockSource then
 			local m = M.PSS_UpdateGuildMember(bestG.name or bestKey, inviter)
 			if not m then return nil end
 			m.guild = guildName
-			m._playerKey = normalizePlayer(inviter)
+			setMemberPlayerKey(m, normalizePlayer(inviter))
 			if M.PSS_MarkGuildIndexDirty then M.PSS_MarkGuildIndexDirty() end
 			return { g = bestG, gkey = bestKey, m = m, storedKey = normalizePlayer(inviter) }
 		end,

@@ -17,6 +17,8 @@ V.nameUI = ""		-- the player the note and expiry popups are for
 -- new window from 3.4.0): /pss gui, /pss ui and the Addon Compartment open
 -- it. show true: open, never toggle shut.
 function M.PSS_OpenUI(show)
+	-- the list shown has no expired entries (N40)
+	M.PSS_ExpireEntries()
 	if M.PSS_Need("GUI") and M.PSS_OpenWindow then M.PSS_OpenWindow(show) end
 end
 
@@ -35,6 +37,7 @@ end
 
 local function hostShow(host)
 	if not M.PSS_Opt("openWithFriends") then return end
+	M.PSS_ExpireEntries()
 	if M.PSS_Need("GUI") and M.PSS_WindowDock then M.PSS_WindowDock(host, HOST_X[host]) end
 end
 -- switching Social to the Who tab hides one host and shows the other: the
@@ -54,28 +57,6 @@ end
 -- POPUPS AND ALERTS (fire during play) --
 -----------------------------------------
 
--- The reload prompt: Blizzard's StaticPopup in every look (Dan,
--- 2026-10-08). Camelot (interface 16001) blocks ReloadUI() from addon code.
-local camelot = GetBuildInfo and (select(4, GetBuildInfo()) or 0) < 20000
-
-StaticPopupDialogs["PSS_RELOAD"] = {
-	preferredIndex	= STATICPOPUPS_NUMDIALOGS,
-	text			= "%s",
-	button1			= RELOADUI or "Reload UI",
-	button2			= LATER or "Later",
-	whileDead		= 1,
-	hideOnEscape	= 1,
-	OnAccept		= function() ReloadUI() end,
-}
-
-function M.PSS_AskReload(text)
-	if camelot then
-		M.ShowMsg(text .. " Type /reload.")
-	else
-		StaticPopup_Show("PSS_RELOAD", text)
-	end
-end
-
 StaticPopupDialogs["PSS_REASON"] = {
 
 	preferredIndex = STATICPOPUPS_NUMDIALOGS,
@@ -88,7 +69,7 @@ StaticPopupDialogs["PSS_REASON"] = {
 
 	OnShow = function(self)
 		local idx = M.hasAnyIgnored(V.nameUI)
-		self.EditBox:SetText(idx > 0 and (PourSocialScoreDB.notes[idx] or "") or "")
+		self.EditBox:SetText(idx > 0 and (PourSocialScoreDB.list[idx].note or "") or "")
 		self.EditBox:SetFocus()
 	end,
 	OnAccept = function(self)
@@ -155,7 +136,12 @@ function M.PSS_LFG_Refresh()
 	end)
 end
 
+-- Each hook body checks its option when it runs (J3, N41): turning the
+-- option off in the window applies at once; hooks cannot be removed.
+local function lfgOn() return M.PSS_Opt("useLFGHacks") == true end
+
 function M.PSS_LFG_Update (self)
+	if not lfgOn() then return end
 	if not C_LFGList.HasSearchResultInfo(self.resultID) then return end
 
 	local info = C_LFGList.GetSearchResultInfo(self.resultID);
@@ -169,6 +155,7 @@ function M.PSS_LFG_Update (self)
 end
 
 function M.PSS_LFG_Tooltip (self)
+	if not lfgOn() then return end
 	if not C_LFGList.HasSearchResultInfo(self.resultID) then return end
 
 	local info = C_LFGList.GetSearchResultInfo(self.resultID);
@@ -180,7 +167,7 @@ function M.PSS_LFG_Tooltip (self)
 			GameTooltip:AddLine(" ")
 			GameTooltip:AddLine("|c00ff0000" .. L["RCM_8"])
 
-			local notes = (PourSocialScoreDB.notes[idx] or "")
+			local notes = (PourSocialScoreDB.list[idx].note or "")
 
 			if (notes ~= "") then
 				GameTooltip:AddLine(" ")
@@ -193,7 +180,17 @@ function M.PSS_LFG_Tooltip (self)
 	end
 end
 
+-- The menu button that adds a player to the list, or takes them off it.
+local function addToggle(root, text, name)
+	root:CreateButton(text,
+		function(owner, root, contextData)
+			M.PSS_AddOrDelIgnore(M.addServer(name))
+			M.PSS_PlayersChanged(true)
+		end)
+end
+
 function M.PSS_LFG_ApplicantMenu(owner, root, contextData)
+	if not lfgOn() then return end
 	if not owner or not owner.resultID then return end
 
 	local info = C_LFGList.GetSearchResultInfo(owner.resultID);
@@ -213,11 +210,7 @@ function M.PSS_LFG_ApplicantMenu(owner, root, contextData)
 
 	root:CreateDivider()
 	root:CreateTitle(leaderText)
-	root:CreateButton(text,
-		function(owner, root, contextData)
-			M.PSS_AddOrDelIgnore(M.addServer(info.leaderName))
-			M.PSS_PlayersChanged(true)
-		end)
+	addToggle(root, text, info.leaderName)
 end
 
 ----------------------
@@ -225,11 +218,13 @@ end
 ----------------------
 
 function M.PSS_UnitMenuPlayer (owner, root, contextData)
+	if M.PSS_Opt("useUnitHacks") ~= true then return end	-- checked when it runs (N41)
 	if type(contextData) ~= "table" then return end
 	if contextData.bnetIDAccount and not contextData.unit then return end	-- a Battle.net friend, not a character
 	local target, server
-	if contextData.unit and UnitExists(contextData.unit) then
-		target, server = UnitName(contextData.unit)
+	local unit = contextData.unit and UnitExists(contextData.unit) and contextData.unit or nil
+	if unit then
+		target, server = UnitName(unit)
 	else
 		-- menus opened from a name in chat carry the name, not a unit
 		target, server = contextData.name, contextData.server
@@ -237,30 +232,34 @@ function M.PSS_UnitMenuPlayer (owner, root, contextData)
 	-- secret check first: a secret value can't even be compared with ""
 	if type(target) ~= "string" or M.PSS_IsSecret(target) or target == "" then return end
 	if server ~= nil and (type(server) ~= "string" or M.PSS_IsSecret(server)) then server = nil end
-	if contextData.unit and UnitIsUnit and UnitExists(contextData.unit) and UnitIsUnit(contextData.unit, "player") then return end
+	if unit and UnitIsUnit and UnitIsUnit(unit, "player") then return end
 
-	if server == nil or server == "" then
-		target = M.addServer(target)
-	else
-		target = target .. "-" .. server
-	end
+	-- one join for every name: a unit's surname (Camelot) is not a realm
+	target = M.PSS_NormName(target, server, unit)
+	if not target then return end
 
-	target = M.Proper(target, true)
-
-	local text = ""
-
-	if (M.hasGlobalIgnored(M.addServer(target)) > 0) then
-		text = L["RCM_4"]
-	else
-		text = L["RCM_6"]
+	-- the player's guild comes only from a unit; a name clicked in chat has none
+	local guild
+	if unit and GetGuildInfo then
+		guild = GetGuildInfo(unit)
+		if type(guild) ~= "string" or M.PSS_IsSecret(guild) or guild == "" or M.PSS_IsOwnGuild(guild) then guild = nil end
 	end
 
 	root:CreateDivider()
-	root:CreateButton(text,
-		function(owner, root, contextData)
-			M.PSS_AddOrDelIgnore(M.addServer(target))
-			M.PSS_PlayersChanged(true)
-		end)
+	root:CreateTitle(L["RCM_16"])
+	addToggle(root, M.hasGlobalIgnored(M.addServer(target)) > 0 and L["RCM_18"] or L["RCM_17"], target)
+
+	if guild then
+		local listed = M.PSS_IsGuildListed(guild)
+		root:CreateButton(listed and L["RCM_20"] or L["RCM_19"],
+			function(owner, root, contextData)
+				if listed then
+					M.PSS_RemoveGuildNow(M.PSS_NormalizeGuild(guild))
+				else
+					M.PSS_AddGuild(guild)
+				end
+			end)
+	end
 end
 
 -----------------------
@@ -305,27 +304,49 @@ local function hookLFG()
 	return true
 end
 
-function M.PSS_HookFunctions()
-	-- /script Menu.PrintOpenMenuTags()
-
-	if not hookLFG() then
-		local waiter = CreateFrame("Frame")
-		waiter:RegisterEvent("ADDON_LOADED")
-		waiter:SetScript("OnEvent", function(self)
+-- Retried when an addon loads (the Group Finder is load on demand); kept
+-- for a later enable.
+local lfgWaiter
+local function startLFG()
+	if hookLFG() then return end
+	if not lfgWaiter then
+		lfgWaiter = CreateFrame("Frame")
+		lfgWaiter:SetScript("OnEvent", function(self)
 			if hookLFG() then
 				self:UnregisterAllEvents()
 			end
 		end)
 	end
-
-	if M.PSS_Opt("useUnitHacks") == true and Menu and Menu.ModifyMenu then
-		-- FRIEND is the menu for a name clicked in chat; the COMMUNITIES and
-		-- GUILD ones are the guild / community rosters. (Battle.net friend
-		-- menus are left alone: they carry a Battle.net name, not a character.)
-		for _, tag in ipairs({ "MENU_UNIT_ENEMY_PLAYER", "MENU_UNIT_PLAYER", "MENU_UNIT_PARTY", "MENU_UNIT_RAID_PLAYER",
-								"MENU_UNIT_FRIEND", "MENU_UNIT_FRIEND_OFFLINE", "MENU_UNIT_CHAT_ROSTER", "MENU_UNIT_GUILD",
-								"MENU_UNIT_COMMUNITIES_GUILD_MEMBER", "MENU_UNIT_COMMUNITIES_MEMBER", "MENU_UNIT_COMMUNITIES_WOW_MEMBER" }) do
-			pcall(Menu.ModifyMenu, tag, M.PSS_UnitMenuPlayer)
-		end
-	end
+	lfgWaiter:RegisterEvent("ADDON_LOADED")
 end
+
+local unitHooked = false
+local function hookUnit()
+	if unitHooked then return end
+	if not (M.PSS_Opt("useUnitHacks") == true and Menu and Menu.ModifyMenu) then return end
+	-- FRIEND is the menu for a name clicked in chat; the COMMUNITIES and
+	-- GUILD ones are the guild / community rosters. (Battle.net friend
+	-- menus are left alone: they carry a Battle.net name, not a character.)
+	for _, tag in ipairs({ "MENU_UNIT_ENEMY_PLAYER", "MENU_UNIT_PLAYER", "MENU_UNIT_PARTY", "MENU_UNIT_RAID_PLAYER",
+							"MENU_UNIT_FRIEND", "MENU_UNIT_FRIEND_OFFLINE", "MENU_UNIT_CHAT_ROSTER", "MENU_UNIT_GUILD",
+							"MENU_UNIT_COMMUNITIES_GUILD_MEMBER", "MENU_UNIT_COMMUNITIES_MEMBER", "MENU_UNIT_COMMUNITIES_WOW_MEMBER" }) do
+		pcall(Menu.ModifyMenu, tag, M.PSS_UnitMenuPlayer)
+	end
+	unitHooked = true
+end
+
+-- Hooks go in at login when their option is on, or when it is first
+-- turned on (N41); turned off, the hook bodies do nothing.
+local hooksReady = false
+function M.PSS_HookFunctions()
+	-- /script Menu.PrintOpenMenuTags()
+	hooksReady = true
+	startLFG()
+	hookUnit()
+end
+
+M.Events.Register("OPTION_CHANGED", function(key)
+	if not hooksReady then return end
+	if key == "useLFGHacks" then startLFG()
+	elseif key == "useUnitHacks" then hookUnit() end
+end)

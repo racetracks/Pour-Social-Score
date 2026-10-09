@@ -1,14 +1,17 @@
 ------------------------------------------------------------------------
 -- POUR SOCIAL SCORE UI - KIT
 --
--- The controls every tab is built from, each in both looks (PSS_Skin.lua).
--- Blizzard: the Blizzard template as it is. Dark: the template's art faded
--- out and flat fills and one-pixel borders drawn over it. Sizes are the
--- same in both looks.
+-- The controls every tab is built from, each in all three looks
+-- (PSS_Skin.lua). Modern: Blizzard's 12.x art. Classic: the Blizzard
+-- template as it is. Dark: the template's art faded out and flat fills and
+-- one-pixel borders drawn over it. Sizes are the same in every look.
 --   ns.NewHeading(parent, text)          13, the accent colour
---   ns.NewButton(parent, text, w, onClick)
+--   ns.NewButton(parent, text, w, onClick, primary)   primary: the red one in Modern
 --   ns.NewCheck(parent)                  24 x 24
---   ns.NewEditBox(parent, w, maxLetters) and ns.NewNumberBox(parent, w)
+--   ns.NewEditBox(parent, w, maxLetters, hint) and ns.NewNumberBox(parent, w)
+--       hint: grey text while empty (it hooks OnTextChanged: do not SetScript it)
+--   ns.NewTextArea(parent, size, maxLetters, pad)   a panel with a scrolling
+--       multi-line box; ta.edit, ta.scroll (pad 4: bar room 22)
 --   ns.OnCommit(box, commit, refresh)    Enter or focus loss, once
 --   ns.NewSearchBox(parent, w, hint, onChange)
 --   ns.NewPanel(parent, inset)           a tab page or a pane
@@ -106,8 +109,9 @@ end
 
 -- Labels: Blizzard's gold / white / grey button fonts; Dark white, grey
 -- when disabled (the shared font objects follow the look).
-function ns.NewButton(parent, text, w, onClick)
+function ns.NewButton(parent, text, w, onClick, primary)
 	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	b.pssPrimary = primary
 	b:SetSize(w, 22)
 	b:SetNormalFontObject(ns.Font(12, "GameFontNormal"))
 	b:SetHighlightFontObject(ns.Font(12, "GameFontHighlight"))
@@ -214,12 +218,27 @@ local function SkinBox(e, size)
 	end)
 end
 
-function ns.NewEditBox(parent, w, maxLetters)
+-- A grey hint inside an empty box (alpha 0.4, faded with SetAlpha)
+local function BoxHint(e, text, size, x, white)
+	local fs = ns.NewText(e, size)
+	fs:SetPoint("LEFT", e, "LEFT", x, 0)
+	if white then fs:SetTextColor(1, 1, 1) end
+	fs:SetAlpha(0.4)
+	fs:SetText(text or "")
+	return fs
+end
+
+function ns.NewEditBox(parent, w, maxLetters, hint)
 	local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
 	e:SetSize(w, 20)
 	e:SetAutoFocus(false)
 	if maxLetters then e:SetMaxLetters(maxLetters) end
 	SkinBox(e)
+	if hint then
+		local fs = BoxHint(e, hint, 12, 2)
+		e:HookScript("OnTextChanged", function(self) fs:SetShown((self:GetText() or "") == "") end)
+		e.hint = fs
+	end
 	return e
 end
 
@@ -264,11 +283,7 @@ function ns.NewSearchBox(parent, w, hint, onChange)
 			icon:SetAlpha(0.6)
 		end
 	end)
-	local text = ns.NewText(eb, 11)
-	text:SetPoint("LEFT", eb, "LEFT", 18, 0)
-	text:SetTextColor(1, 1, 1)
-	text:SetAlpha(0.4)
-	text:SetText(hint or "")
+	local text = BoxHint(eb, hint, 11, 18, true)
 	local clear = CreateFrame("Button", nil, eb)
 	clear:SetSize(14, 14)
 	clear:SetPoint("RIGHT", eb, "RIGHT", -2, 0)
@@ -290,6 +305,40 @@ function ns.NewSearchBox(parent, w, hint, onChange)
 	eb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
 	eb.hint, eb.clear = text, clear
 	return eb
+end
+
+-- A multi-line text box that scrolls: an inset panel, a scroll frame and a
+-- multi-line edit box that follows the width and keeps the cursor in view.
+-- pad: the scroll frame's inset (4 or 6); the bar takes 18 more on the right.
+-- Place ta (a panel) yourself; set the edit box's own scripts after.
+function ns.NewTextArea(parent, size, maxLetters, pad)
+	pad = pad or 4
+	local ta = ns.NewPanel(parent, true)
+	local sf = ns.NewScrollFrame(ta)
+	sf:SetPoint("TOPLEFT", ta, "TOPLEFT", pad, -pad)
+	sf:SetPoint("BOTTOMRIGHT", ta, "BOTTOMRIGHT", -(pad + 18), pad)
+	local eb = CreateFrame("EditBox", nil, sf)
+	eb:SetPoint("TOPLEFT", sf, "TOPLEFT", 0, 0)
+	eb:SetWidth(300)
+	eb:SetMultiLine(true)
+	eb:SetAutoFocus(false)
+	if maxLetters then eb:SetMaxLetters(maxLetters) end
+	eb:SetFontObject(ns.Font(size or 11, "ChatFontNormal"))
+	sf:SetScrollChild(eb)
+	sf:SetScript("OnSizeChanged", function(_, w) if w and w > 0 then eb:SetWidth(w) end end)
+	eb:SetScript("OnCursorChanged", function(_, _, cy, _, h)
+		local top, view = sf:GetVerticalScroll(), sf:GetHeight()
+		cy, h = -(cy or 0), h or 0
+		if cy < top then
+			sf:SetVerticalScroll(cy)
+		elseif view > 0 and cy + h > top + view then
+			sf:SetVerticalScroll(cy + h - view)
+		end
+	end)
+	ta:EnableMouse(true)
+	ta:SetScript("OnMouseDown", function() if eb:IsEnabled() then eb:SetFocus() end end)
+	ta.edit, ta.scroll = eb, sf
+	return ta
 end
 
 -- A tab page or a pane. Blizzard: the inset frame art. Modern: no frame (a
@@ -336,6 +385,8 @@ end
 -- A scroll frame (ScrollFrameTemplate where the client has it, else the
 -- older UIPanelScrollFrameTemplate). Dark: the bar's arrows and track
 -- faded, the thumb a 4 px light strip.
+local BAR_BUTTONS = { "Back", "Forward", "ScrollUpButton", "ScrollDownButton" }
+
 function ns.NewScrollFrame(parent)
 	local ok, sf = pcall(CreateFrame, "ScrollFrame", nil, parent, "ScrollFrameTemplate")
 	if not (ok and sf) then sf = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate") end
@@ -355,7 +406,7 @@ function ns.NewScrollFrame(parent)
 	end
 	local keep = thumbTex and { [thumbTex] = true } or nil
 	ns.OnPaint(function(dark)
-		for _, k in ipairs({ "Back", "Forward", "ScrollUpButton", "ScrollDownButton" }) do
+		for _, k in ipairs(BAR_BUTTONS) do
 			if bar[k] then bar[k]:SetAlpha(dark and 0 or 1) end
 		end
 		ns.ShowArt(bar, dark, keep)

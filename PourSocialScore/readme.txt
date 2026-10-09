@@ -52,6 +52,10 @@ in WTF/Account/<account>/SavedVariables/, and is checked before and after
   PourSocialScore.lua          the upgrade record, and new block lines
                                waiting to join the history
 
+After any update, the first login lists what was upgraded in your saved
+data, one line per feature that changed, plus the "SavedVariables
+performance cleanup" line; later logins say nothing.
+
 
 == FEATURES
 
@@ -75,7 +79,7 @@ Player Ignore List
   No warning when their whispers are allowed (W ticked). Options: "Warn when
   grouped with, or whispering, a player on any list"
 * Automatic decline of duels, trades and party invites from ignored players
-* Ignore from right-click menus on targets, raid frames and the LFG list
+* Block a player or their guild from the "PSS" heading in right-click menus on targets, raid frames, chat names and the LFG list
 
 Guild Ignore List
 * Ignore whole guilds. Members are captured by guild Scan (a /who sweep of
@@ -155,10 +159,15 @@ that, so they start unticked; tick one to let that one thing through.
 (Built-in chat filters are different: each one starts off, tick the ones
 you want.)
 
-By default PSS does all the blocking itself and leaves Blizzard's ignore
-list alone. Option "Also put listed players on Blizzard's ignore list" (off
-by default) syncs them to it as well - but Blizzard's list blocks everything
-and ignores these exclusions. The "You are being ignored" auto-reply is also
+PSS does all the blocking itself and leaves Blizzard's ignore list alone.
+Someone you ignore with Blizzard's own Ignore (or /ignore) is listed in PSS
+with the note "Synced from Blizzard ignore list on <date>" and taken off
+Blizzard's list; your existing Blizzard list is copied into PSS the first
+time you log in with this version and stays where it is. Tick "Also on
+Blizzard's ignore list" on a player's View/Edit Rule page (off by default)
+to keep that one player on Blizzard's list as well - but Blizzard's list
+blocks everything and ignores the exclusions. Removing a player from either
+list removes them from both. The "You are being ignored" auto-reply is also
 off by default.
 
   W  Whispers (including Battle.net whispers)
@@ -520,6 +529,8 @@ filter that mixes them without brackets may now behave differently.)
                           /pss gui, /pss ui and /pss eui). Its look and font
                           are on its Options tab
 /pss help                 Show the command list
+/pss export unused        Copy the saved rules this version cannot use
+                          (kept, not applied) as an export string
 /pss list [days|server]   List entries; optionally only those listed for
                           [days] or more, or from one server
 /pss add name [days] [note]
@@ -528,6 +539,9 @@ filter that mixes them without brackets may now behave differently.)
                           A name with a space needs its realm or quotes:
                           /pss add John Smith-Area52 note
                           /pss add "John Smith" note
+                          On Camelot two words are the name:
+                          /pss add John Smith 30 note
+                          (a one-word name with a note: /pss add "Bob" note)
 /pss remove name|number   Remove an entry by name or by its /pss list
                           number (also /pss delete)
 /pss expire name days     Remove [name] automatically after [days]

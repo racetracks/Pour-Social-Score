@@ -47,7 +47,7 @@ History.CAT_COLOR = {
 	whisper = "ffffff00", partyInvite = "ffff9933", partyRaid = "ff66ccff",
 	world = "ff99ff99", guildInvite = "ffcc99ff", guildChat = "ff40ff40", unknown = "ff9d9d9d",
 }
-local CAT_LABEL, CAT_COLOR, CAT_ORDER = History.CAT_LABEL, History.CAT_COLOR, History.CAT_ORDER
+local CAT_LABEL = History.CAT_LABEL
 local ALL_CATS = { "whisper", "partyInvite", "guildInvite", "partyRaid", "world", "guildChat", "unknown" }
 History.ALL_CATS = ALL_CATS
 
@@ -60,7 +60,7 @@ function History.SetSource(h, label) if type(h) == "table" then History.sourceLa
 -- Time
 ------------------------------------------------------------------------
 local TIME_FMT = "%d %b %Y %H:%M:%S"
-local MONTHS = { Jan=1, Feb=2, Mar=3, Apr=4, May=5, Jun=6, Jul=7, Aug=8, Sep=9, Oct=10, Nov=11, Dec=12 }
+local MONTHS = M.MONTHS
 
 function History.Now() return GetServerTime and GetServerTime() or time() end
 function History.FormatTime(ts)
@@ -83,7 +83,6 @@ function History.ParseTime(s)
 	end
 	return nil
 end
-M.PSS_ParseTimeString = History.ParseTime
 
 ------------------------------------------------------------------------
 -- Entries
@@ -130,7 +129,6 @@ function History.Normalize(h)
 	h.message = tostring(h.message or "")
 	return h
 end
-M.PSS_NormalizeBlockEntry = History.Normalize
 
 -- A new line. cat: core category; channel: label (built from the event when nil).
 function History.NewEntry(cat, event, message, channel, member)
@@ -162,6 +160,32 @@ function History.EnsureCounts(c)
 	return c
 end
 
+-- A counts table's total, read without changing or copying it: never less
+-- than the categories added up, so a total that is not saved (S3: saved
+-- only when it differs from the sum) reads right. Every read of a saved
+-- counts table's total goes through this or History.EnsureCounts.
+function History.CountTotal(c)
+	if type(c) ~= "table" then return 0 end
+	local sum = 0
+	for _, k in ipairs(ALL_CATS) do sum = sum + (tonumber(c[k]) or 0) end
+	return math.max(tonumber(c.total) or 0, sum)
+end
+
+-- A counts table as it is saved (core uplift S3): zero types are not stored,
+-- and neither is a total that is not more than the types added up. Returns
+-- true when something is left to save (the caller drops the table when not).
+-- Reads go through History.EnsureCounts / History.CountTotal.
+function History.CompactCounts(c)
+	if type(c) ~= "table" then return false end
+	local sum = 0
+	for _, k in ipairs(ALL_CATS) do
+		local n = tonumber(c[k]) or 0
+		if n == 0 then c[k] = nil else sum = sum + n end
+	end
+	if (tonumber(c.total) or 0) <= sum then c.total = nil end
+	return next(c) ~= nil
+end
+
 ------------------------------------------------------------------------
 -- THE SHARED BLOCK LOG
 --
@@ -189,7 +213,6 @@ function History.Cap()
 	if v > History.MAX_TOTAL then return History.MAX_TOTAL end
 	return v
 end
-History.Max = History.Cap		-- (older name)
 
 -- time / kind are worked out when read
 History.EntryMT = { __index = function(h, k)
@@ -233,6 +256,9 @@ function M.PSS_LoadLogging()
 	-- PourSocialScore_Logging/PSS_SavedLog.lua, loaded with the data)
 	if History.UnpackSaved then History.UnpackSaved() end
 	if History.KeepToLog and type(db) == "table" and not rawget(db, "logAllV1") then History.KeepToLog() end
+	-- owners removed while Logging was not loaded (core uplift S1); their
+	-- waiting lines went then, any waiting now are newer
+	History.ApplyPurge()
 	if type(ob) == "table" then
 		local log = History.Log()
 		for i = 1, #ob do
@@ -251,15 +277,33 @@ function M.PSS_LoadLogging()
 end
 
 local loadQueued = false
-local function loadWhenQuiet()
-	if ready then loadQueued = false return end
+local quietFrame
+local QUIET_EVENTS = { "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA" }
+local function watchQuiet(on)
+	if not quietFrame then
+		if not on then return end
+		quietFrame = CreateFrame("Frame")
+		quietFrame:SetScript("OnEvent", function() History.LoadWhenQuiet() end)
+	end
+	for i = 1, #QUIET_EVENTS do
+		if on then quietFrame:RegisterEvent(QUIET_EVENTS[i]) else quietFrame:UnregisterEvent(QUIET_EVENTS[i]) end
+	end
+end
+
+-- Loads Logging at the first quiet moment (out of combat, not in an
+-- instance). A busy moment waits for an event that can end it; there is no
+-- timer (3.4.1.52, baseline 02 C15).
+function History.LoadWhenQuiet()
+	if ready then loadQueued = false; watchQuiet(false) return end
 	if (InCombatLockdown and InCombatLockdown()) or (IsInInstance and IsInInstance()) then
-		C_Timer.After(30, loadWhenQuiet)
+		watchQuiet(true)
 		return
 	end
 	loadQueued = false
+	watchQuiet(false)
 	M.PSS_LoadLogging()
 end
+local function loadWhenQuiet() History.LoadWhenQuiet() end
 
 local attached = setmetatable({}, { __mode = "k" })
 function History.Log()
@@ -476,49 +520,6 @@ function History.CapKeep(force)
 	return drop
 end
 
--- Store a person's line in their keep: their newest lines of each kind
--- (KEEP), the oldest of that kind goes. Nothing for a kind never kept.
-function History.KeepAdd(h)
-	local k = KEEP_KIND[h.cat]
-	if not k then return false end
-	local keep = History.Keep()
-	local o = h.o
-	local list = keep[o]
-	if not list then list = {}; keep[o] = list end
-	list[#list + 1] = pack(h, list)
-	local have, first = 0, nil
-	for i = #list, 1, -1 do
-		if BYTE_KIND[list[i]:byte(1)] == k then have = have + 1; first = i end
-	end
-	if not keepTotal then History.CapKeep() end
-	if have > KEEP[k] then
-		table.remove(list, first)
-	else
-		keepTotal = keepTotal + 1
-		if keepTotal > History.KEEP_TOTAL + math.floor(History.KEEP_TOTAL / 20) then History.CapKeep(true) end
-	end
-	return true
-end
-
--- Older saves: people's lines leave the log for their keep (newest of each
--- kind kept, the rest let go). Returns how many lines left the log.
-function History.MovePeople()
-	local log = History.Log()
-	local moved, owners, n, j = {}, nil, 0, 0
-	for i = 1, #log do
-		local h = log[i]
-		if keepsOwner(h.o) then
-			n = n + 1; moved[n] = h
-			owners = owners or {}; owners[h.o] = true
-		else
-			j = j + 1; log[j] = h
-		end
-	end
-	for i = #log, j + 1, -1 do log[i] = nil end
-	if owners then History.SettleKeep(owners, moved, n) end
-	return n
-end
-
 -- Work out the keep of `owners` (set of owner keys) again: their kept lines
 -- plus `dropped` (entries taken off the log), newest first, as long as the
 -- person has room for that kind once their log lines are counted.
@@ -638,8 +639,9 @@ function History.Add(owner, counts, entry, ruleTag)
 	entry.o = owner
 	if ruleTag then entry.r = ruleTag end
 	if counts then
+		local total = History.CountTotal(counts)
 		counts[entry.cat] = (tonumber(counts[entry.cat]) or 0) + 1
-		counts.total = (tonumber(counts.total) or 0) + 1
+		counts.total = total + 1
 	end
 	History.CountRecent(owner, entry.ts, entry.cat)
 	if not ready then
@@ -648,10 +650,22 @@ function History.Add(owner, counts, entry, ruleTag)
 		if type(db) ~= "table" then return entry end
 		local ob = rawget(db, "outbox")
 		if type(ob) ~= "table" then ob = {}; rawset(db, "outbox", ob) end
-		ob[#ob + 1] = entry
-		-- never more waiting than the log holds (the oldest would be trimmed)
-		if #ob > History.Cap() then table.remove(ob, 1) end
-		if #ob >= OUTBOX_LOAD and not loadQueued then
+		local n = #ob + 1
+		ob[n] = entry
+		-- never much more waiting than the log holds: past the cap and the
+		-- log's own slack the oldest go in one move, not one shift per line
+		-- (P4, N31); the cap is only read once the outbox is longer than
+		-- its smallest value
+		if n > History.MIN_TOTAL then
+			local cap = History.Cap()
+			if n > cap + math.max(20, math.floor(cap / 20)) then
+				local drop = n - cap
+				for i = 1, cap do ob[i] = ob[i + drop] end
+				for i = cap + 1, n do ob[i] = nil end
+				n = cap
+			end
+		end
+		if n >= OUTBOX_LOAD and not loadQueued then
 			loadQueued = true
 			C_Timer.After(1, loadWhenQuiet)
 		end
@@ -708,6 +722,8 @@ local function recent(cur, create)
 	local db = PourSocialScoreDB
 	if type(db) ~= "table" then return nil end
 	local r = rawget(db, "recent")
+	-- a newer version's layout is left as it is; nothing is counted in it (U3)
+	if type(r) == "table" and type(r.v) == "number" and r.v > 2 then return nil end
 	if type(r) ~= "table" or type(r.day) ~= "table" or r.v ~= 2 then
 		-- none yet, or the untyped layout of 3.2.0-dev1 (a day of test data)
 		if type(r) == "table" then rawset(db, "recent", nil) end
@@ -756,6 +772,7 @@ function History.CountRecent(owner, ts, cat)
 	if slot <= 0 or slot > cur then slot = cur end
 	if slot <= cur - DAY_SLOTS then return end
 	local r = recent(cur, true)
+	if not r then return end
 	local i = slot % DAY_SLOTS + 1
 	local t = r[i]
 	if not t then t = {}; r[i] = t end
@@ -858,7 +875,7 @@ function History.ForgetRecent(owner)
 	if type(se) == "table" then se[owner] = nil end
 	for _, c in pairs(sessionCat) do c[owner] = nil end
 	local r = rawget(db, "recent")
-	if type(r) ~= "table" or type(r.day) ~= "table" or not r.day[owner] then return end
+	if type(r) ~= "table" or r.v ~= 2 or type(r.day) ~= "table" or not r.day[owner] then return end
 	r.day[owner] = nil
 	for i = 1, DAY_SLOTS do
 		local t = r[i]
@@ -978,6 +995,140 @@ function History.Clear(pred)
 	return removed
 end
 
+------------------------------------------------------------------------
+-- One owner's lines (core uplift S1, 3.4.1.49): a removal or a reset. The
+-- log is walked comparing o and the owner's keep is dropped, nothing is
+-- unpacked (5.6 ms and 750 KB of garbage through History.Clear, about
+-- 70 us and none here). With Logging not loaded, the owner's waiting lines
+-- go at once and the saved ones are marked in PourSocialScoreDB.purge
+-- (o = true, at most PURGE_CAP owners); the marks are applied when Logging
+-- loads, before the waiting lines join the log, so someone removed and
+-- listed again keeps only their new lines. A removal never loads Logging,
+-- unless the marks are full.
+--   mayHave false: nothing was ever counted for the owner, so there are no
+--   saved lines to mark (lines are only added with a count)
+------------------------------------------------------------------------
+History.PURGE_CAP = 200
+
+-- log lines of o (or of any owner in set) and their keep go; how many
+local function dropLines(o, set)
+	local log = History.Log()
+	local j, n = 0, #log
+	for i = 1, n do
+		local h = log[i]
+		local ho = h.o
+		if ho ~= o and not (set and set[ho]) then j = j + 1; log[j] = h end
+	end
+	for i = j + 1, n do log[i] = nil end
+	local removed = n - j
+	local keep = History.Keep()
+	if o and keep[o] then removed = removed + #keep[o]; keep[o] = nil end
+	if set then
+		for so in pairs(set) do
+			if keep[so] then removed = removed + #keep[so]; keep[so] = nil end
+		end
+	end
+	keepTotal = nil
+	if removed > 0 and M.PSS_RequestGC then M.PSS_RequestGC("history cleared") end
+	return removed
+end
+
+-- o's lines in the outbox go; how many
+local function dropWaiting(o)
+	local ob = rawget(PourSocialScoreDB, "outbox")
+	if type(ob) ~= "table" then return 0 end
+	local j, n = 0, #ob
+	for i = 1, n do
+		local e = ob[i]
+		if type(e) ~= "table" or e.o ~= o then j = j + 1; ob[j] = e end
+	end
+	for i = j + 1, n do ob[i] = nil end
+	if j == 0 then rawset(PourSocialScoreDB, "outbox", nil) end
+	return n - j
+end
+
+function History.ClearOwner(o, mayHave)
+	local db = PourSocialScoreDB
+	if type(o) ~= "string" or type(db) ~= "table" then return 0 end
+	if ready then return dropLines(o) end
+	local removed = dropWaiting(o)
+	if mayHave == false then return removed end
+	local purge = rawget(db, "purge")
+	if type(purge) ~= "table" then purge = {} end
+	if not purge[o] then
+		local n = 0
+		for _ in pairs(purge) do n = n + 1 end
+		if n >= History.PURGE_CAP then
+			-- full: Logging loads (the marks are applied) and o is cleared there
+			if M.PSS_LoadLogging() then return removed + dropLines(o) end
+			return removed
+		end
+		purge[o] = true
+		rawset(db, "purge", purge)
+	end
+	return removed
+end
+
+-- the marks, when Logging loads (M.PSS_LoadLogging)
+function History.ApplyPurge()
+	local db = PourSocialScoreDB
+	local purge = type(db) == "table" and rawget(db, "purge")
+	if type(purge) ~= "table" then return 0 end
+	rawset(db, "purge", nil)
+	if next(purge) == nil then return 0 end
+	return dropLines(nil, purge)
+end
+
+-- Give owner `from`'s lines and recent counts to owner `to` (a chat filter
+-- given an id keeps its history, core uplift S3). The waiting lines and the
+-- recent counts are always changed; the log and the keep only when Logging
+-- is loaded (the caller loads it first when the owner may have lines).
+-- Returns how many lines and counts moved.
+function History.RenameOwner(from, to)
+	local db = PourSocialScoreDB
+	if type(from) ~= "string" or type(to) ~= "string" or from == to or type(db) ~= "table" then return 0 end
+	local n = 0
+	local ob = rawget(db, "outbox")
+	if type(ob) == "table" then
+		for i = 1, #ob do
+			local e = ob[i]
+			if type(e) == "table" and e.o == from then e.o = to; n = n + 1 end
+		end
+	end
+	local function move(t)
+		local v = t[from]
+		if v ~= nil then t[from] = nil; t[to] = (t[to] or 0) + v; n = n + 1 end
+	end
+	local se = rawget(db, "session")
+	if type(se) == "table" then move(se) end
+	for _, c in pairs(sessionCat) do move(c) end
+	local r = rawget(db, "recent")
+	if type(r) == "table" and r.v == 2 and type(r.day) == "table" then
+		move(r.day)
+		for i = 1, DAY_SLOTS do
+			local t = r[i]
+			if t then for _, owners in pairs(t) do move(owners) end end
+		end
+	end
+	if ready then
+		local log = History.Log()
+		for i = 1, #log do
+			local h = log[i]
+			if h.o == from then h.o = to; n = n + 1 end
+		end
+		local keep = History.Keep()
+		local k = keep[from]
+		if k then
+			keep[from] = nil
+			local into = keep[to]
+			if into then for i = 1, #k do into[#into + 1] = k[i] end else keep[to] = k end
+			n = n + #k
+			keepTotal = nil
+		end
+	end
+	return n
+end
+
 -- owner keys
 function History.PlayerKey(name)
 	local c = M.PSS_CanonPlayer and M.PSS_CanonPlayer(name)
@@ -985,11 +1136,12 @@ function History.PlayerKey(name)
 end
 function History.MemberKey(m)
 	if type(m) ~= "table" then return nil end
-	local c = M.PSS_CanonPlayer and (M.PSS_CanonPlayer(m._playerKey) or M.PSS_CanonPlayer(m.name))
+	local c = M.PSS_MemberCanon and M.PSS_MemberCanon(m)
 	return c and ("g:" .. c) or nil
 end
 function History.FilterKey(id, text)
-	if type(id) == "string" and id ~= "" then return "f:" .. id end
+	-- (a number: a custom filter's id, from a newer version; kept as it is)
+	if (type(id) == "string" and id ~= "") or type(id) == "number" then return "f:" .. id end
 	return "f:t:" .. tostring(text or "")
 end
 
@@ -1084,63 +1236,6 @@ function History.Sig(h)
 	return tostring(h.ts or 0) .. "\1" .. tostring(h.time or "") .. "\1" .. tostring(h.event or "") ..
 			"\1" .. tostring(h.message or "") .. "\1" .. tostring(h.cat or "")
 end
-
--- Union of two lists, de-duplicated (copies), newest first, capped.
-function History.MergeLists(a, b)
-	local max = History.Max()
-	local seen, merged = {}, {}
-	for _, list in ipairs({ a or {}, b or {} }) do
-		for _, h in ipairs(list) do
-			local sig = History.Sig(h)
-			if not seen[sig] then
-				seen[sig] = true
-				local copy = {}
-				for k, v in pairs(h) do copy[k] = v end
-				merged[#merged + 1] = copy
-			end
-		end
-	end
-	table.sort(merged, function(x, y) return (x.ts or 0) > (y.ts or 0) end)
-	while #merged > max do table.remove(merged) end
-	return merged
-end
-
--- Several lists -> one newest-first list (for "all players / guilds /
--- filters" views). sourceFn(list) gives the tooltip label, ownerName the
--- sender when a line does not name one.
-function History.Combine(parts)
-	local out = {}
-	for _, p in ipairs(parts) do
-		for _, h in ipairs(p.list or {}) do
-			if History.Normalize(h) then
-				h.member = h.member or p.owner or UNKNOWN
-				if p.source then History.SetSource(h, p.source) end
-				out[#out + 1] = h
-			end
-		end
-	end
-	table.sort(out, function(a, b)
-		if (a.ts or 0) ~= (b.ts or 0) then return (a.ts or 0) > (b.ts or 0) end
-		return tostring(a.member or "") < tostring(b.member or "")
-	end)
-	return out
-end
-
--- "Whispers: 3  Party Invites: 0 ..." summary line.
-function History.FormatCounts(c)
-	c = c or {}
-	local function part(cat, label)
-		return "|cffaaaaaa" .. label .. ":|r |c" .. CAT_COLOR[cat] .. (c[cat] or 0) .. "|r"
-	end
-	local s = part("whisper", "Whispers") .. "    " .. part("partyInvite", "Party Invites") .. "    " ..
-				part("partyRaid", "Party/Raid") .. "    " .. part("world", "World Chat")
-	if (c.guildInvite or 0) > 0 then s = s .. "    " .. part("guildInvite", "Guild Invites") end
-	if (c.guildChat or 0) > 0 then s = s .. "    " .. part("guildChat", "Guild Chat") end
-	if (c.unknown or 0) > 0 then s = s .. "    " .. part("unknown", UNKNOWN) end
-	return s
-end
-M.PSS_FormatGuildCounts = History.FormatCounts
-M.PSS_FormatBlockCounts = History.FormatCounts
 
 ------------------------------------------------------------------------
 -- Chat filter history migration

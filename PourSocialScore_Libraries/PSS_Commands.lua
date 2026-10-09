@@ -39,6 +39,8 @@ local function OnOff (value)
 end
 
 local function ShowIgnoreList (param)
+	-- the list shown has no expired entries (N40)
+	M.PSS_ExpireEntries()
 	local days		= tonumber(param)
 	local sName		= ""
 
@@ -74,28 +76,32 @@ local function ShowIgnoreList (param)
 
 	local count = 0
 
-	for key,value in pairs(PourSocialScoreDB.ignoreList) do
+	for key,entry in ipairs(PourSocialScoreDB.list) do
 
 		local ok	= true
 		local type = "P"
+		local value = entry.name
 
-		if PourSocialScoreDB.typeList[key] == "npc" then
+		if entry.kind == "npc" then
 			type = "N"
-		elseif PourSocialScoreDB.typeList[key] == "server" then
+		elseif entry.kind == "server" then
 			type = "S"
 		end
 
 		if days > 0 then
-			ok = M.daysFromToday(PourSocialScoreDB.dateList[key]) >= days
+			ok = M.daysFromToday(entry.date) >= days
 		elseif sName ~= "" then
 			ok = (type == "N" and sName == "Npc") or (type == "P" and isServerMatch(sName, M.getServer(value))) or (type == "S" and isServerMatch(sName, value))
 		end
 
 		if ok then
-			local str = "  (" .. key .. ") [" .. type.. "] " .. value .. " (" .. (PourSocialScoreDB.factionList[key] or "Unknown") .. ") " .. "[".. M.daysFromToday(PourSocialScoreDB.dateList[key]) .. " "..L["DAYS"] .. "]"
+			local str = "  (" .. key .. ") [" .. type.. "] " .. value .. " (" .. (entry.faction or "Unknown") .. ") " .. "[".. M.daysFromToday(entry.date) .. " "..L["DAYS"] .. "]"
 
-			if PourSocialScoreDB.notes[key] ~= "" then
-				str = str .." (" .. PourSocialScoreDB.notes[key] .. ")"
+			-- older saves and the legacy import can have no note (N48);
+			-- (type is the entry's letter here, not the function)
+			local note = entry.note
+			if note ~= nil and note ~= "" then
+				str = str .." (" .. tostring(note) .. ")"
 			end
 
 			M.ShowMsg(str)
@@ -106,9 +112,6 @@ local function ShowIgnoreList (param)
 	end
 
 	M.ShowMsg("|cffffff00" .. format(L["LIST_5"], count))
-end
-
-local function PSSTest()
 end
 
 -- /pss on its own opens (or closes) the window; these words are the same
@@ -132,10 +135,6 @@ function M.PSS_SlashPSS (msg)
 	if not args[1] or OPEN[args[1]] then
 
 		M.PSS_OpenUI()
-
-	elseif args[1] == "test" then
-
-		PSSTest()
 
 	elseif args[1] == "clear" then
 
@@ -201,7 +200,7 @@ function M.PSS_SlashPSS (msg)
 		if tonumber(argStr) then
 			-- by list position, whatever the entry type (player, NPC or server)
 			local index = tonumber(argStr)
-			local str = PourSocialScoreDB.typeList[index]
+			local str = PourSocialScoreDB.list[index] and (PourSocialScoreDB.list[index].kind or "player")
 
 			if str == "npc" then
 				M.AddOrDelNPC(index)
@@ -244,16 +243,16 @@ function M.PSS_SlashPSS (msg)
 		if tonumber(args[2]) then
 			local index = tonumber(args[2])
 
-			if (index > 0) and (PourSocialScoreDB.ignoreList[index]) then
+			if (index > 0) and (PourSocialScoreDB.list[index]) then
 
 				M.PSS_SetExpiry(index, tonumber(args[3]))
-				M.ShowMsg(format(L["CMD_14"], PourSocialScoreDB.ignoreList[index], tonumber(args[3])))
+				M.ShowMsg(format(L["CMD_14"], PourSocialScoreDB.list[index].name, tonumber(args[3])))
 			end
 
 		else
 			local name			= M.Proper(M.addServer(args[2]))
 			local playerIndex = M.hasGlobalIgnored(name)
-			if playerIndex > 0 then name = PourSocialScoreDB.ignoreList[playerIndex] end
+			if playerIndex > 0 then name = PourSocialScoreDB.list[playerIndex].name end
 
 			if playerIndex > 0 then
 				M.PSS_SetExpiry(playerIndex, tonumber(args[3]))
@@ -268,6 +267,17 @@ function M.PSS_SlashPSS (msg)
 	elseif args[1] == "check" then
 
 		M.PSS_PrintValidation()
+
+	elseif msg == "export unused" then
+
+		-- the saved rules this version cannot use, to keep outside the game
+		-- (core uplift U3); the window's copy box, the window stays closed
+		local text = M.PSS_UnusedExportText()
+		if not text then
+			M.ShowMsg(L["UNUSED_NONE"])
+		elseif M.PSS_Need("GUI") and M.PSS_CopyTextBox then
+			M.PSS_CopyTextBox("Rules Not Used", ("Copy the string below (%d characters) and keep it: a version that knows these rules imports it"):format(#text), text)
+		end
 
 	elseif args[1] == "sync" then
 
@@ -302,6 +312,7 @@ function M.PSS_SlashPSS (msg)
 		M.ShowMsg ("  " .. L["HELP_16"])
 		M.ShowMsg ("  " .. L["HELP_17"])
 		M.ShowMsg ("  " .. L["HELP_18"])
+		M.ShowMsg ("  " .. L["HELP_19"])
 		M.ShowMsg ("  " .. L["HELP_9"])
 		M.ShowMsg ("")
 		M.ShowMsg ("  " .. format(L["HELP_10"], OnOff(M.PSS_Opt("chatmsg"))))
@@ -353,7 +364,7 @@ function M.PSS_SlashGuild (msg)
 		end
 		local labels = { whisper = "Whispers", partyRaid = "Party/Raid", world = "World chat", guildChat = "Guild chat",
 						partyInvite = "Party invite", guildInvite = "Guild invite", duel = "Duel", trade = "Trade" }
-		local order = { "whisper", "partyRaid", "world", "guildChat", "partyInvite", "guildInvite", "duel", "trade" }
+		local order = ex.order
 		local any = {}
 		for _, row in ipairs(ex.sources) do
 			gp("listed: " .. tostring(row.describe or row.src.label))
@@ -409,7 +420,7 @@ function M.PSS_SlashGuild (msg)
 		if g then
 			local c = M.PSS_GetMemberBlockCounts(m)
 			gp(("FOUND under rule <%s>, stored as %q, actual guild %q"):format(
-				tostring(g.name), tostring(storedKey), tostring(m.guild)))
+				tostring(g.name), tostring(storedKey), tostring(M.PSS_MemberGuildName(m, g))))
 			gp(("exclusions (red = blocked): %s   guild: %s | blocked: W %d, PI %d, P/R %d, World %d, GI %d"):format(
 				M.PSS_ExclusionText(g, m), M.PSS_ExclusionText(g), c.whisper, c.partyInvite, c.partyRaid, c.world, c.guildInvite))
 		else
@@ -421,7 +432,7 @@ function M.PSS_SlashGuild (msg)
 					if type(k) == "string" and k:match("^([^%-]+)") == base then
 						n = n + 1
 						gp(("  <%s> key %q name %q -> lookup key %q"):format(tostring(gg.name or gk), k,
-							tostring(type(mm) == "table" and mm.name), tostring(canonPlayer(k))))
+							tostring(type(mm) == "table" and M.PSS_MemberName(mm, k)), tostring(canonPlayer(k))))
 					end
 				end
 			end
@@ -438,6 +449,8 @@ function M.PSS_SlashGuild (msg)
 		M.PSS_FilterAvailable and "registered" or "|cffff5555MISSING|r", stats.checked or 0, stats.personHits or 0, stats.hidden or 0,
 		#bySrc > 0 and table.concat(bySrc, ", ") or "-", stats.errors or 0, tonumber(PourSocialScoreDB.hiddenTotal) or 0))
 	if stats.lastError then gp("last error: " .. stats.lastError) end
+	local le = M.Events.errors
+	if le and le.count > 0 then gp(("listener errors: %d | last: %s"):format(le.count, tostring(le.last))) end
 	local gcs = M.PSS_GCState
 	if gcs then
 		local heap = (pcall(collectgarbage, "count") and collectgarbage("count") or 0) / 1024

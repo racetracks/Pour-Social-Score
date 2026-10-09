@@ -3,6 +3,11 @@
 --
 -- The parts the Players, Guilds and Chat Filters panes share, drawn in the
 -- look shown; the numbers come from Libraries (PSS_DetailQuery.lua).
+--   ns.NewLine(parent, y)                a 12 pt text line, 10 in from each side
+--   ns.NewLabel(parent, text [, x, y])   a dim 12 pt label (left centre, or at x, y)
+--   ns.NewStrip(parent, y, h, w)         a plain frame to put a row of controls on
+--   ns.NewAllowedBoxes(parent, y, w, tip, onClick, rightClicks)   the W I G P C
+--       tick row: boxes (by category), row; onClick(cat, box, button, e)
 --   ns.NewDetailPages(body, top, kind)   three pages picked along the bottom:
 --       Summary, Event History, View/Edit Rule; dp:Select(key), dp:Limit(only)
 --   ns.NewSummary(page, tabPage, top, size)   the period pie with a tick box
@@ -31,7 +36,6 @@ local PAGES = {
 	{ key = "history", text = "Event History" },
 	{ key = "rule", text = "View/Edit Rule" },
 }
-ns.DETAIL_PAGES = PAGES
 
 -- the page last picked, per tab ("players", "guilds", "filters")
 local picked = {}
@@ -97,6 +101,57 @@ function ns.NewDetailPages(body, top, kind)
 	Lay()
 	dp:Select(picked[kind] or "summary")
 	return dp
+end
+
+------------------------------------------------------------------------
+-- Small parts every pane is built from
+------------------------------------------------------------------------
+function ns.NewLine(parent, y)
+	local fs = ns.NewText(parent, 12)
+	fs:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y)
+	fs:SetPoint("RIGHT", parent, "RIGHT", -10, 0)
+	fs:SetJustifyH("LEFT")
+	return fs
+end
+
+function ns.NewLabel(parent, text, x, y)
+	local fs = ns.NewText(parent, 12)
+	if x then
+		fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+	else
+		fs:SetPoint("LEFT", parent, "LEFT", 0, 0)
+	end
+	fs:SetText(text)
+	fs:SetAlpha(0.7)
+	return fs
+end
+
+function ns.NewStrip(parent, y, h, w)
+	local f = CreateFrame("Frame", nil, parent)
+	f:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, y)
+	f:SetSize(w, h or 22)
+	return f
+end
+
+-- W I G P C tick boxes (ticked = allowed), a letter after each. The tip is
+-- "<what it is>\n\n<tip>". rightClicks: the boxes also answer a right click.
+function ns.NewAllowedBoxes(parent, y, w, tip, onClick, rightClicks)
+	local row = ns.NewStrip(parent, y, 24, w)
+	ns.NewLabel(row, "Allowed")
+	local boxes, prev = {}, nil
+	for _, e in ipairs(M.EXCL) do
+		local c = ns.NewCheck(row)
+		if prev then c:SetPoint("LEFT", prev, "RIGHT", 22, 0) else c:SetPoint("LEFT", row, "LEFT", 90, 0) end
+		if rightClicks then c:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+		local letter = ns.NewText(row, 12)
+		letter:SetPoint("LEFT", c, "RIGHT", 0, 0)
+		letter:SetText(e.letter)
+		ns.TipOn(c, c, e.label .. "\n\n" .. tip)
+		c:SetScript("OnClick", function(self, button) onClick(e.cat, self, button, e) end)
+		boxes[e.cat] = c
+		prev = letter
+	end
+	return boxes, row
 end
 
 ------------------------------------------------------------------------
@@ -266,8 +321,7 @@ function TP:Build()
 	self.pie.frame:SetPoint("TOPLEFT", f, "TOPLEFT", 18, top)
 	self.pie.tip = function(i)
 		local sl = self.slices[i]
-		return ("%s\n%s: %d blocked (all time)"):format(self.title or "", sl.text, sl.value or 0)
-			.. (CanOpen() and "\n\n|cffaaaaaaClick: these events in the Events tab.|r" or "")
+		return M.PSS_TypeTip(self.title, sl, CanOpen())
 	end
 	self.keys = {}
 	for i = 1, TYPE_SLOTS do
@@ -346,9 +400,7 @@ function ns.NewTotals(pane, tabPage, kind, title, hint, allSpec)
 	if allSpec then
 		-- a copy each time: a slice sets the period it opens on
 		tt.specFn = function()
-			local spec = {}
-			for k, v in pairs(allSpec()) do spec[k] = v end
-			return spec
+			return M.PSS_SpecCopy(allSpec())
 		end
 	end
 	tt.spec = { title = title, noWhere = true, specFn = tt.specFn }
@@ -385,7 +437,7 @@ function EX:Set(target, scope, who, parentOpts)
 		local on, isEx, base = M.PSS_ExceptionState(target, b.opt.key, parentOpts)
 		b:SetChecked(on)
 		b.label:SetText(M.PSS_ExceptionText(b.opt, isEx))
-		b.tip = M.PSS_ExceptionTip(b.opt, who, base)
+		b.base = base
 	end
 end
 
@@ -419,7 +471,10 @@ function ns.NewExceptions(parent, x, y, width, onChange)
 			M.PSS_SetException(ex.target, ex.scope, o.key, self:GetChecked(), ex.parentOpts)
 			if onChange then onChange() end
 		end)
-		c:SetScript("OnEnter", function(self) if self.tip then ns.Tip(self, self.tip) end end)
+		-- the tip is built when hovered, not on every Set
+		c:SetScript("OnEnter", function(self)
+			if ex.target then ns.Tip(self, function() return M.PSS_ExceptionTip(self.opt, ex.who, self.base) end) end
+		end)
 		c:SetScript("OnLeave", ns.HideTip)
 		ex.boxes[#ex.boxes + 1] = c
 	end

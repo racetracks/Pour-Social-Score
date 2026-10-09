@@ -14,6 +14,7 @@
 --   M.PSS_NavNew(), M.PSS_DoubleClick(), M.PSS_Throttle()   (below)
 --   M.PSS_ListMixin(List)                 SortBy and SetFind for a list view
 --   M.PSS_PickerToggle(it), M.PSS_PickerTickAll(items)   a results picker's ticks
+--   M.PSS_PickerCells(it, into)           tick and state text of an entry
 -- Places are saved with the other window places (PourSocialScoreDB
 -- windowPoints, held in PSS_OptionsDB).
 ------------------------------------------------------------------------
@@ -283,6 +284,14 @@ function M.PSS_PickerToggle(it)
 	if not it or it.listed then return false end
 	it.ticked = not it.ticked
 	return true
+end
+
+-- into.tick: [x] (grey when listed, green when ticked) or [  ]; into.state:
+-- "listed" for an entry already on the list
+function M.PSS_PickerCells(it, into)
+	into.tick = it.listed and "|cff808080[x]|r" or (it.ticked and "|cff00ff00[x]|r" or "[  ]")
+	into.state = it.listed and "|cff808080listed|r" or ""
+	return into
 end
 
 function M.PSS_PickerTickAll(items)

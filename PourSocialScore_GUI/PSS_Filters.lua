@@ -65,14 +65,6 @@ end
 ------------------------------------------------------------------------
 -- Pane
 ------------------------------------------------------------------------
-local function Label(parent, text, x, y)
-	local fs = ns.NewText(parent, 12)
-	fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-	fs:SetText(text)
-	fs:SetAlpha(0.7)
-	return fs
-end
-
 local function SetEditable(e, on)
 	e:SetEnabled(on)
 	e:SetAlpha(on and 1 or 0.5)
@@ -116,7 +108,6 @@ local function RowAct(i, act, arg)
 		M.PSS_ResetFilterCount(i)
 	elseif act == "resetHistory" then
 		M.PSS_ResetFilterHistory(i)
-		V.dirty = true
 		page.refresh()
 	elseif act == "remove" then
 		ConfirmRemove()
@@ -161,7 +152,7 @@ local function BuildPane(parent)
 		if sel then M.PSS_SetFilterActive(sel, self:GetChecked() and true or false) end
 	end)
 	pane.onBox = on
-	Label(rule, "Description", 74, y - 3)
+	ns.NewLabel(rule, "Description", 74, y - 3)
 	local desc = ns.NewEditBox(rule, 200, 100)
 	desc:SetPoint("TOPLEFT", rule, "TOPLEFT", 156, y)
 	desc:SetPoint("RIGHT", rule, "RIGHT", -12, 0)
@@ -171,7 +162,7 @@ local function BuildPane(parent)
 	y = y - 28
 
 	-- Filter (?) and its text, several lines
-	local fl = Label(rule, "Filter", 12, y)
+	local fl = ns.NewLabel(rule, "Filter", 12, y)
 	local help = ns.NewButton(rule, "?", 22)
 	help:SetHeight(18)
 	help:SetPoint("LEFT", fl, "RIGHT", 6, 0)
@@ -181,36 +172,14 @@ local function BuildPane(parent)
 	pane.lock:SetAlpha(0.5)
 	pane.lock:SetText("Built-in: read only. Copy it to edit.")
 	y = y - 18
-	local ff = ns.NewPanel(rule, true)
+	local ff = ns.NewTextArea(rule, 11, 1000)
 	ff:SetPoint("TOPLEFT", rule, "TOPLEFT", 10, y)
 	ff:SetPoint("RIGHT", rule, "RIGHT", -10, 0)
 	ff:SetHeight(58)
 	-- a long filter scrolls inside the box instead of spilling over the
 	-- buttons below; the view follows the cursor
-	local fscroll = ns.NewScrollFrame(ff)
-	fscroll:SetPoint("TOPLEFT", ff, "TOPLEFT", 4, -4)
-	fscroll:SetPoint("BOTTOMRIGHT", ff, "BOTTOMRIGHT", -22, 4)
-	local fbox = CreateFrame("EditBox", nil, fscroll)
-	fbox:SetPoint("TOPLEFT", fscroll, "TOPLEFT", 0, 0)
-	fbox:SetWidth(300)
-	fbox:SetMultiLine(true)
-	fbox:SetAutoFocus(false)
-	fbox:SetMaxLetters(1000)
-	fbox:SetFontObject(ns.Font(11, "ChatFontNormal"))
-	fscroll:SetScrollChild(fbox)
-	fscroll:SetScript("OnSizeChanged", function(_, w) if w and w > 0 then fbox:SetWidth(w) end end)
-	fbox:SetScript("OnCursorChanged", function(_, _, cy, _, h)
-		local top, view = fscroll:GetVerticalScroll(), fscroll:GetHeight()
-		cy, h = -(cy or 0), h or 0
-		if cy < top then
-			fscroll:SetVerticalScroll(cy)
-		elseif view > 0 and cy + h > top + view then
-			fscroll:SetVerticalScroll(cy + h - view)
-		end
-	end)
+	local fbox, fscroll = ff.edit, ff.scroll
 	fbox:SetScript("OnEscapePressed", function(self) self:ClearFocus(); ns.ShowFilterDetail() end)
-	ff:EnableMouse(true)
-	ff:SetScript("OnMouseDown", function() if fbox:IsEnabled() then fbox:SetFocus() end end)
 	pane.filterBox, pane.filterScroll = fbox, fscroll
 	y = y - 62
 
@@ -238,7 +207,7 @@ local function BuildPane(parent)
 	y = y - 28
 
 	-- Test [chat line ............] [Test] BLOCKED / PASSED
-	Label(rule, "Test", 12, y - 3)
+	ns.NewLabel(rule, "Test", 12, y - 3)
 	local test = ns.NewEditBox(rule, 170, 255)
 	test:SetPoint("TOPLEFT", rule, "TOPLEFT", 56, y)
 	local result = ns.NewText(rule, 12)
@@ -256,7 +225,7 @@ local function BuildPane(parent)
 	y = y - 26
 
 	-- Link [shift-click a link] -> its [tag], selected to copy
-	Label(rule, "Link", 12, y - 3)
+	ns.NewLabel(rule, "Link", 12, y - 3)
 	local link = ns.NewEditBox(rule, 200, 255)
 	link:SetPoint("TOPLEFT", rule, "TOPLEFT", 56, y)
 	link:SetPoint("RIGHT", rule, "RIGHT", -12, 0)
@@ -354,9 +323,7 @@ function ns.ShowFilterDetail(fresh)
 	-- read again only when the filter or its count changed; the block
 	-- history (PourSocialScore_Logging) loads only when asked for
 	pane.hist:Set(r.index, r.lines, M.PSS_FilterHistory, fresh)
-	local s = pane.sumSpec
-	s.owner, s.allTime, s.title, s.id = M.PSS_FilterOwnerKey(r.index), r.blocked or 0, r.desc, r.index
-	pane.summary:Set(s)
+	pane.summary:Set(M.PSS_FilterSummarySpec(r, pane.sumSpec))
 end
 
 ------------------------------------------------------------------------
@@ -465,25 +432,25 @@ end
 -- Core events: redraw now if the tab shows, else when it next shows.
 ------------------------------------------------------------------------
 local queued
+local function RunQueued()
+	queued = false
+	if page and page:IsVisible() then Refresh() end
+end
 ns.Listen("FILTERS_CHANGED", function()
 	V.dirty = true
 	if queued or not (page and page:IsVisible()) then return end
 	-- one redraw however many changes arrive in a frame (an import adds
-	-- many filters at once, and every blocked line fires it)
+	-- many filters at once)
 	queued = true
-	C_Timer.After(0, function()
-		queued = false
-		if page and page:IsVisible() then Refresh() end
-	end)
+	C_Timer.After(0, RunQueued)
 end)
 
--- a blocked line: the counts and the history, at most 4 times a second
+-- a blocked line: the order (the Blocked column), the counts and the
+-- history, at most 4 times a second
 local redrawCounts = M.PSS_Throttle(function()
-	if page and page:IsVisible() then
-		list:Redraw()
-		ns.ShowFilterDetail()
-	end
+	if page and page:IsVisible() then Refresh() end
 end)
 ns.Listen("FILTER_HISTORY_CHANGED", function()
+	V.dirty = true
 	if page and page:IsVisible() then redrawCounts() end
 end)

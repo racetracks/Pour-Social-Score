@@ -12,7 +12,17 @@
 --   v:IsSel(item), v:Select(kind, value), v:ItemSel(item), v:Click(item, now)
 --   M.PSS_GuildRowCells(item, find, nested, into)   guild / members / total / scan text, dim
 --   M.PSS_GuildRowTip(item)
---   M.PSS_GuildScanTip(g)               a guild's sweep (g) or Scan All (nil)
+--   M.PSS_GuildScanTip(g)               a guild's sweep (g or its key) or Scan All (nil)
+--   v:EmptyText(), v:SearchHint(), v:RemoveTarget() (the guild Remove acts on),
+--   v:MarkDirty(guilds, members)
+--   M.PSS_GuildPaneView(key, into)      the pane's guild: record, name, info, sweep,
+--                                       fields, removable; nil when it is gone
+--   M.PSS_MemberPaneView(gkey, m, into) the pane's member: rule, opts, heading,
+--                                       guildLine, addedLine, note, name, otherGuild; nil when gone
+--   M.PSS_MemberCells(m, into)          name, class, guild, note, total
+--   M.PSS_GuildExists(key), M.PSS_GuildOpts(key)
+--   M.PSS_GuildToggleException(key, optKey), M.PSS_MemberToggleException(gkey, m, optKey)
+--   M.PSS_GuildSummarySpec, M.PSS_MemberSummarySpec, M.PSS_GroupSummarySpec
 --   Members view (in place of the list): v:OpenMembers(key), v:CloseMembers(),
 --   v:MResort() (n, total), v:MSortBy(key), v:SetMFind(text), v:MembersHeading(),
 --   v:MembersEmptyText(), M.PSS_MemberTip(m)
@@ -42,7 +52,7 @@ local addon = PourSocialScore_NS
 local M = addon.M
 local History = M.PSS_History
 
-local type, tostring, pairs, ipairs, next, setmetatable, concat, wipe = type, tostring, pairs, ipairs, next, setmetatable, table.concat, wipe
+local type, tostring, pairs, ipairs, next, select, setmetatable, concat, wipe = type, tostring, pairs, ipairs, next, select, setmetatable, table.concat, wipe
 
 -- the Managed Communities row is selected as "managed"
 local MANAGED = "__managed"
@@ -90,6 +100,40 @@ function List:FreshCounts(item)
 		item.bc = M.PSS_GetGuildBlockCounts(item.key)
 		item.counted = self.gen
 	end
+end
+
+-- the list's empty text, and the search box's hint
+function List:EmptyText()
+	return self.find ~= "" and "Nothing matches the search." or "No guilds yet. Add one above."
+end
+
+function List:SearchHint()
+	return self.view == "members" and "Search name, guild or note" or "Search guild name"
+end
+
+-- the guild a Remove acts on: the selected one, or the members view's
+function List:RemoveTarget()
+	return self.selKind == "guild" and self.sel or (self.view == "members" and self.mguild)
+end
+
+-- an edit the view did not hear of: draw the lists again from the data
+function List:MarkDirty(guilds, members)
+	if guilds then self.dirty = true end
+	if members then self.mdirty = true end
+end
+
+-- A guild's counts for the pane. During a block redraw (self.share, set by
+-- the tab) the drawn row's count of this round is reused, so the selected
+-- guild is walked once, not twice; otherwise counted fresh.
+function List:GuildCounts(key)
+	if self.share then
+		local rows = self.rows
+		for i = 1, self.n or 0 do
+			local it = rows[i]
+			if it.key == key and it.g and it.bc and it.counted == self.gen then return it.bc end
+		end
+	end
+	return M.PSS_GetGuildBlockCounts(key)
 end
 
 function List:CountText()
@@ -198,7 +242,7 @@ function M.PSS_GuildRowCells(item, find, nested, into)
 		local indent = ""
 		if item.inGroup and (find or "") == "" then indent = nested and "         " or "      " end
 		into.guild = indent .. tostring(g.name)
-		into.members, into.total = g.memberCount or 0, item.bc.total or 0
+		into.members, into.total = item.count or 0, item.bc.total or 0
 		into.scan = M.PSS_GuildSweepLabel(item.key)
 		into.dim = item.inGroup and not item.groupOn or false
 	end
@@ -223,6 +267,10 @@ end
 
 -- The status of a guild's sweep (g) or of Scan All (nil), for the tooltip.
 function M.PSS_GuildScanTip(g)
+	if type(g) == "string" then
+		local _, rule = M.PSS_FindGuildRule(g)
+		g = rule
+	end
 	local t = {}
 	local function add(s) t[#t + 1] = s end
 	if g then
@@ -329,9 +377,6 @@ function M.PSS_GuildPickerTitle(n, query, mode)
 		.. ("%d guild(s) found for \"%s\". Click the guilds to "):format(n, query or "")
 		.. (exclude and "exclude." or "add.")
 end
-
--- the picker's ticks: the shared ones (PSS_ViewNav.lua)
-M.PSS_GuildPickerToggle, M.PSS_GuildPickerTickAll = M.PSS_PickerToggle, M.PSS_PickerTickAll
 
 -- Save the ticked entries; the count saved
 function M.PSS_GuildPickerSave(items, mode)
@@ -441,8 +486,81 @@ function M.PSS_MembersNavTitle(key)
 	return ("Members of <%s>"):format(g and g.name or tostring(key))
 end
 
+-- a member row's cells: name, class, guild, note, total
+function M.PSS_MemberCells(m, into)
+	into.name = M.PSS_MemberName(m) or ""
+	into.class = m.class
+	into.guild = M.PSS_MemberGuildName(m) or ""
+	into.note = m.note or ""
+	into.total = M.PSS_MemberBlockTotal(m)
+	return into
+end
+
+function M.PSS_GuildExists(key)
+	return select(2, M.PSS_FindGuildRule(key)) ~= nil
+end
+
+-- the guild rule's options (the exceptions a member is measured against)
+function M.PSS_GuildOpts(key)
+	local _, g = M.PSS_FindGuildRule(key)
+	return g and g.opts or nil
+end
+
+function M.PSS_GuildToggleException(key, optKey)
+	M.PSS_ToggleException(select(2, M.PSS_FindGuildRule(key)), "guild", optKey)
+end
+
+function M.PSS_MemberToggleException(gkey, m, optKey)
+	M.PSS_ToggleException(m, "person", optKey, M.PSS_GuildOpts(gkey))
+end
+
+-- The pane's guild: record (the handle the exception ticks and the W I G P C
+-- ticks read), name, info line, Scan button text, Scan Fields text, removable
+function M.PSS_GuildPaneView(key, into)
+	local _, g = M.PSS_FindGuildRule(key)
+	if not g then return nil end
+	into.record, into.name = g, tostring(g.name)
+	into.info = M.PSS_GuildInfoLine(g, key)
+	into.sweep = M.PSS_GuildSweepLabel(key)
+	into.fields = g.customScan or ""
+	into.removable = not M.PSS_IsStaticManagedGuild(key)
+	return into
+end
+
+-- The pane's member of the rule gkey; nil when either is gone
+function M.PSS_MemberPaneView(gkey, m, into)
+	local _, gg = M.PSS_FindGuildRule(gkey)
+	if not (m and gg) then return nil end
+	into.rule, into.opts = gg, gg.opts
+	into.heading = M.PSS_MemberHeading(m)
+	into.guildLine = M.PSS_MemberGuildLine(m)
+	into.addedLine = M.PSS_MemberAddedLine(m)
+	into.note = m.note or ""
+	into.name = tostring(M.PSS_MemberName(m))
+	into.otherGuild = M.PSS_MemberOtherGuild(gg, gkey, m)
+	return into
+end
+
+-- the Summary's specs: a guild, a member, a default guild list (c: counts)
+function M.PSS_GuildSummarySpec(key, name, c, into)
+	into.owner, into.allTime, into.title, into.id = M.PSS_GuildHistoryKey(key), c.total or 0, name, key
+	return into
+end
+
+function M.PSS_MemberSummarySpec(m, name, c, into)
+	into.owner, into.allTime, into.title, into.id = M.PSS_MemberHistoryKey(m), c.total or 0, name, m
+	return into
+end
+
+function M.PSS_GroupSummarySpec(k, name, item, items, recent, into)
+	into.allTime, into.title, into.id, into.counts = item.bc.total or 0, name, k, item.bc
+	into.recent = M.PSS_GroupRecent(items, recent)
+	return into
+end
+
 function M.PSS_MemberTip(m)
-	return tostring(m.name) .. ((m.guild or "") ~= "" and ("  <" .. m.guild .. ">") or "")
+	local guild = M.PSS_MemberGuildName(m) or ""
+	return tostring(M.PSS_MemberName(m)) .. (guild ~= "" and ("  <" .. guild .. ">") or "")
 		.. ((m.note or "") ~= "" and ("\n\n" .. m.note) or "") .. "\n\nClick for the details."
 end
 
@@ -450,7 +568,8 @@ end
 function List:RemoveMember()
 	local m, gkey = self.msel, self.mguild
 	if not (m and gkey) then return false end
-	M.PSS_RemoveGuildMember(gkey, m.name, gkey, self.members.stored and self.members.stored[m] or nil)
+	local mk = self.members.stored and self.members.stored[m] or nil
+	M.PSS_RemoveGuildMember(gkey, M.PSS_MemberName(m, mk), gkey, mk)
 	self.msel = nil
 	self.mdirty, self.dirty = true, true
 	return true
@@ -459,8 +578,8 @@ end
 ------------------------------------------------------------------------
 -- The pane's text
 ------------------------------------------------------------------------
-function M.PSS_GuildInfoLine(g)
-	local n = g.memberCount or 0
+function M.PSS_GuildInfoLine(g, key)
+	local n = M.PSS_GuildMemberCount(g, key)
 	local info = ("%d member%s"):format(n, n == 1 and "" or "s")
 	if g.managed then
 		local grp = M.PSS_ManagedGroups()[g.managed] or {}
@@ -522,16 +641,17 @@ end
 
 function M.PSS_MemberHeading(m)
 	local cr, cg, cb = M.PSS_ClassColor(m.class)
-	return ("|cff%02x%02x%02x"):format(cr * 255, cg * 255, cb * 255) .. tostring(m.name) .. "|r"
+	return ("|cff%02x%02x%02x"):format(cr * 255, cg * 255, cb * 255) .. tostring(M.PSS_MemberName(m)) .. "|r"
 end
 
 function M.PSS_MemberGuildLine(m)
-	local actual = m.guild or ""
+	local actual = M.PSS_MemberGuildName(m) or ""
 	return "Guild " .. (actual ~= "" and ("<" .. actual .. ">") or "|cff808080unknown|r")
 end
 
 function M.PSS_MemberAddedLine(m)
-	return "Added " .. ((m.whenBlocked or "") ~= "" and m.whenBlocked or "|cff808080unknown|r")
+	local when = M.PSS_MemberWhenBlocked(m) or ""
+	return "Added " .. (when ~= "" and when or "|cff808080unknown|r")
 end
 
 -- ticked (allowed), and own (the member's own setting; false: follows the guild)
@@ -542,7 +662,7 @@ end
 -- true when the member's actual guild is another than this rule (Add Guild)
 function M.PSS_MemberOtherGuild(gg, gkey, m)
 	local base = M.PSS_NormalizeGuild(gg.name or gkey)
-	local ag = M.PSS_NormalizeGuild(m.guild or "")
+	local ag = M.PSS_NormalizeGuild(M.PSS_MemberGuildName(m, gg) or "")
 	return ag ~= nil and ag ~= "" and ag ~= base
 end
 
@@ -606,7 +726,7 @@ function M.PSS_GuildRemove(key)
 end
 
 function M.PSS_MemberRemoveText(m)
-	return ("Remove %s from this guild rule?\n\nThey stay on the Player Ignore List if they are on it."):format(tostring(m.name))
+	return ("Remove %s from this guild rule?\n\nThey stay on the Player Ignore List if they are on it."):format(tostring(M.PSS_MemberName(m)))
 end
 
 -- a member's note (25 letters); true if it changed
@@ -705,8 +825,8 @@ function M.PSS_MemberEventsSpec(m, gkey)
 		label = function(rec)
 			local _, g = M.PSS_FindGuildRule(gkey)
 			if not (g and type(g.members) == "table") then return nil end
-			for _, x in pairs(g.members) do
-				if x == rec then return tostring(rec.name or "?") end
+			for k, x in pairs(g.members) do
+				if x == rec then return tostring(M.PSS_MemberName(rec, k) or "?") end
 			end
 			return nil
 		end,

@@ -25,6 +25,7 @@
 --   v:ApplyRange(fromText, toText)   nil, or the error text
 --   v:AllTypes(), v:ToggleType(cat), v:TypeOn(cat)
 --   v:SourceOn(key), v:ToggleSource(key), v:ScopeOff()
+--   v:IsCustom(), v:Scoped(), v:PeriodIs(key), v:ScopeText()   the query, asked
 --   v:Heading(n), v:TimeLabel(), v:TypesLabel(), v:SourceLabel()
 --   v:NavKey(), v:NavTitle(key), v:NavApply(key), v:Reset()
 --   v:ResetText()               the confirm's text, or nil (no confirm)
@@ -345,6 +346,12 @@ function View:ScopeOff()
 	for _, src in ipairs(SOURCES) do self.q.sources[src.key] = true end
 end
 
+-- the query's state, for the tab to ask (it never reads self.q)
+function View:IsCustom() return self.q.period == "custom" end
+function View:Scoped() return self.q.scope ~= nil end
+function View:PeriodIs(key) return (self.q.period or "all") == key end
+function View:ScopeText() return "Only " .. (self.name or "?") end
+
 -- labels
 function View:Heading(n)
 	return ("Events: %s  |cffaaaaaa(%s)|r"):format(Title(self.q, self.name),
@@ -355,7 +362,7 @@ function View:TimeLabel() return TimeLabel(self.q) end
 function View:TypesLabel() return TypesLabel(self.q) end
 
 function View:SourceLabel()
-	return self.q.scope and ("Only " .. (self.name or "?")) or Title(self.q)
+	return self.q.scope and self:ScopeText() or Title(self.q)
 end
 
 function View:EmptyText()

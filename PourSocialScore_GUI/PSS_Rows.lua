@@ -20,11 +20,20 @@
 --   list:SetCount(n)  list:Redraw()  list:Top()  list:SetSort(key, asc)
 --   list:Select(test)  list:SetEmptyText(text)
 -- A column without a width takes the space left over (one per list).
--- Looks: the header labels are Blizzard's gold or Dark's white, the sorted
--- column in the accent; a hovered row gets Blizzard's highlight or a faint
--- accent wash; a selected row an accent wash in both looks.
+--   local picker = ns.NewPicker(parent, anchor, { cols, stateW, fill, toggle,
+--       tickAll, save, close })   a results picker laid over anchor: a title
+--       line, a tick column, the cols, a "listed" column, and Save (primary),
+--       Tick All and Cancel under it. fill(cells, item) writes the cols;
+--       toggle(item) -> true when it changed; save(items), tickAll(items),
+--       close(). picker.items (fill it), picker:ShowItems(title),
+--       picker.list, saveButton, allButton, cancelButton.
+-- Looks: the header labels are Blizzard's gold (Modern, Classic) or Dark's
+-- white, the sorted column in the accent; a hovered row gets Blizzard's
+-- highlight or a faint accent wash; a selected row an accent wash in all
+-- three looks.
 ------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
+local M = ns.M
 
 -- link kinds whose tooltip GameTooltip:SetHyperlink shows (others, such as
 -- trade: profession links, open a window instead)
@@ -305,4 +314,71 @@ function List:Select(test)
 		local row = self.rows[i]
 		row.sel:SetShown(row.index ~= nil and test(row.index) or false)
 	end
+end
+
+------------------------------------------------------------------------
+-- The results picker (Player Search and Guild Search results, in place of
+-- the list): the rows are ticked to say which to add.
+------------------------------------------------------------------------
+local pickCells = {}
+function ns.NewPicker(parent, anchor, o)
+	local picker = CreateFrame("Frame", nil, parent)
+	picker:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
+	picker:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 0, 0)
+	picker:Hide()
+	picker.items = {}
+	picker.title = ns.NewText(picker, 12)
+	picker.title:SetPoint("TOPLEFT", picker, "TOPLEFT", 4, -4)
+	picker.title:SetPoint("RIGHT", picker, "RIGHT", -4, 0)
+	picker.title:SetJustifyH("LEFT")
+	local rf = CreateFrame("Frame", nil, picker)
+	rf:SetPoint("TOPLEFT", picker, "TOPLEFT", 0, -24)
+	rf:SetPoint("BOTTOMRIGHT", picker, "BOTTOMRIGHT", 0, 34)
+	local cols = { { key = "tick", text = "", width = 36, justify = "CENTER" } }
+	for _, c in ipairs(o.cols) do cols[#cols + 1] = c end
+	cols[#cols + 1] = { key = "state", text = "", width = o.stateW or 54 }
+	picker.list = ns.NewRows(rf, {
+		rowH = 20, height = 240,
+		cols = cols,
+		draw = function(row, i)
+			local it = picker.items[i]
+			local c = row.cells
+			if not it then
+				for _, fs in pairs(c) do fs:SetText("") end
+				row.sel:Hide()
+				return
+			end
+			M.PSS_PickerCells(it, pickCells)
+			c.tick:SetText(pickCells.tick)
+			o.fill(c, it)
+			c.state:SetText(pickCells.state)
+			row.sel:SetShown(it.ticked and not it.listed)
+		end,
+		click = function(_, i)
+			if o.toggle(picker.items[i]) then picker.list:Redraw() end
+		end,
+	})
+	local save = ns.NewButton(picker, "Save", 90, function()
+		o.save(picker.items)
+		o.close()
+	end, true)
+	save:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 4, 4)
+	picker.saveButton = save
+	local all = ns.NewButton(picker, "Tick All", 90, function()
+		o.tickAll(picker.items)
+		picker.list:Redraw()
+	end)
+	all:SetPoint("LEFT", save, "RIGHT", 6, 0)
+	picker.allButton = all
+	local cancel = ns.NewButton(picker, "Cancel", 90, o.close)
+	cancel:SetPoint("LEFT", all, "RIGHT", 6, 0)
+	picker.cancelButton = cancel
+	-- show the items already put in picker.items
+	function picker:ShowItems(title)
+		self.title:SetText(title)
+		self:Show()
+		self.list:SetCount(#self.items)
+		self.list:Top()
+	end
+	return picker
 end
