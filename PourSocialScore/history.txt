@@ -1,6 +1,10 @@
 POUR SOCIAL SCORE - VERSION HISTORY
 (newest first)
 
+=> 3.4.2.54 - Project docs trimmed to the current state
+
+- No change in game since 3.4.1.53: the addon is the same build. The project documentation was trimmed to how the addon works today, without version history.
+
 => 3.4.1.53 - Core uplift: fixes, a readable upgrade report, smaller and forward-compatible saves
 
 - Names with a surname (WoW Forever / Camelot): a player called "First Last" is now listed by the whole name from every place you add them (the right-click menu, Blizzard's Ignore, /pss add on your target, players seen for guild rules), instead of as "First" on a realm called "Last" that never blocked. /pss add, remove and expire take two words as the name (a one-word name with a note goes in quotes). Names already saved the old way are repaired once at the first login, and entries that only ever had a first name are listed in chat so you can add them again. The shipped guild lists were rebuilt without these broken names (7634 to 7438 entries).
@@ -192,7 +196,7 @@ POUR SOCIAL SCORE - VERSION HISTORY
 
 => 3.4.0.24 - New PSS window: arrows above the tabs
 
-- The window's back / forward arrows and the line naming the view now sit above the tab row, and the tabs sit straight above the page (Dan, 2026-10-08). The same in all three looks.
+- The window's back / forward arrows and the line naming the view now sit above the tab row, and the tabs sit straight above the page (the author, 2026-10-08). The same in all three looks.
 - The Options tab's search box moves down with the tab row.
 
 => 3.4.0.23 - New PSS window: switch-over
@@ -373,7 +377,7 @@ POUR SOCIAL SCORE - VERSION HISTORY
 
 => 3.4.0-dev004_4 - New PSS window: Modern buttons and tabs settled
 
-- Modern buttons and tabs keep the straight dark gold-framed plate (Dan's pick). The Filter-art tab and the "Straight art" comparison row are gone from the kit preview.
+- Modern buttons and tabs keep the straight dark gold-framed plate (the author's pick). The Filter-art tab and the "Straight art" comparison row are gone from the kit preview.
 
 => 3.4.0-dev004_3 - New PSS window: straight Modern buttons and tabs
 
