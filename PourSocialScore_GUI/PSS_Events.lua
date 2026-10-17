@@ -15,6 +15,7 @@
 ------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
 local M = ns.M
+if not M.PSS_On("logging") then return end	-- Event Logging off: no Events tab (issue 181)
 local L = PourSocialScore_NS.L
 local History = M.PSS_History
 
@@ -139,7 +140,7 @@ ns.TabBuilders.events = function(pg)
 			view:AllTypes()
 			Changed()
 		end)
-		for _, cat in ipairs(History.ALL_CATS or {}) do
+		for _, cat in ipairs(History.FilterCats()) do
 			m:Check(History.CAT_LABEL[cat] or cat, function() return view:TypeOn(cat) end, function()
 				view:ToggleType(cat)
 				Changed()

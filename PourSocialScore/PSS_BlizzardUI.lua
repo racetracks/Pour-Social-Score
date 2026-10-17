@@ -16,10 +16,15 @@ V.nameUI = ""		-- the player the note and expiry popups are for
 -- The Pour Social Score window (PourSocialScore_GUI, loaded on demand; the
 -- new window from 3.4.0): /pss gui, /pss ui and the Addon Compartment open
 -- it. show true: open, never toggle shut.
-function M.PSS_OpenUI(show)
+-- a tab key ("addons") opens the window on that tab (the first argument
+-- may be the key, or the second after show)
+function M.PSS_OpenUI(show, tab, how)
+	-- ("addons", { page, collapse }): a tab key first, then how
+	if type(show) == "string" then show, tab, how = nil, show, tab end
+	if type(tab) == "table" then tab, how = nil, tab end
 	-- the list shown has no expired entries (N40)
 	M.PSS_ExpireEntries()
-	if M.PSS_Need("GUI") and M.PSS_OpenWindow then M.PSS_OpenWindow(show) end
+	if M.PSS_Need("GUI") and M.PSS_OpenWindow then M.PSS_OpenWindow(show, tab, how) end
 end
 
 -- The window opens beside the Friends window when the option
@@ -231,7 +236,7 @@ function M.PSS_UnitMenuPlayer (owner, root, contextData)
 	end
 	-- secret check first: a secret value can't even be compared with ""
 	if type(target) ~= "string" or M.PSS_IsSecret(target) or target == "" then return end
-	if server ~= nil and (type(server) ~= "string" or M.PSS_IsSecret(server)) then server = nil end
+	if type(server) ~= "nil" and (type(server) ~= "string" or M.PSS_IsSecret(server)) then server = nil end
 	if unit and UnitIsUnit and UnitIsUnit(unit, "player") then return end
 
 	-- one join for every name: a unit's surname (Camelot) is not a realm
@@ -266,7 +271,10 @@ end
 -- ADDON COMPARTMENT --
 -----------------------
 
-if V.wowIsRetail == true and AddonCompartmentFrame and AddonCompartmentFrame.RegisterAddon then
+-- Called once by core's ADDON_LOADED handler (issue 181): the second entry,
+-- which opens the AddOns tab, exists only while the Addon Manager is on.
+function M.PSS_StartCompartment(addonsOn, dttOn)
+	if not (V.wowIsRetail == true and AddonCompartmentFrame and AddonCompartmentFrame.RegisterAddon) then return end
 	AddonCompartmentFrame:RegisterAddon({
 		text = "Pour Social Score",
 		icon = "Interface\\Icons\\ui_chat.blp",
@@ -275,6 +283,26 @@ if V.wowIsRetail == true and AddonCompartmentFrame and AddonCompartmentFrame.Reg
 			M.PSS_OpenUI()
 		end,
 	})
+	if addonsOn then
+		AddonCompartmentFrame:RegisterAddon({
+			text = "Pour Social Score: Addon Manager",
+			icon = "Interface\\Icons\\ui_chat.blp",
+			notCheckable = true,
+			func = function(button, menuInputData, menu)
+				M.PSS_OpenUI("addons", { page = "addons", collapse = true })
+			end,
+		})
+	end
+	if dttOn then
+		AddonCompartmentFrame:RegisterAddon({
+			text = "PSS Drop Cheapest Thing",
+			icon = "Interface\\Icons\\INV_Misc_Bag_22",
+			notCheckable = true,
+			func = function(button, menuInputData, menu)
+				M.PSS_SlashPSS("dtt options")
+			end,
+		})
+	end
 end
 
 --------------
@@ -341,6 +369,8 @@ local hooksReady = false
 function M.PSS_HookFunctions()
 	-- /script Menu.PrintOpenMenuTags()
 	hooksReady = true
+	-- the Block items on unit and Group Finder menus belong to Social Filtering
+	if not M.PSS_On("filtering") then return end
 	startLFG()
 	hookUnit()
 end

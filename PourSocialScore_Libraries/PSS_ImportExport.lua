@@ -246,6 +246,8 @@ local function importedOption(def, v)
 		end
 		return type(v) == "string" and type(def.default) == "string", v
 	end
+	-- an item list is a packed string (a layout this version cannot read is kept as it is)
+	if def.kind == "itemlist" then return type(v) == "string" and #v <= 8000, v end
 	return false
 end
 

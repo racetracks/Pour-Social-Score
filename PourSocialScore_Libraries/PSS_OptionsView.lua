@@ -59,15 +59,46 @@ end
 
 -- every option under its section, in M.PSS_OPTIONS order (an inline
 -- number is drawn by its tick box), with the text the search looks in
+-- an item list entry (Drop The Cheapest Thing): an item link, "item:<id>" or
+-- a plain id, to the item id (nil for anything else)
+function M.PSS_ItemIDFromText(text)
+	if type(text) ~= "string" then return nil end
+	local id = text:match("item:(%d+)") or text:match("^%s*(%d+)%s*$")
+	id = tonumber(id)
+	if id and id > 0 then return floor(id) end
+end
+
+-- the name and icon a row of an item list shows: the item's own when the
+-- client knows it, else "item:<id>" and the question mark
+function M.PSS_ItemText(id)
+	local get = C_Item and C_Item.GetItemInfo or GetItemInfo
+	local name = get and get(id)
+	local geti = C_Item and C_Item.GetItemIconByID or GetItemIconByID
+	local icon = geti and geti(id)
+	return name or ("item:" .. id), icon or 134400
+end
+
+-- a section's group title ("Feature Options", the group the Options builder
+-- and the navigation draw once above its sections), and the line shown in
+-- place of its rows while its Enabled component is off (nil: always live)
+function M.PSS_OptSectionGroup(section)
+	return M.PSS_OPTION_SECTION_GROUP and M.PSS_OPTION_SECTION_GROUP[section]
+end
+function M.PSS_OptSectionOff(section)
+	local g = M.PSS_OPTION_SECTION_GATE and M.PSS_OPTION_SECTION_GATE[section]
+	if g and not M.PSS_On(g.on) then return g.text end
+end
+
 function M.PSS_OptGroups()
 	local groups = {}
 	local sections = M.PSS_OPTION_SECTIONS
-	for section = 1, #sections do
+	for _, section in ipairs(M.PSS_OPTION_SECTION_ORDER) do
 		local g
 		for _, o in ipairs(M.PSS_OPTIONS) do
-			if o.section == section and not o.inline and not o.retired then
+			if o.section == section and not o.inline and not o.retired and not o.reserved then
 				if not g then
-					g = { title = ((sections[section] or ""):gsub("[:%s]+$", "")), items = {} }
+					g = { title = ((sections[section] or ""):gsub("[:%s]+$", "")), items = {}, section = section,
+						group = M.PSS_OptSectionGroup(section), off = M.PSS_OptSectionOff(section) }
 					groups[#groups + 1] = g
 				end
 				g.items[#g.items + 1] = { o = o, find = lower(M.PSS_OptLabel(o) .. "\n" .. (o.tip or "")) }
@@ -82,6 +113,101 @@ function M.PSS_OptMatches(group, item, q)
 	q = lower(q or "")
 	return q == "" or lower(group.title):find(q, 1, true) ~= nil or item.find:find(q, 1, true) ~= nil
 end
+
+-- an Enabled components row: its label with a note, whether it can be ticked
+-- (Graphics is Camelot only), and whether the change waits for a reload
+local COMPONENT_NAME = { useAddons = "addons", useLogging = "logging", useGfx = "gfx", useFiltering = "filtering", useDtt = "dtt", useWarehouse = "warehouse", useBags = "bags" }
+function M.PSS_OptGate(o)
+	local name = COMPONENT_NAME[o.key]
+	if not name then return true, "" end
+	local enabled, note = true, ""
+	if name == "gfx" and not M.PSS_IsCamelot() then
+		enabled, note = false, " (Camelot only)"
+	end
+	if M.PSS_ComponentPending(name) then note = note .. " (after reload)" end
+	return enabled, note
+end
+
+-- how this client reloads: "press" on Camelot (it blocks ReloadUI from addon
+-- code even inside a click: only the player's own click on a secure "/reload"
+-- macro reloads, which ns.Confirm { reload = true } sets up), else "direct"
+function M.PSS_ReloadMode()
+	return M.PSS_IsCamelot and M.PSS_IsCamelot() and "press" or "direct"
+end
+
+-- the one reload call (allowed in combat: the player chose it, the author,
+-- 2026-10-10); C_UI.Reload where the client has it, else ReloadUI. On "press" clients the call is blocked
+-- from addon code (the click's macro does the reload), so a reload prompt's
+-- accept skips it (M.PSS_ReloadPrompt)
+function M.PSS_ReloadUI()
+	local reload = C_UI and C_UI.Reload or ReloadUI
+	reload()
+	return true
+end
+
+-- what a reload prompt's accept runs: nothing to call on "press" (its click
+-- is the reload), else the reload
+function M.PSS_ReloadPrompt()
+	if M.PSS_ReloadMode() == "press" then return true, "press" end
+	return M.PSS_ReloadUI()
+end
+
+-- the reload now
+function M.PSS_ReloadNow()
+	return M.PSS_ReloadPrompt()
+end
+
+-- Saved item lists (SAV-00018): "1;<id>,<id>,..." (layout 1, ids ascending,
+-- no repeats, at most 500). A string of another layout is kept untouched,
+-- not applied and not edited (PSS 02 section 3).
+local DTT_CAP = 500
+function M.PSS_DttPack(set)
+	local ids = {}
+	for id in pairs(set) do ids[#ids + 1] = id end
+	table.sort(ids)
+	return #ids > 0 and ("1;" .. table.concat(ids, ",")) or ""
+end
+-- set (id -> true), ok; ok is false for a layout this version cannot read
+function M.PSS_DttParse(text)
+	local set = {}
+	if text == nil or text == "" then return set, true end
+	if type(text) ~= "string" then return set, false end
+	local layout, body = text:match("^(%d+);(.*)$")
+	if layout ~= "1" then return set, false end
+	for n in body:gmatch("%d+") do set[tonumber(n)] = true end
+	return set, true
+end
+
+-- an itemlist option: its ids, ascending
+function M.PSS_OptItems(o)
+	local set = M.PSS_DttParse(M.PSS_Opt(o.key))
+	local ids = {}
+	for id in pairs(set) do ids[#ids + 1] = id end
+	table.sort(ids)
+	return ids
+end
+local told
+local function Edit(o, id, remove)
+	local set, ok = M.PSS_DttParse(M.PSS_Opt(o.key))
+	if not ok then
+		if not told then told = true; M.ShowMsg("That list was saved by a newer version and is left as it is.") end
+		return false
+	end
+	if remove then
+		if not set[id] then return false end
+		set[id] = nil
+	else
+		if set[id] then return false end
+		local n = 0
+		for _ in pairs(set) do n = n + 1 end
+		if n >= DTT_CAP then return false end
+		set[id] = true
+	end
+	M.PSS_SetOpt(o.key, "global", M.PSS_DttPack(set))
+	return true
+end
+function M.PSS_OptItemAdd(o, id) return Edit(o, id, false) end
+function M.PSS_OptItemRemove(o, id) return Edit(o, id, true) end
 
 function M.PSS_OptNumberText(o)
 	local n = M.PSS_Opt(o.key)

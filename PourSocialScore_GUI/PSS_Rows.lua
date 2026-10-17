@@ -16,6 +16,8 @@
 --       enter = function(row, i) end,           -- optional (tooltip)
 --       emptyClick = function() end,            -- optional: a click under
 --                                               -- the rows (deselects)
+--       make  = function(row, i) end,           -- optional: a new row's own
+--                                               -- controls (a tick box, a button)
 --   })
 --   list:SetCount(n)  list:Redraw()  list:Top()  list:SetSort(key, asc)
 --   list:Select(test)  list:SetEmptyText(text)
@@ -210,6 +212,8 @@ function List:MakeRow(i)
 		row.cells[c.key] = fs
 	end
 	PlaceCells(row, spec.cols, row.cells, 4)
+	-- spec.make(row, i): the tab adds its own controls to a new row
+	if spec.make then spec.make(row, i) end
 
 	-- spec.links: links in the text work as in chat (hover for the
 	-- tooltip, click to open, shift-click to paste into chat)

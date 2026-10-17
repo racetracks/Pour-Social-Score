@@ -1,6 +1,269 @@
 POUR SOCIAL SCORE - VERSION HISTORY
 (newest first)
 
+=> 3.7.0.114 - Addon manager, Drop Cheapest Thing, Warehouse and money
+
+- Every change since 3.5.0.62, in one summary.
+- Addon Manager (Options, Enabled components, Addon Manager, then reload; also /pss acp, /acp, a key binding and the Addon Compartment): a new Addon Manager tab in the Pour Social Score window, in all three looks. On its Addons page you see every installed addon in one grouped, searchable list. Tick an addon to turn it on or off for this character or for all characters, Load a load on demand addon, use Disable All and Enable All, Undo back to the state at login, and Reload when a change is waiting. A starred addon is protected, so Disable All and profiles leave it on. Addon Profiles work the way Addon Control Panel's sets do: Core places 1 to 5, Layered places 6 to 25 and one for your class, each with a side menu (Select, Save, Load, Enable all, Disable all, Rename, Delete) and a tick box that turns the whole profile on or off. The tab shows a count of the changes waiting for a reload. Profiles are now saved account wide; your old per-character profiles move across by themselves at the first login. The Reload prompt works on Camelot, Enter included. The tab's left-hand list of pages folds away and holds Optional Features, Import/Export, the three lists' notes and All Options, so Import/Export and Options are no longer separate tabs.
+- Enabled components (Options): turn the Addon Manager, Event Logging, the Graphics Settings Exporter, Social Filtering, Drop Cheapest Thing and the Warehouse on or off. A part that is off loads nothing and costs nothing. Each change applies after a reload.
+- PSS Drop Cheapest Thing (optional, off by default): a minimap button and /pss dtt (also /dropcheap and /dtct). It destroys your cheapest junk item, or sells it when a merchant is open, one item at a time and only when you ask. Its options are under Feature Options: how good an item may be, food, potions, soulbound and valueless items, auction values, and Always and Never item lists. To fill a list, shift-click, paste a link, type an id or drop an item. An optional Sell junk button can sit on the merchant window. /pss dtt list shows the ten cheapest items and /pss dtt log your last ones.
+- The Warehouse (optional, off by default): it remembers what every character carries and has in the bank, mail, void storage, auctions and equipped, plus each guild bank, your warband bank, the currencies each character holds and everyone's gold, all saved account wide. Item and currency tooltips list who holds them; the Warehouse options page chooses what they show. Search Everywhere (/pss wh, /syn) searches every character, guild bank and the warband by name, quality, slot, class, binding, expansion, item level or value, with & | ~ ! and brackets; /pss wh search <text> opens it filled in. "This realm" means your character's realm; All realms is an option for search and gold. /pss money lists gold per character, per realm and the total. /pss wh import copies what Syndicator saved; when Syndicator is not installed, addons that ask for it (such as Baganator) get their answers from the Warehouse. Saved data that no longer has a character is kept hidden until you remove it (Options, Warehouse, or /pss wh remove #id).
+- Safer upgrades: a saved-data upgrade that fails is undone and tried again. /pss upgrade undo puts the data back as it was before the last upgrade, and /pss status shows recent errors and the upgrade state.
+- Chat filtering: new option "Show sent ignore replies" (on by default), which hides PSS's ignore auto-reply echo when unticked. Lines whose sender the game hides (encounters, Mythic+, PvP, chat restrictions) pass through without an error and are now counted. /pssguild chat reports what the filter did and why the last line passed. The repeated key binding header warning is gone.
+- Dark look: side menus open on hover, menu rows and tab labels are easier to read, and a stray menu label is gone.
+- Behind the scenes: a service bus, key/value stores, entity ids and an event-driven trigger engine now carry the new features. They cost nothing while their features are off.
+- Thanks: Addon Control Panel showed how addon sets should behave. DropTheCheapestThing by Kemayo (BSD licence, https://github.com/kemayo/wow-dropthecheapestthing) gave the rules for Drop Cheapest Thing. Syndicator by plusmouse (https://www.curseforge.com/wow/addons/syndicator) showed what a warehouse should do. Their behaviour was studied; no code was copied. Item prices are read from TradeSkillMaster, RECrystallize and Auctionator through their documented interfaces.
+
+=> 3.7.0.113 - Documentation review after the warehouse
+
+- Documentation only: the project notes now describe the merged Warehouse (3.7.0.106 to 3.7.0.112), its saved data and its checks. Nothing in the addon changes.
+
+=> 3.7.0.112 - /pssguild chat names an error as the reason the last line passed (no stale reason)
+
+- Chat filtering: when checking a line raised an error, /pssguild chat still showed the reason of an earlier line as "last line passed because". It now says an error happened (the error itself is shown by lastError and counted in errors).
+
+=> 3.7.0.111 - W-8 secret order: the :893 target compare and the other isSecret-after-compare sites, unreadable lines counted and shown, source-order lint, secret sweep
+
+- Chat filtering: when the game hides a sender's name (chat restrictions such as an encounter, a Mythic+ key, a PvP match, or the test setting addonChatRestrictionsForced), PSS no longer raises an error on your own whisper being sent to a hidden name, and the same wrong order of checks is fixed in three other places (channel names, and two in the guild list code). Lines whose sender is hidden are still passed through unfiltered, as before, but are now counted: /pssguild chat shows "secret (unreadable, not filtered): n" and says so when every line was unreadable, which points at a leftover restriction setting. A source check now fails the build if a value is compared before it is checked for being hidden.
+
+=> 3.7.0.110 - Chat filter registration hardening (W-8) and This realm scope (W-7)
+
+- Chat filtering: /pssguild chat said "ours: NO" on every event, but on Retail 12.x the game's filter registry is an object with no list to read, so that check was blind (its "3 filters" were the registry's three methods). The command now says what PSS itself did (started, events added, events the game refused), says "cannot be read on this client" where there is no list, and shows the counters that tell the truth: lines that reached our filter since login, checked, hidden, errors, and why the last line passed. At 0 it says that no line has reached our filter: whatever draws chat is not calling the game's chat filters. Each event is added under its own protection (one the game refuses is named, tried once more when the world is up, and skips neither the other events nor the invite, duel and trade events), a start-up step that fails prints one red line naming it and the steps after it still run, and a fault in the upgrade fields or the built-in rules leaves the filter off, loudly, instead of silently inert. Whether any of this was the cause is for the in-game check to say.
+- Fixed: Bindings.xml repeated the key binding header on every binding, which the game reports as "Binding header POURSOCIALSCORE was attempted to be loaded more than once". The header is now on the first binding only.
+- Warehouse: "This realm" means the realm of the character you are on (it was the connected realms). Search and gold follow the option "Realms shown in search and gold" (This realm, the default, or All realms; a saved All realms stays). Item and currency tooltips always show this realm only, whatever the option says. The Search Everywhere window redraws when the option changes on the Options page.
+
+=> 3.7.0.109 - W-4 G1: an empty set never widens a query
+
+- Fixed: hovering an item nobody holds (a vendor item, a chat link) made the Warehouse tooltip fail five times and stop for the session. An empty list of holders now means no holders, not everyone. The same rule applies to the gold list and the item search. A failure inside the tooltip for one item no longer stops the tooltips of every other item. Drop Cheapest Thing waits until the saved data is routed before its first scan, so /pss status no longer reports an early entity read (it has its own code, early). The window's memory was measured after a full collection: nothing stays after it closes except the built window, and it does not grow with use.
+
+=> 3.7.0.108 - Warehouse: empty equipment slots are not items
+
+- Fixed: the Warehouse search showed a row "item:0" held by "Equipped" (a red question mark). An empty equipment slot that the client reports as item 0 is no longer saved, and an item 0 row already saved is no longer listed.
+
+=> 3.7.0.107 - Warehouse fixes from the first in-game test
+
+- Fixed: the equipped items could not be read on Camelot (an error about the item's bound state); the Warehouse now asks the client for an item location the way the client wants it.
+- New: choose which realms the Warehouse covers (Options, Warehouse: connected realms, the default, or all realms); the Search Everywhere window has the same choice.
+- /pss wh search <text> now opens the Search Everywhere window with the text filled in (add chat after the text to print the matches in chat, which waits until the client has given the item names). /pss wh search with no text opens the window.
+- Search Everywhere shows this character's items when nothing is typed, with the item's icon on the left of every row and its tooltip when you hover a row.
+- The Warehouse has its own tab in the main window (only while the Warehouse is on), with the same search.
+- Fixed: a character's saved name entry could be lost when Drop Cheapest Thing started early, which left its gold shown as "?". Saved Warehouse data that belongs to no saved character is now kept, hidden, not counted, and its number is never reused; Options, Warehouse has a Remove button for it, and /pss wh status lists it as "unnamed #id" for /pss wh remove #id. Nothing is deleted unless you remove it.
+
+=> 3.7.0.106 - The Warehouse: what every character, guild and your warband holds (optional, off by default)
+
+- New optional Warehouse (Options, Enabled components, then reload). It remembers the items every character carries, keeps in the bank, mail, void storage, auctions and has equipped, each guild bank and your warband bank, the currencies each character holds and everyone's gold. Everything is saved account wide, only while the Warehouse is on, and nothing loads while it is off.
+- Item and currency tooltips list who holds them. The Warehouse page in Options (Feature Options) chooses what is shown: guild banks, equipped items, other realms, your faction only, how many holders before "and n more", a total line, Shift only, and joining variants of an item by name.
+- Search Everywhere: /pss wh opens one window that searches every character, guild bank and the warband in all three looks. /pss wh search <text> prints the matches. You can search by name, quality, slot, item class, binding, expansion, item level (>400, 400-420) and value (>10g, 5s-2g), and combine words with & | ~ ! and brackets. Click a result to see where it is.
+- /pss money lists gold per character, per realm and the total. /pss wh status, hide, remove, sweep and import manage what is saved; /syn and /syndicator open the search when no other addon owns them.
+- Moving from Syndicator: /pss wh import copies what Syndicator saved (it must be loaded, and it is only read), then you can turn it off. When Syndicator is not installed, addons that ask for it (such as Baganator) get their answers from the Warehouse.
+- Drop Cheapest Thing uses the same bag reader and item values when the Warehouse is on; its choices do not change.
+- Safer upgrades: a saved-data upgrade that fails is undone and tried once more, /pss upgrade undo puts the data back as it was before the last upgrade, and /pss status shows recent errors and the upgrade state.
+- Thanks: Syndicator by plusmouse (https://www.curseforge.com/wow/addons/syndicator) showed what a warehouse should do; its behaviour was studied and no code was copied. Item prices come read-only from TradeSkillMaster, RECrystallize and Auctionator through their documented interfaces.
+
+=> 3.7.0.105 - Docs: dated temp folders, token rule for threads, graphs in reports
+
+- Docs only: session temp folders on scratch are dated by year, month and day (temp/YYYY/MM/DD/hh-mm-ss-Ddd-<name>/); older folders stay where they are. The author's token rule is passed verbatim to every sub-agent and thread, and summaries and reports carry graphs and heat maps where they help. Every planned build after S3 moves up one (W1 is 3.7.0.106).
+
+=> 3.7.0.104 - Trigger engine (service bus stage S3)
+
+- Under the hood, nothing visible: the engine that will replace every per-frame and timer wake-up in the addon, and the trigger rows that the warehouse and bag windows will use, are in place and switched off until a feature needs them.
+- Trigger rows (core) wait for the game's own events, collect what changed, and do the work once when the game says it has settled; nothing is registered, and no frame exists, while a feature is off.
+- The trigger engine (loads with the shared library folder) meets every kind of wait on the cheapest way the game offers: an event, a settle, one of our own signals, a read, a widget, a short step on the next event, or one timer for the earliest deadline. No per-frame script anywhere.
+- A character's addon profiles from an older test build that could not be moved at login (the shared library folder would not load) are now moved in the same session, as soon as the game allows, instead of at the next login.
+- The query steps now say what they take and return, so a step can follow any other.
+- The rules check now lists every per-frame script and timer in the addon against an approved list that can only shrink.
+
+=> 3.7.0.103 - Docs: Overrides rows for the trigger engine clock and L1 with W2; the author's risk review answers
+
+- Documentation only: two approved exceptions to the baseline rules, the trigger engine's one one-shot timer and the shared item layer with persisted bags in one build, and the author's answers to the warehousing risk review. Nothing in the addon changes.
+
+=> 3.7.0.102 - Addon profiles move to account-wide storage (S2b)
+
+- Your character's addon profiles (the saved lists, protected addons and selection of the Addon Manager) move into the account-wide save at the first login of each character, and the old per-character file is emptied. Nothing looks different. A character whose account-wide profile already holds data keeps its old file and a note says so. Older versions of the addon do not read the moved profiles.
+
+=> 3.7.0.101 - Docs: roadmaps pointer in CLAUDE.md
+
+- Nothing changes in the game. The project's instructions now point at the new roadmap documents, so planning work starts from the roadmap's Next Steps.
+
+=> 3.7.0.100 - S2: queries, key/value stores, entity ids and owned keys
+
+- Nothing changes in the game yet. Behind the scenes the addon gains the tools later features will share: a query helper for lists of records, a small store for saved data that keeps it compact, and a way to save things per character in the one account-wide save. Nothing is saved or run until a feature uses them.
+- The automatic checks on GitHub now fail when the extra service bus checks could not run.
+
+=> 3.7.0.99 - Docs: the code map moves to documents/code-map
+
+- Documentation only: the code map now lives on scratch in documents/code-map (framework layout, a generated API, test and registry reference, and the code rules for developers). Nothing in the addon changes.
+
+=> 3.7.0.98 - Service bus foundation (S1)
+
+- Under the hood, nothing visible: a small service bus (record sets, named services, one-call lookups) for the coming Warehouse, Bag Manager and Journal features, a build gate that keeps budgets and the list of every way in and out of the addon, and a guard that only the player can open the window.
+- The window now listens for look and font changes only while it is open, and applies any change made while it was closed when it opens.
+
+=> 3.6.1.97 - Drop Cheapest Thing: item lists redraw when an item is added
+
+- Fixed: an item added to the Drop Cheapest Thing lists (shift-click, drag, Add or Enter) now shows at once instead of only after reopening the page.
+
+=> 3.6.1.96 - Drop Cheapest Thing: item list chips
+
+- The item lists of PSS Drop Cheapest Thing show each item as a small tag sized to its name, with the remove button just after it; tags sit side by side and wrap to the next line only when the row is full.
+
+=> 3.6.1.95 - Drop Cheapest Thing: item lists no longer overlap
+
+- The item lists of PSS Drop Cheapest Thing (Always destroy, Never destroy) now grow downward as items are added, each in its own group, instead of drawing over the list below.
+
+=> 3.6.1.94 - Drop Cheapest Thing: shift-click an item into the item lists
+
+- Shift-click an item (from your bags or a chat link) while the cursor is in the "Always destroy" or "Never destroy" box of PSS Drop Cheapest Thing to add it, as in the old addon.
+
+=> 3.6.1.93 - PSS Drop Cheapest Thing
+
+- New optional feature, PSS Drop Cheapest Thing (off by default; turn it on under Options, Enabled components, then reload): a minimap button and /pss dtt (also /dropcheap and /dtct) that destroy your cheapest junk item, or sell it when a merchant is open, one item at a time and only when you ask. The button shows the cheapest item's picture; Shift-click acts, right-click opens its options.
+- Its options sit under a new "Feature Options" heading in the Addon Manager: how good an item may be to destroy or sell, low-level food, potions, bandages and scrolls, soulbound and valueless items, auction values, and "always" and "never" item lists you can fill by pasting a link, typing an id or dropping an item. An optional Sell junk button can be added to the merchant window.
+- /pss dtt list shows the ten cheapest items, /pss dtt log your last destroyed or sold items (kept with Event Logging).
+- Credit: the idea and rules follow DropTheCheapestThing by Kemayo (BSD licence, https://github.com/kemayo/wow-dropthecheapestthing); the code here is new.
+
+=> 3.6.0.92 - Interface-helper groundwork: group titles, item list, disabled sections
+- Groundwork for the coming Drop Cheapest Thing options: a list control for items, group titles and a disabled-section line in Options. Nothing changes on screen.
+
+=> 3.6.0.91 - Addon Manager tab with a collapsible navigation
+
+- The AddOns tab is now the Addon Manager tab, with a list of pages on the left like Blizzard's Options window: Addons, Optional Features, Import/Export, Player Ignore List, Guild Ignore List, Chat Filter Rules and All Options. The list folds with one click and the page fills the space at once.
+- Import/Export and Options are no longer tabs of their own; they are pages of the Addon Manager. The Optional Features page holds the Enabled components options.
+- /acp, /pss acp, the key binding and the Addon Compartment entry open the Addons page with the list folded. They are renamed "Addon Manager".
+- No saved data changes; a window left on the old Import/Export or Options tab reopens on that page.
+
+=> 3.6.0.90 - AddOns tab: all memory usage removed
+
+- AddOns tab: all memory usage is gone (the Memory column, the top line, the Refresh button, the hover lines and sorting by memory); the figures did not add up.
+- Nothing else changes; no saved data changes.
+
+=> 3.6.0.89 - AddOns tab shows memory only, CPU removed
+
+- AddOns tab: the CPU is gone (top line, hover tips and the `/pss acp api` line); only memory is shown.
+- Dark skin: unselected tab labels (Player Ignore List, AddOns, ...) use the full label white, a little fainter than the selected tab.
+
+=> 3.6.0.88 - Dark menu rows take the label colour, a little fainter (#202)
+
+- Dark skin: the text in drop-down lists and right-click menus now uses the same white as the drop-down's own label, only a little fainter, so it reads clearly.
+- Hovering a side-menu entry keeps it bright while its side panel is open.
+- Modern and Classic are unchanged; no saved data changes.
+
+=> 3.6.0.87 - Dark side menus open on hover
+
+- In the Dark look, a drop-down entry with a side menu (the AddOns tab's Profiles places) now opens it beside the row when you hover it, as Classic and Modern do. The list no longer swaps to a "< Back" page.
+- Escape or a click elsewhere closes the whole menu.
+- Fixed a stray label (for example "Warrior (empty)") that showed at the top-left of an open drop-down in the Dark look (#201).
+
+=> 3.6.0.86 - Revert PR 207: CLAUDE.md back to its 3.6.0.84 version
+
+- Reverts PR 207: CLAUDE.md is back to its 3.6.0.84 version. No addon change.
+
+=> 3.6.0.84 - Addon Profiles: Load on every place, tick boxes, reload tally; Reload works on Camelot
+
+- Addon Profiles: each profile in the Profiles drop-down has a tick box. Ticking it turns all of that profile's addons on, unticking turns them off, at once; a profile with nothing saved says so.
+- The AddOns tab shows a summary (how many addons a reload will enable and disable) at the top right, and the Reload button shows (+x/-y). Hovering either lists the addons, with "Reload Required" in bold under the title.
+- Dark look: the drop-down tick box and the new tooltip match the other looks.
+- The Reload prompts can be opened and used in combat (your choice); on Camelot the button works in combat and Enter works once combat ends.
+- Addon Profiles: every place's side menu now lists the same actions (Select, Save, Load, Enable all, Disable all, Rename, Delete), as AddonControlPanel's sets menu; on a place with nothing saved they say so and change nothing. The class place has no Rename.
+- The Save, Rename, Delete and Reload prompts' buttons and boxes now sit above the window art in every look, so a click always reaches them.
+- Camelot: the Reload prompts (AddOns tab, Options tab, graphics settings) now reload. Camelot blocks the reload call from addon code, so the Reload button is the player's own click on a /reload macro button, and Enter works too; in combat the prompt waits until combat ends.
+
+=> 3.6.0.83 - Docs: addon-helper references repointed
+
+- Docs only: CLAUDE.md, the status, handover and rules docs and one code comment point at the addon-helper feature documentation on scratch instead of the retired addon-manager folder. Nothing in the addon changes.
+- 3.6.0.82 is the Addon Profiles build on its own branch; the later fixes move up one build: #192 3.6.0.84, #203 3.6.0.86.
+
+=> 3.6.0.81 - Docs: summaries end with a references table
+
+- Documentation only: every summary written for scratch ends with a table of its references, their titles and links (DEC-00074). No change in game.
+
+=> 3.6.0.80 - Docs: CLAUDE.md import links, summaries are documents
+
+- CLAUDE.md: each pack it loads at session start now carries a GitHub link, and asking for a summary counts as asking for a document.
+- The fixes move up one build: #189 3.6.0.81, #192 3.6.0.82.
+
+=> 3.6.0.79 - Docs: session outputs recorded, anything referenced always has a link
+
+- Documentation only: every session output is recorded in the session's notes (new sessions get a time-stamped folder), and anything written for the author always carries links to what it refers to. No change in game.
+
+=> 3.6.0.78 - Docs: linked keys, decisions documents, session references
+
+- Documentation rules only (no addon change): every key in the project documents links to where it is explained, every documentation folder gets a decisions page, references link the session's notes, and changelogs link the version before each change.
+- The addon manager's fixes move up one build: #189 to 3.6.0.79, #192 to 3.6.0.80.
+
+=> 3.6.0.77 - Docs: documentation standard, reference framework and document migration
+
+- Documentation only; the addon does not change.
+- New documentation rules for the project (issue #194): one document set per addon and feature, a changelog in every folder, a log of every request, and credits for other developers whose work helped.
+- The project's documentation was reorganised into documents, drafts and history folders.
+- The next fixes move up one build: the profile menu fix (#189) is now 3.6.0.78 and the Reload fix (#192) 3.6.0.79.
+
+=> 3.6.0.76 - Docs: next steps for #189, #179 and #192
+
+- Documentation only: next steps for the addon profiles fixes and the Reload button fix. No change in game.
+
+=> 3.6.0.75 - Profile places explained, ignore reply echo option
+
+- Addon profiles: a free place now reads "Not saved yet", a place whose profile is saved under the other character choice (This character or All characters) says so and offers "Show the saved profile", and a saved string this version cannot read shows as "(other version)" and is never overwritten. A place's menu is read again when you act on it, and Delete refreshes the window at once.
+- Ignore auto-reply: new option "Show sent ignore replies" (on by default, so nothing changes). Untick it to hide the "To player: [Pour Social Score] You are being ignored." line PSS's reply puts in your chat, and the "No player named" line when the sender has logged off; your own whispers still show and still warn.
+
+=> 3.6.0.74 - Enable all and Disable all on an addon profile
+
+- Right-click a profile's place in the Profiles menu for Enable all and Disable all: they turn on or off every installed addon in that profile, as if you had ticked them yourself (required addons follow with the Dependencies tick; protected addons and Pour Social Score stay on). They replace Add to current selection and Remove from current selection. The profile, your selection and your saved profiles are not changed. A profile with no installed addon shows them greyed.
+- /pss acp profile <id> enable and disable do the same (add and remove still work).
+
+=> 3.6.0.73 - Docs: next steps for #176 to #184
+
+- The next steps are set to issues #176, #177, #179, #180, #181, #183 and #184, in order: test 3.6.0.69, then #179, #183 and the rest of #184 (docs only, no change in game).
+
+=> 3.6.0.72 - Docs: reference retirements (RET)
+
+- Docs only: a new reference type for retired references, and a references file in every documentation folder that maps each retired reference to what replaced it. Nothing changes in the addon.
+
+=> 3.6.0.71 - Docs: rules and context consolidated
+
+- Docs only: CLAUDE.md and the rules files are consolidated (same rules, less noise). Nothing changes in the addon.
+
+=> 3.6.0.70 - Docs: reference framework rule
+
+- Docs only: CLAUDE.md gains the reference framework rule (one key schema for every document, issue #184). Nothing changes in the addon.
+
+=> 3.6.0.69 - Addon Profiles: ACP-style save, side menus, menus open down
+
+- Addon Profiles can be saved again, the way Addon Control Panel does it: the Profiles drop-down lists every place (Core Addon Profiles 1 to 5, a line, Layered Addon Profiles 6 to 25 and your class), a free one as "Profile N (empty)". Choose a place and its side menu offers Select or Deselect, Save (one question, "Save the current addon list to [name]?"), Load, Add to current selection, Remove from current selection, Rename and Delete; a free place offers Save and Rename. A selected place is marked with *, and any number can be selected together. This also fixes the places' menu closing at once, which hid Save and Rename.
+- New Options section "Enabled components" (first on the Options tab): Addon Manager (off), Event Logging (on), Graphics Settings Exporter (off, Camelot only) and Social Filtering (on). A part that is off costs nothing: with the Addon Manager off there is no AddOns tab, no /pss acp or /acp, no Open AddOns key action and no second Addon Compartment entry, and its code is not loaded; with the Graphics Settings Exporter off /pss gfx says so; with Event Logging off (it asks OK or Cancel first, warning that nothing can be tracked afterwards) blocks are still counted but no line is kept and the Events tab and the history pages go; with Social Filtering off nothing is blocked (no chat filter, declines, party warning, Blizzard ignore sync, Block menu items or capture; your lists, rules and counts are kept and editable, and the list tabs say so). A change applies after a reload ("Reload now?"). The addon manager and the graphics exporter are now opt-in; saved addon profiles and graphics sets are kept untouched, and the upgrade report says once that the Graphics Settings Exporter is now off by default.
+- The Profiles drop-down is wider so its titles show, opens downward in every look (Dark opened upward), and the addon count now sits at the right against the Undo button. Menus in the Dark look are as wide as their longest entry.
+
+=> 3.6.0.68 - Addon Profiles: renamed, rename any, Core and Layered
+
+- "Sets" are now called Addon Profiles everywhere on the AddOns tab, and the drop-down at the bottom left reads "Profiles".
+- The first five addon profiles are Core Addon Profiles, then a line, then the Layered Addon Profiles (6 to 25 and your class). Tick any or all of them in the drop-down: the addons turned on are every selected profile together plus anything you turned on by hand, and unticking a profile turns off only what no other profile or hand pick still wants (protected addons always stay on). Loading a profile, Enable All, Disable All and Undo still replace everything and clear the selection. Manage Addon Profiles at the bottom of the menu has the places (Save, Load, Add to current, Remove from current, Rename, Delete).
+- Rename now shows for every addon profile, a free place and your class one included (a named free place is kept, empty); names are up to 32 letters, not empty and not used twice in the same list. New: /pss acp profile ... select, deselect and rename.
+
+=> 3.6.0.67 - Docs: next steps, addon profiles issues 175 to 177
+
+- Docs only: the addon manager's sets (3.6.0.66) tested fine; the next issues are written down (addon profiles, core and layered profiles). Nothing changes in the addon.
+
+=> 3.6.0.66 - Addon manager: sets the ACP way, AddOns tab after Chat Filters
+
+- The AddOns tab now comes right after Chat Filters: Player Ignore List, Guild Ignore List, Chat Filters, AddOns, Events, Import/Export, Options. The window still opens on the tab you used last.
+- Sets are made the way Addon Control Panel makes them: the Sets drop-down is now at the bottom left of the AddOns tab, beside the addon count, and lists every numbered place (a free one shows as empty) and one for your class. Pick a place and Save (it asks first) to put the addons that are on there; a used place can also be loaded, added to what is on, taken off what is on, renamed or deleted. The places belong to the choice at the top, this character or all characters. The separate "new set" step is gone.
+
+=> 3.6.0.65 - Docs: addon manager follow-ups (sets the ACP way, tab order)
+
+- Documentation only: the next two changes to the AddOns tab are written down, sets created the same way as Addon Control Panel with the Sets drop-down at the bottom left, and the AddOns tab placed after Chat Filters. No change in the game.
+
+=> 3.6.0.64 - Addon manager
+
+- New AddOns tab in the Pour Social Score window (all three looks), also /pss acp and /acp, the key binding "Open AddOns" and, on Retail, a second Addon Compartment entry "Pour Social Score: AddOns": every installed addon in one grouped, searchable list; tick to turn an addon on or off for this character or all characters (it can also turn on the addons it requires), Load for load on demand addons, Disable All and Enable All, Undo back to the state at login and a Reload button that shows when a change waits for a reload.
+- Protect an addon with the star so Disable All and sets leave it on; save the addons that are on as a set (25 numbered ones, each for this character or all characters, and one for your class) and load, add or take off a set. Sets and protected addons are saved per character or account-wide (a new saved file for each character only once something is saved there).
+- Memory and CPU for every addon: a line at the top shows the CPU and memory as Blizzard's own AddOn list does, hovering an addon shows its details, CPU and memory, and hovering a group's header shows the group's sums.
+- Works on Retail and Camelot. Nothing is loaded or built until the tab is opened; Pour Social Score and your protected addons can never be turned off from the tab. The Options tab's search box is a little narrower to make room for the new tab.
+
+=> 3.5.1.63 - Docs: the addon manager is the next workload
+
+- Docs only, no change in game: the addon manager (an AddOns tab in the PSS window, /pss acp and /acp, with CPU and memory per addon) is the next workload; CLAUDE.md, the status and the handover point to its design and plan on scratch. The first macros from issue #159 take the next build after this one.
+
 => 3.5.0.62 - Graphics settings and Macro Helper
 
 - New on Camelot: /pss gfx exports every graphics setting as text, imports one and shows each change before you apply it. After the reload you get 15 seconds to keep the new settings; Revert, Escape or no answer puts the old ones back. History keeps the last 5 sets saved before a change: see what differs from now, restore one or export it. Nothing loads and nothing is saved unless you use it.

@@ -634,16 +634,9 @@ end
 History.TrimAll = function() return History.Trim(true) end
 M.PSS_TrimAllHistory = History.TrimAll
 
--- Add a line for an owner, count it on `counts`. Returns the entry.
-function History.Add(owner, counts, entry, ruleTag)
-	entry.o = owner
-	if ruleTag then entry.r = ruleTag end
-	if counts then
-		local total = History.CountTotal(counts)
-		counts[entry.cat] = (tonumber(counts[entry.cat]) or 0) + 1
-		counts.total = total + 1
-	end
-	History.CountRecent(owner, entry.ts, entry.cat)
+-- keeps a line: in the log, or waiting in the outbox until Logging loads
+local function Store(entry)
+	if not M.PSS_On("logging") then return entry end
 	if not ready then
 		-- Logging is not loaded: the line waits (never loads it per line)
 		local db = PourSocialScoreDB
@@ -674,6 +667,44 @@ function History.Add(owner, counts, entry, ruleTag)
 	local log = History.Log()
 	log[#log + 1] = entry
 	History.Trim(false)
+	return entry
+end
+
+-- Add a line for an owner, count it on `counts`. Returns the entry.
+function History.Add(owner, counts, entry, ruleTag)
+	entry.o = owner
+	if ruleTag then entry.r = ruleTag end
+	if counts then
+		local total = History.CountTotal(counts)
+		counts[entry.cat] = (tonumber(counts[entry.cat]) or 0) + 1
+		counts.total = total + 1
+	end
+	History.CountRecent(owner, entry.ts, entry.cat)
+	-- Event Logging off: counted, but the line is not kept (issue 181)
+	return Store(entry)
+end
+
+-- An act of PSS Drop Cheapest Thing (money-helper, DEC-00122): one line,
+-- category dtt, never counted. Nothing when Event Logging is off.
+History.CAT_LABEL.dtt = "Drop Cheapest Thing"
+History.CAT_COLOR.dtt = "ffffcc66"
+local FILTER_ON
+function History.FilterCats()
+	if not M.PSS_On("dtt") then return ALL_CATS end
+	if not FILTER_ON then
+		FILTER_ON = {}
+		for i, c in ipairs(ALL_CATS) do FILTER_ON[i] = c end
+		FILTER_ON[#FILTER_ON + 1] = "dtt"
+	end
+	return FILTER_ON
+end
+-- cat and label default to Drop Cheapest Thing's; a later component names its own
+function History.Act(event, message, cat, label)
+	if not M.PSS_On("logging") then return end
+	cat = cat or "dtt"
+	local entry = History.NewEntry(cat, event, message, label or "Drop Cheapest Thing", nil)
+	entry.o = cat
+	Store(entry)
 	return entry
 end
 

@@ -5,7 +5,8 @@
 ## Group: PourSocialScore
 ## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
 ## Author: Boaties
-## Version: 3.5.0.62
-## SavedVariables: PSS_OptionsDB, PSS_PlayersDB, PSS_GuildsDB, PSS_RulesDB, PSS_CountsDB
+## Version: 3.7.0.114
+## SavedVariables: PSS_OptionsDB, PSS_PlayersDB, PSS_GuildsDB, PSS_RulesDB, PSS_CountsDB, PSS_WarehouseDB
+## SavedVariablesPerCharacter: PSS_CharDB
 
 PSS_OptionsData.lua

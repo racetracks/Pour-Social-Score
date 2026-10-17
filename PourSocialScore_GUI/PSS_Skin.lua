@@ -29,6 +29,11 @@ ns.DARK = {
 	close = { 1, 1, 1, 0.75 },
 	closeHover = { 1, 1, 1, 1 },
 	text = { 1, 1, 1, 1 },
+	-- the alpha of a menu row and a menu title (the text colour is DARK.text)
+	-- an unselected tab's label: the label colour, one step fainter
+	tabText = 0.85,
+	menuText = 0.85,
+	menuTitle = 0.6,
 	disabledText = { 0.5, 0.5, 0.5, 1 },
 	panel = { 0.08, 0.08, 0.08, 0.92 },
 	inset = { 0.04, 0.04, 0.04, 0.85 },
@@ -155,12 +160,24 @@ function ns.Font(size, blizz)
 	return f.obj
 end
 
+local paintedFont
 function ns.Repaint()
 	skin = M.PSS_UISkin()
+	paintedFont = M.PSS_Opt("uiFont") or ""
 	modernArt = nil	-- looked up again on the next paint
 	local dark = skin == "dark"
 	for _, key in ipairs(fontList) do PaintFont(fonts[key], dark) end
 	for _, fn in ipairs(painters) do fn(dark) end
+end
+
+-- The window hears the look and font options only while it shows, so every
+-- GUI frame that can show without it (the window, a popup, a menu) calls
+-- this first: repaints when the look or font changed since the last paint.
+function ns.Fresh()
+	if skin and (skin ~= M.PSS_UISkin() or (M.PSS_Opt("uiFont") or "") ~= paintedFont) then
+		ns.Repaint()
+		return true
+	end
 end
 
 -- A FontString on a shared font object; colour set on it stays its own.
@@ -230,6 +247,15 @@ end
 -- Is this atlas on the client? (names differ between clients)
 function ns.HasAtlas(name)
 	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
+end
+
+-- A Blizzard client file by path on a texture, with the client's answer:
+-- true when it loaded (coords { left, right, top, bottom } applied), false
+-- when the client has no such file, so the caller shows its glyph instead.
+function ns.FileTexture(tex, path, coords)
+	if tex:SetTexture(path) == false then return false end
+	if coords then tex:SetTexCoord(coords[1], coords[2], coords[3], coords[4]) end
+	return true
 end
 
 -- The look's own parts of a widget: Dark parts are ours (kept in a table

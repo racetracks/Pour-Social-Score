@@ -18,9 +18,10 @@ local ROW_H = 26
 -- the controls sit this far left of the row's right edge
 local CONTROL_X = 210
 
-local optionsPage, ioPage
+local optionsPage, featuresPage, ioPage
+local sectionPages = {}	-- the pages of grouped sections (Feature Options)
 
-ns.TabBuilders = ns.TabBuilders or {}
+ns.PageBuilders = ns.PageBuilders or {}
 
 local function Scroll(page)
 	local scroll = ns.NewScrollFrame(page)
@@ -69,9 +70,58 @@ local function OptionRow(content, o, rows)
 	elseif o.kind == "bool" then
 		local c = ns.NewCheck(row)
 		c:SetPoint("LEFT", row, "RIGHT", -CONTROL_X, 0)
-		c:SetScript("OnClick", function(self) M.PSS_SetOpt(o.key, "global", self:GetChecked() == true) end)
-		refresh = function() c:SetChecked(M.PSS_Opt(o.key) == true) end
+		local function Apply(on)
+			M.PSS_SetOpt(o.key, "global", on)
+			if o.reload and M.PSS_OptGate(o) then
+				ns.Confirm({ title = "Reload UI?", text = "Turning " .. o.label .. " on or off applies after a reload. Reload now?",
+					accept = "Reload", cancel = "Later", reload = true, onAccept = M.PSS_ReloadNow })
+			end
+		end
+		c:SetScript("OnClick", function(self)
+			local on = self:GetChecked() == true
+			if o.warn and not on then
+				-- turning it off needs an OK (issue 181): Cancel leaves it on
+				c:SetChecked(true)
+				ns.Confirm({ title = "Turn Off " .. o.label .. "?", text = o.warn, accept = "OK", cancel = "Cancel",
+					onAccept = function() Apply(false) end, onCancel = function() c:SetChecked(M.PSS_Opt(o.key) == true) end })
+			else
+				Apply(on)
+			end
+		end)
+		refresh = function()
+			c:SetChecked(M.PSS_Opt(o.key) == true)
+			if o.reload then
+				local enabled, note = M.PSS_OptGate(o)
+				c:SetEnabled(enabled)
+				label:SetAlpha(enabled and 1 or 0.4)
+				label:SetText(M.PSS_OptLabel(o) .. note)
+			end
+		end
 		row.check = c
+	elseif o.kind == "itemlist" then
+		-- the label above, the list below (Libraries packs and edits the ids)
+		label:ClearAllPoints()
+		label:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -4)
+		local l = ns.NewItemList(row, 360, function(id) M.PSS_OptItemAdd(o, id) end, function(id) M.PSS_OptItemRemove(o, id) end)
+		l:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -(ROW_H - 2))
+		refresh = function()
+			l:SetItems(M.PSS_OptItems(o))
+			row:SetHeight(ROW_H + l:GetHeight())
+		end
+		row.itemlist = l
+	elseif o.kind == "action" then
+		-- W3-D5: a button that removes saved Warehouse data that belongs to no saved character (the count is read each refresh)
+		local b = ns.NewButton(row, "Remove", 90, function()
+			ns.Confirm({ title = "Remove Saved Data?", text = "Remove the saved Warehouse data of " .. M.PSS_WhUnnamed() .. " character(s) that have no saved name? This cannot be undone.",
+				accept = "Remove", cancel = "Cancel", onAccept = function() M.PSS_WhUnnamedRemove(); refresh() end })
+		end)
+		b:SetPoint("LEFT", row, "RIGHT", -CONTROL_X, 0)
+		refresh = function()
+			local n = M.PSS_WhUnnamed and M.PSS_WhUnnamed() or 0
+			label:SetText(o.label .. " (" .. n .. ")")
+			b:SetEnabled(n > 0)
+		end
+		row.button = b
 	elseif o.kind == "number" then
 		local e = ns.NewNumberBox(row, 60)
 		e:SetPoint("LEFT", row, "RIGHT", -CONTROL_X + 4, 0)
@@ -96,43 +146,79 @@ local function OptionRow(content, o, rows)
 	return row
 end
 
-ns.TabBuilders.options = function(page)
-	optionsPage = page
+-- All Options (every section, with its search box) and Optional Features
+-- (the Enabled components section only) are one builder; both are pages of
+-- the Addon Manager tab (PSS_Manager.lua)
+local FEATURES = "Enabled components"
+local function BuildOptions(page, only)
 	local content, scroll = Scroll(page)
 	local rows = {}
-	local groups = M.PSS_OptGroups()
+	local groups = {}
+	for _, g in ipairs(M.PSS_OptGroups()) do
+		if not only or g.title == only then groups[#groups + 1] = g end
+	end
+	local lastGroup
 	for _, g in ipairs(groups) do
 		g.heading = ns.NewHeading(content, g.title)
-		for _, it in ipairs(g.items) do it.row = OptionRow(content, it.o, rows) end
+		if g.group and g.group ~= lastGroup then
+			g.groupHeading = ns.NewHeading(content, g.group)
+		end
+		lastGroup = g.group
+		if g.off then
+			g.offNote = ns.NewText(content, 12)
+			g.offNote:SetAlpha(0.6)
+			g.offNote:SetText(g.off)
+		else
+			for _, it in ipairs(g.items) do it.row = OptionRow(content, it.o, rows) end
+		end
 	end
 	local note = ns.NewText(content, 11)
 	note:SetAlpha(0.6)
 	note:SetText("* can also be set per guild or per player.")
+	note:SetShown(not only)
 	local none = ns.NewText(content, 12)
 	none:SetAlpha(0.6)
 	none:SetText("No options match.")
 
-	local function Layout(q)
+	local curQ = ""
+	local function Layout(q, keep)
+		curQ = q or ""
 		local y, shown = -4, 0
 		for _, g in ipairs(groups) do
 			local n = 0
 			for _, it in ipairs(g.items) do
 				local on = M.PSS_OptMatches(g, it, q)
-				it.row:SetShown(on)
+				if it.row then it.row:SetShown(on) end
 				if on then
 					if n == 0 then
+						if g.groupHeading then
+							g.groupHeading:ClearAllPoints()
+							g.groupHeading:SetPoint("TOPLEFT", content, "TOPLEFT", 6, y - 4)
+							y = y - 28
+						end
 						g.heading:ClearAllPoints()
-						g.heading:SetPoint("TOPLEFT", content, "TOPLEFT", 6, y - 4)
+						g.heading:SetPoint("TOPLEFT", content, "TOPLEFT", g.group and 14 or 6, y - 4)
 						y = y - 28
 					end
-					it.row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
-					y = y - ROW_H
+					if it.row then
+						it.row:ClearAllPoints()
+						it.row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
+						it.row:SetPoint("RIGHT", content, "RIGHT", 0, 0)
+						y = y - it.row:GetHeight()
+					elseif n == 0 then
+						g.offNote:ClearAllPoints()
+						g.offNote:SetPoint("TOPLEFT", content, "TOPLEFT", 14, y - 4)
+						y = y - 24
+					end
 					n = n + 1
+					if not it.row then break end
 				end
 			end
+			if g.groupHeading then g.groupHeading:SetShown(n > 0) end
+			if g.offNote then g.offNote:SetShown(n > 0) end
 			g.heading:SetShown(n > 0)
 			if n > 0 then y = y - 8 end
-			shown = shown + n
+			shown = shown + (g.off and 0 or n)
 		end
 		none:SetShown(shown == 0)
 		none:ClearAllPoints()
@@ -141,17 +227,45 @@ ns.TabBuilders.options = function(page)
 		note:ClearAllPoints()
 		note:SetPoint("TOPLEFT", content, "TOPLEFT", 6, y - 4)
 		content:SetHeight(-y + 30)
-		scroll:SetVerticalScroll(0)
+		if not keep then scroll:SetVerticalScroll(0) end
 		page.shownCount = shown
 	end
 	Layout("")
 
-	-- the search box sits at the right end of the tab row, over the window,
-	-- and shows and hides with this page
-	local search = ns.NewSearchBox(page, 200, "Search options", Layout)
-	search:SetPoint("TOPRIGHT", page:GetParent(), "TOPRIGHT", -12, ns.TAB_ROW_Y - 2)
-	page.search, page.groups, page.none = search, groups, none
-	return function() for i = 1, #rows do rows[i]() end end
+	-- the search box sits at the right end of the page's header row (over
+	-- the page's top edge) and shows and hides with this page
+	if not only then
+		local search = ns.NewSearchBox(page, 170, "Search options", function(q) Layout(q) end)
+		search:SetPoint("TOPRIGHT", page, "TOPRIGHT", -12, 24)
+		page.search = search
+	end
+	page.groups, page.none = groups, none
+	-- an item list grows and shrinks with its items: the rows below follow
+	local lists = false
+	for _, g in ipairs(groups) do for _, it in ipairs(g.items) do if it.o.kind == "itemlist" then lists = true end end end
+	return function()
+		for i = 1, #rows do rows[i]() end
+		if lists then Layout(curQ, true) end
+	end
+end
+
+ns.PageBuilders.options = function(page)
+	optionsPage = page
+	return BuildOptions(page)
+end
+
+-- the page of one grouped section (a nav entry with a section): only that
+-- section's rows
+function ns.SectionBuilder(row)
+	return function(page)
+		sectionPages[#sectionPages + 1] = page
+		return BuildOptions(page, (M.PSS_OPTION_SECTIONS[row.section]:gsub("[:%s]+$", "")))
+	end
+end
+
+ns.PageBuilders.features = function(page)
+	featuresPage = page
+	return BuildOptions(page, FEATURES)
 end
 
 ------------------------------------------------------------------------
@@ -176,7 +290,7 @@ local function Import()
 		end })
 end
 
-ns.TabBuilders.importExport = function(page)
+ns.PageBuilders.importExport = function(page)
 	ioPage = page
 	local checks = {}
 	local help = ns.NewText(page, 12)
@@ -232,5 +346,7 @@ end
 -- an option changed (here, by a command, or by another window): the tab
 -- shown again
 ns.Listen("OPTION_CHANGED", function()
-	if (optionsPage and optionsPage:IsVisible()) or (ioPage and ioPage:IsVisible()) then ns.RefreshTab() end
+	local shown = (optionsPage and optionsPage:IsVisible()) or (featuresPage and featuresPage:IsVisible()) or (ioPage and ioPage:IsVisible())
+	for i = 1, #sectionPages do if sectionPages[i]:IsVisible() then shown = true end end
+	if shown then ns.RefreshTab() end
 end)

@@ -2,4 +2,10 @@
 	<Binding name="PSS_SCAN_ALL" header="POURSOCIALSCORE" category="ADDONS">
 		PSS_ScanAllBinding()
 	</Binding>
+	<Binding name="PSS_DTT" category="ADDONS">
+		PSS_DttBinding()
+	</Binding>
+	<Binding name="PSS_OPEN_ADDONS" category="ADDONS">
+		PSS_AddonsBinding()
+	</Binding>
 </Bindings>

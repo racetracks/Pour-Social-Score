@@ -283,13 +283,48 @@ function M.PSS_SlashPSS (msg)
 
 		-- graphics settings export, import and history (3.5.0, Camelot only;
 		-- PSS_Graphics.lua defines nothing on other clients)
-		if M.PSS_GfxOpen then M.PSS_GfxOpen() else M.ShowMsg("Graphics settings are for Camelot only.") end
+		if not M.PSS_IsCamelot() then M.ShowMsg("Graphics settings are for Camelot only.")
+		elseif M.PSS_GfxOpen then M.PSS_GfxOpen()
+		else M.ShowMsg(M.PSS_OFF_TEXT.gfx) end
 
 	elseif args[1] == "macro" or args[1] == "macros" then
 
 		-- the macro helper (3.5.0, Camelot only; PSS_Macros.lua defines
 		-- nothing on other clients)
 		if M.PSS_MacroCommand then M.PSS_MacroCommand(args) else M.ShowMsg("The macro helper is for Camelot only.") end
+
+	elseif args[1] == "dtt" then
+
+		-- PSS Drop Cheapest Thing (money-helper; PSS_DttView.lua)
+		if not M.PSS_On("dtt") or not M.PSS_DttCommand then M.ShowMsg(M.PSS_OFF_TEXT.dtt)
+		else M.PSS_DttCommand(args, rawArgs) end
+
+	elseif args[1] == "wh" or args[1] == "warehouse" then
+
+		-- the Warehouse (warehouse-helper; PSS_WhCommands.lua)
+		if not M.PSS_On("warehouse") or not M.PSS_WhCommand then M.ShowMsg(M.PSS_OFF_TEXT.warehouse)
+		else M.PSS_WhCommand(args) end
+
+	elseif args[1] == "money" then
+
+		if not M.PSS_On("warehouse") or not M.PSS_MoneyCommand then M.ShowMsg(M.PSS_OFF_TEXT.warehouse)
+		else M.PSS_MoneyCommand() end
+
+	elseif args[1] == "acp" then
+
+		-- the addon manager (3.6.0): on its own the AddOns tab, else
+		-- PSS_AddonsQuery.lua
+		if not M.PSS_On("addons") or not M.PSS_AddonCommand then M.ShowMsg(M.PSS_OFF_TEXT.addons)
+		elseif not args[2] then M.PSS_OpenUI("addons", { page = "addons", collapse = true }) else M.PSS_AddonCommand(args, rawArgs) end
+
+	elseif args[1] == "upgrade" then
+
+		M.PSS_UpgradeCommand(args)
+
+	elseif args[1] == "status" then
+
+		-- errors, open breakers and the upgrade state (PSS_Err.lua)
+		M.PSS_StatusCommand()
 
 	elseif args[1] == "sync" then
 
@@ -325,8 +360,12 @@ function M.PSS_SlashPSS (msg)
 		M.ShowMsg ("  " .. L["HELP_17"])
 		M.ShowMsg ("  " .. L["HELP_18"])
 		M.ShowMsg ("  " .. L["HELP_19"])
-		M.ShowMsg ("  |cffffff00gfx|cffffffff: Export, import and restore graphics settings (Camelot)")
+		M.ShowMsg ("  |cffffff00gfx|cffffffff: Export, import and restore graphics settings (Camelot)" .. (M.PSS_On("gfx") and "" or " (off)"))
 		M.ShowMsg ("  |cffffff00macro|cffffffff: Create the preloaded macros (Camelot): /pss macro global create, /pss macro <class> create [account|character]")
+		M.ShowMsg ("  |cffffff00dtt|cffffffff: Destroy or sell the cheapest junk item: /pss dtt | list | sell | never | always | forget | options | log | icon" .. (M.PSS_On("dtt") and "" or " (off)"))
+		M.ShowMsg ("  |cffffff00wh|cffffffff: Search every character, guild bank and the warband: /pss wh | search <text> | status | import | sweep | hide | delete; /pss money" .. (M.PSS_On("warehouse") and "" or " (off)"))
+		M.ShowMsg ("  |cffffff00acp|cffffffff: Turn addons on and off, see what they cost, addon profiles: /pss acp (the AddOns tab), /pss acp list | on | off | load | all | undo | profiles | profile | lock | api" .. (M.PSS_On("addons") and "" or " (off)"))
+		if M.PSS_On("addons") then M.ShowMsg ("  " .. (M.PSS_ACPTaken and "/acp is used by another addon; use /pss acp" or "/acp = /pss acp")) end
 		M.ShowMsg ("  " .. L["HELP_9"])
 		M.ShowMsg ("")
 		M.ShowMsg ("  " .. format(L["HELP_10"], OnOff(M.PSS_Opt("chatmsg"))))
@@ -392,15 +431,14 @@ function M.PSS_SlashGuild (msg)
 	end
 
 	if cmd == "chat" then
-		local CFU = type(ChatFrameUtil) == "table" and ChatFrameUtil or nil
-		local getFilters = (CFU and CFU.GetMessageEventFilters) or ChatFrame_GetMessageEventFilters
 		gp(("filter registration API: %s"):format(M.PSS_FilterAvailable and "found" or "|cffff5555MISSING - chat blocking cannot work|r"))
+		local started, added, refused, total = M.PSS_FilterStatus()
+		gp(("started: %s | added by PSS: %d of %d events%s"):format(started and "yes" or "|cffff5555NO - Social Filtering is off or its start-up did not run|r",
+			added, total, refused > 0 and (", |cffff5555" .. refused .. " refused|r") or ""))
+		for _, line in ipairs(M.PSS_StartFaults or {}) do gp("|cffff5555start-up fault:|r " .. line) end
+		for _, line in ipairs(M.PSS_FilterFaults or {}) do gp("|cffff5555filter fault:|r " .. line) end
 		for _, ev in ipairs({ "CHAT_MSG_WHISPER", "CHAT_MSG_CHANNEL", "CHAT_MSG_SAY", "CHAT_MSG_PARTY" }) do
-			local list = getFilters and getFilters(ev)
-			local ours, n = false, 0
-			if type(list) == "table" then
-				for _, fn in pairs(list) do n = n + 1; if fn == M.PSS_CoreFilter then ours = true end end
-			end
+			local held = M.PSS_FilterHeld and M.PSS_FilterHeld(ev)
 			local frames, shown = 0, 0
 			for i = 1, (tonumber(NUM_CHAT_WINDOWS) or 10) do
 				local cf = _G["ChatFrame" .. i]
@@ -409,8 +447,19 @@ function M.PSS_SlashGuild (msg)
 					if cf:IsShown() then shown = shown + 1 end
 				end
 			end
-			gp(("  %-17s filters: %s, ours: %s | Blizzard chat windows listening: %d (%d shown)"):format(
-				ev, getFilters and tostring(n) or "?", getFilters and (ours and "|cff00ff00yes|r" or "|cffff5555NO|r") or "?", frames, shown))
+			-- Retail 12.x keeps a registry object with no list to read: there the client cannot say, only the counters can
+			gp(("  %-17s in the client's list: %s | Blizzard chat windows listening: %d (%d shown)"):format(
+				ev, held == nil and "cannot be read on this client" or (held and "|cff00ff00yes|r" or "|cffff5555NO|r"), frames, shown))
+		end
+		local cs = M.PSS_CoreStats
+		gp(("lines that reached our filter since login: %d | secret (unreadable, not filtered): %d | checked: %d | hidden: %d | errors: %d"):format(cs.calls or 0, cs.secret or 0, cs.checked, cs.hidden, cs.errors))
+		if (cs.secret or 0) > 0 and (cs.secret or 0) == (cs.calls or 0) then
+			gp("|cffffff00Every line was unreadable (chat restrictions): check /dump GetCVar(\"addonChatRestrictionsForced\") is 0 outside tests.|r")
+		end
+		if (cs.calls or 0) == 0 then
+			gp("|cffffff00No line has reached our filter since login: whatever draws chat is not calling the client's chat filters.|r")
+		elseif cs.why then
+			gp("last line passed because: " .. cs.why)
 		end
 		local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
 		local found = {}

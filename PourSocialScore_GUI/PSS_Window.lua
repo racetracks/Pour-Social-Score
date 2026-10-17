@@ -8,7 +8,7 @@
 -- elsewhere it remembers the place (Libraries M.PSS_UIPlace) and the tab
 -- shown (M.PSS_UITab).
 --
--- Six tabs (M.PSS_UI_TABS); each is built on first open by its builder,
+-- Five tabs (M.PSS_UI_TABS); each is built on first open by its builder,
 -- ns.TabBuilders[key](page), which returns the function that redraws it.
 -- A tab without a builder yet shows a note. Back / forward arrows above the
 -- tabs (and mouse buttons 4 / 5) step through the views shown; the line by
@@ -138,6 +138,8 @@ local function SelectTab(id)
 		win.pages[i]:SetShown(i == id)
 	end
 	if page.refresh then page.refresh() end
+	local key = TABS[id].key
+	win.offNote:SetShown(not M.PSS_On("filtering") and (key == "players" or key == "guilds" or key == "filters"))
 	M.PSS_SetUITab(id)
 end
 
@@ -411,6 +413,13 @@ local function Build()
 	title:SetPoint("TOP", win, "TOP", 0, -6)
 	title:SetText("Pour Social Score")
 	win.title = title
+	-- Social Filtering off (issue 181): the three list tabs say so, at the right end of the arrows' line
+	local offNote = ns.NewText(chrome, 12)
+	offNote:SetPoint("TOPRIGHT", win, "TOPRIGHT", -14, NAV_Y - 4)
+	offNote:SetText(M.PSS_OFF_TEXT.filtering)
+	offNote:SetAlpha(0.85)
+	offNote:Hide()
+	win.offNote = offNote
 	-- each look's parts, so the look shown can be checked
 	win.art = { blizzard = blizz, dark = dark, blizzardClose = blizzClose, darkClose = darkClose }
 
@@ -470,6 +479,10 @@ local function Build()
 	-- have changed while it was closed
 	win:HookScript("OnShow", function(self)
 		ns.ListenStart()
+		-- a look, font or strata change made while closed is applied now
+		-- (the listener below hears them only while shown)
+		win:SetFrameStrata(M.PSS_FrameStrataName())
+		if ns.Fresh() then UpdateNav() end
 		for _, page in ipairs(self.pages) do
 			if page.stale then page.stale() end
 		end
@@ -481,7 +494,8 @@ local function Build()
 	-- memory is given back at the next quiet moment
 	win:HookScript("OnHide", function(self)
 		self:UnregisterEvent("GLOBAL_MOUSE_UP")
-		ns.ListenStop()
+		local pop = _G.PSS_Everywhere		-- the Search Everywhere popup still listens while it shows
+		if not (pop and pop:IsShown()) then ns.ListenStop() end
 		for _, page in ipairs(self.pages) do
 			if page.release then page.release() end
 		end
@@ -491,9 +505,9 @@ local function Build()
 	SelectTab(M.PSS_UITab())
 	ns.NavRecord()
 
-	-- the look and strata: always heard (a rare event, and the kit, popups
-	-- and tooltips repaint with it), unlike the tabs' ns.Listen events
-	M.Events.Register("OPTION_CHANGED", function(key)
+	-- the look and strata: heard only while the window shows (ns.Listen);
+	-- OnShow above applies what changed while it was closed
+	ns.Listen("OPTION_CHANGED", function(key)
 		if key == "frameStrata" then
 			win:SetFrameStrata(M.PSS_FrameStrataName())
 		elseif key == "uiSkin" or key == "uiFont" then
@@ -506,16 +520,36 @@ end
 
 -- /pss gui, /pss ui, the Addon Compartment (core M.PSS_OpenUI); show true
 -- opens without toggling. Opened this way the window is at its own place.
-function M.PSS_OpenWindow(show)
+function M.PSS_OpenWindow(show, tab, how)
 	if not win then Build() end
-	if win:IsShown() and not show then
+	-- a tab key (/pss acp, the key binding): open on that tab; the same call
+	-- with that tab shown closes it
+	local id
+	if tab then
+		for i, t in ipairs(TABS) do
+			if t.key == tab then id = i end
+		end
+	end
+	-- how = { page, collapse } (the Addon Manager's entry points): the same
+	-- call with that page shown closes the window
+	if win:IsShown() and not show and (not id or id == curTab)
+		and not (how and how.page and M.PSS_MgrPage() ~= how.page) then
 		win:Hide()
 		return
+	end
+	if how then
+		if how.page then M.PSS_SetMgrPage(how.page) end
+		if how.collapse ~= nil then M.PSS_SetMgrCollapsed(how.collapse) end
 	end
 	win.byFriends = nil
 	RestorePlace()
 	-- fonts other addons shared since the last open join the font choices
 	M.PSS_UIFontChoices()
+	if id and id ~= curTab then
+		SelectTab(id)
+		ns.NavRecord()
+	end
+	if how and ns.ManagerShow then ns.ManagerShow() end
 	win:Show()
 	win:Raise()
 end

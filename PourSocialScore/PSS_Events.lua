@@ -51,12 +51,16 @@ end
 local errors = { count = 0, last = nil, shown = {} }
 Events.errors = errors
 
-function M.PSS_NoteListenerError(where, err)
+function M.PSS_NoteListenerError(where, err, noted)
 	errors.count = errors.count + 1
 	errors.last = where .. ": " .. tostring(err)
-	if not errors.shown[where] then
+	-- the ring in Libraries keeps what happened for /pss status (a service call already noted it)
+	if not noted and M.PSS_ErrFail then M.PSS_ErrFail(where, err) end
+	-- the red line is for the harness (M.PSS_Test.loud) and for the showErrors option; a player sees nothing
+	local T = M.PSS_Test
+	if not errors.shown[where] and ((T and T.loud) or (M.PSS_Opt and M.PSS_Opt("showErrors") == true)) then
 		errors.shown[where] = true
-		M.ChatMsg("|cffff5555Pour Social Score error in " .. where .. " (shown once, see /pssguild status):|r " .. tostring(err))
+		M.ChatMsg("|cffff5555Pour Social Score error in " .. where .. " (shown once, see /pss status):|r " .. tostring(err))
 	end
 end
 

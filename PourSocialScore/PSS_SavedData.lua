@@ -64,7 +64,7 @@ local ON_DEMAND = { PourSocialScore_Logging = "Logging" }
 -- in 3.4.1.51).
 local LAYOUT = {
 	options	= { "showIgnoreDebug", "windowSizes", "windowPoints", "columnWidths", "charOptions", "optionsV2012",
-				"euiIntegration", "blizzardSync", "gfxSets", "gfxPending" },
+				"euiIntegration", "blizzardSync", "gfxSets", "gfxPending", "addonSets", "addonLock", "addonView", "addonSel", "addonPick", "mapButtons", "ent" },
 	players	= { "list", "delList", "playerData",
 				"ignoreList", "typeList", "factionList", "dateList", "notes", "expList", "syncInfo" },
 	guilds	= { "guildData", "guildExclusions", "guildGroupOpen", "scanFieldsDefaultV1", "guildPlayerCleanupV3" },
@@ -85,6 +85,8 @@ local function buildRoute()
 		for _, k in ipairs(keys) do ROUTE[k] = g end
 	end
 	for _, o in ipairs(M.PSS_OPTIONS or {}) do ROUTE[o.key] = "options" end
+	-- an owned key (<key>Of, PSS_Entity.lua) is an account-wide Options key
+	for word in (M.PSS_SCHEMA and M.PSS_SCHEMA.owned or ""):gmatch("%S+") do ROUTE[word:match("^[%a_][%w_]*")] = "options" end
 end
 
 -- addon -> loaded (its tables are saved). A key is routed only while the
@@ -108,6 +110,13 @@ local router = {
 		if t then t[key] = value else rawset(db, key, value) end
 	end,
 }
+
+-- F4: true once PourSocialScoreDB routes its moved keys (PSS_PrepareSavedData ran at login). Before that a routed key
+-- (the entity table, the owned keys) reads as absent, and a store must not create it: the move at login would put the
+-- fresh table over the saved one.
+function M.PSS_SavedReady()
+	return getmetatable(PourSocialScoreDB) == router and active.PourSocialScore_Options == true
+end
 
 local function loaded(name)
 	local f = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded

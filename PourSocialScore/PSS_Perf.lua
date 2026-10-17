@@ -144,6 +144,8 @@ end)
 -- Ask for a cleanup: it starts now when the moment is safe, else at the next
 -- wake event.
 function M.PSS_RequestGC(reason)
+	if M.PSS_IndexDropAll then M.PSS_IndexDropAll() end		-- declared indexes are rebuilt on their next lookup
+	if M.PSS_GwDrop then M.PSS_GwDrop() end		-- the views handed to other addons are built again on their next use
 	gc.pending = true
 	gc.lastReason = reason or gc.lastReason
 	if gc.running or not gc.supported or not enabled() then return end

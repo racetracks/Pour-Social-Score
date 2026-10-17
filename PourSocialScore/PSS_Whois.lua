@@ -337,3 +337,19 @@ end
 BINDING_HEADER_POURSOCIALSCORE = "Pour Social Score"
 BINDING_NAME_PSS_SCAN_ALL = "Scan All: next guild /who"
 function PSS_ScanAllBinding() M.PSS_ScanAll() end
+BINDING_NAME_PSS_DTT = "Drop the cheapest thing"
+function PSS_DttBinding()
+	if not M.PSS_On("dtt") then
+		M.ShowMsg(M.PSS_OFF_TEXT.dtt)
+	elseif M.PSS_Need("Libraries") and M.PSS_DttAct then
+		M.PSS_DttAct("auto")
+	end
+end
+BINDING_NAME_PSS_OPEN_ADDONS = "Open Addon Manager"
+function PSS_AddonsBinding()
+	if not M.PSS_On("addons") then
+		M.ShowMsg(M.PSS_OFF_TEXT.addons)
+		return
+	end
+	M.PSS_OpenUI("addons", { page = "addons", collapse = true })
+end

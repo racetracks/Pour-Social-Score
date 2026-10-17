@@ -44,6 +44,7 @@ local DP = {}
 DP.__index = DP
 
 function DP:Select(key)
+	if key == "history" and not M.PSS_On("logging") then key = "summary" end	-- Event Logging off: no history page (issue 181)
 	if not self[key] then key = "rule" end
 	if self.only and not self.only[key] then key = "rule" end
 	self.shown = key
@@ -51,7 +52,7 @@ function DP:Select(key)
 	for i, p in ipairs(PAGES) do
 		local on = p.key == key
 		self[p.key]:SetShown(on)
-		ns.SetTabSelected(self.buttons[i], on)
+		if self.buttons[i] then ns.SetTabSelected(self.buttons[i], on) end
 	end
 end
 
@@ -60,8 +61,10 @@ function DP:Limit(only)
 	self.only = only
 	for i, p in ipairs(PAGES) do
 		local on = not only or only[p.key] == true
-		self.buttons[i]:SetEnabled(on)
-		self.buttons[i]:SetAlpha(on and 1 or 0.4)
+		if self.buttons[i] then
+			self.buttons[i]:SetEnabled(on)
+			self.buttons[i]:SetAlpha(on and 1 or 0.4)
+		end
 	end
 	if only and not only[self.shown] then self:Select("rule") end
 end
@@ -82,16 +85,21 @@ function ns.NewDetailPages(body, top, kind)
 	bar:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -8, 6)
 	bar:SetHeight(BAR_H)
 	dp.bar = bar
-	local n = #PAGES
+	local n, order = 0, {}
 	for i, p in ipairs(PAGES) do
-		dp.buttons[i] = ns.NewTab(bar, p.text, function() dp:Select(p.key) end)
+		-- the Event History page needs Event Logging (issue 181)
+		if p.key ~= "history" or M.PSS_On("logging") then
+			dp.buttons[i] = ns.NewTab(bar, p.text, function() dp:Select(p.key) end)
+			n = n + 1
+			order[n] = dp.buttons[i]
+		end
 	end
 	-- equal widths across the bar
 	local function Lay()
 		local w = bar:GetWidth()
 		if not w or w <= 0 then return end
 		local bw = (w - (n - 1) * 4) / n
-		for i, b in ipairs(dp.buttons) do
+		for i, b in ipairs(order) do
 			b:ClearAllPoints()
 			b:SetPoint("TOPLEFT", bar, "TOPLEFT", (i - 1) * (bw + 4), 0)
 			b:SetSize(bw, BAR_H)

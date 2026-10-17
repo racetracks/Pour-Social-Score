@@ -48,15 +48,29 @@ end
 
 -- The window's tabs: key (saved), the tab's text, and the Events tab's
 -- number (pies and View Events open it).
-M.PSS_UI_TABS = {
+local ALL_TABS = {
 	{ key = "players", text = "Player Ignore List" },
 	{ key = "guilds", text = "Guild Ignore List" },
 	{ key = "filters", text = "Chat Filters" },
+	{ key = "addons", text = "Addon Manager" },
+	{ key = "warehouse", text = "Warehouse" },
 	{ key = "events", text = "Events" },
-	{ key = "importExport", text = "Import/Export" },
-	{ key = "options", text = "Options" },
 }
-M.PSS_UI_EVENTS_TAB = 4
+-- built once per session: Addon Manager always (3.6.0.91; it also holds
+-- Import/Export and Options, PSS_ManagerNav.lua), Warehouse only while the
+-- Warehouse is on (F6), Events only while Event Logging is on; a tab is found
+-- by its key
+local tabs = {}
+for _, t in ipairs(ALL_TABS) do
+	if (t.key ~= "events" or M.PSS_On("logging")) and (t.key ~= "warehouse" or M.PSS_On("warehouse")) then tabs[#tabs + 1] = t end
+end
+M.PSS_UI_TABS = tabs
+function M.PSS_UITabIndex(key)
+	for i, t in ipairs(tabs) do
+		if t.key == key then return i end
+	end
+end
+M.PSS_UI_EVENTS_TAB = M.PSS_UITabIndex("events")	-- nil while Event Logging is off
 
 -- The tab shown last, saved by its key beside the window's place
 -- (windowPoints.PSS_WindowTab); the first tab is the default and is not saved.
@@ -68,6 +82,10 @@ local TAB_KEY = "PSS_WindowTab"
 function M.PSS_UITab()
 	local db = PourSocialScoreDB
 	local key = type(db) == "table" and type(db.windowPoints) == "table" and db.windowPoints[TAB_KEY]
+	-- a key an older build saved (Import/Export, Options) opens its page
+	local tab, page = M.PSS_ResolveTab(key)
+	if page then M.PSS_SetMgrPage(page) end
+	key = tab
 	for i, t in ipairs(M.PSS_UI_TABS) do
 		if t.key == key and i ~= M.PSS_UI_EVENTS_TAB then return i end
 	end

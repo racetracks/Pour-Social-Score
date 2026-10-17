@@ -204,8 +204,9 @@ Looks
   class colour. "Font of the Pour Social Score window" picks its font.
 
 Getting around
-* Six tabs: Player Ignore List, Guild Ignore List, Chat Filters, Events,
-  Options and Import/Export. Each tab is built the first time you open it.
+* Seven tabs: Player Ignore List, Guild Ignore List, Chat Filters, AddOns,
+  Events, Import/Export and Options. Each tab is built the first time you
+  open it.
 * The back and forward arrows above the tabs (and mouse buttons 4 and 5)
   step through the views you opened; the line beside them says where you
   are and links back up. Clicking a tab takes it back to its start.
@@ -274,12 +275,89 @@ Events
 * Every pie slice, View Events and a double-click in an Event History opens
   this tab on those lines; Back returns to where you were.
 
+Warehouse (Options, Enabled components, then reload; off by default)
+* Remembers what every character, guild bank and your warband bank holds
+  (bags, bank, reagents, mail, equipped, void storage, auctions), each
+  character's currencies and everyone's gold. Saved account wide in the
+  Options folder (PSS_WarehouseDB) and only while it is on.
+* Tooltips: an item or currency tooltip lists who holds it. Options, Feature
+  Options, Warehouse choose what is shown.
+* Search Everywhere: /pss wh. Words: a keyword (quality, slot, class,
+  binding, expansion, crafted, collected ...), part of a name, or part of the
+  tooltip. Numbers: >400 <300 =415 400-420 (item level), >10g 5s-2g (value).
+  Join with & (and), | (or), ~ or ! (not) and brackets. Click a result to
+  see where it is.
+* Gold: /pss money. Manage: /pss wh status, import, sweep, hide <Name-Realm>,
+  remove <Name-Realm>. /syn and /syndicator open the search when free.
+* From Syndicator: load it once and /pss wh import (dry shows the counts).
+  With Syndicator not installed, addons that ask for it get the Warehouse.
+* Thanks: Syndicator by plusmouse (https://www.curseforge.com/wow/addons/syndicator)
+  showed what a warehouse should do; its behaviour was studied and no code
+  was copied. Item prices are read from TradeSkillMaster, RECrystallize and
+  Auctionator through their documented interfaces.
+* Upgrades: a failed saved-data upgrade is undone and retried once;
+  /pss upgrade undo; /pss status shows errors and the upgrade state.
+
 Options and Import/Export
 * Options: every option by section, with a search box. Changes save at once.
 * Import/Export: pick the parts (Player Ignore List, Guild Ignore List and
   its captured members, custom chat filters, built-in filters on or off,
   options) and the mode, then Export to get a text string, or paste one and
   Import (Replace asks first).
+
+Enabled components (Options, first section)
+* Tick boxes: Addon Manager (default off), Event Logging (on), Graphics
+  Settings Exporter (off; Camelot only), Social Filtering (on), PSS Drop
+  Cheapest Thing (off) and Warehouse (off). A change
+  applies after a reload (it asks "Reload now?"; the row says "(after
+  reload)" until then). Off means nothing of it runs or is loaded.
+* Addon Manager off: no AddOns tab, no /pss acp or /acp, the Open AddOns key
+  action and /pss acp say it is off, one Addon Compartment entry.
+* Graphics Settings Exporter off: /pss gfx says it is off (a pending keep
+  prompt is still shown once).
+* Event Logging off: blocks are counted as ever, but no line is kept; no
+  Events tab and no Event History page. Turning it off asks first (OK or
+  Cancel): you will not be able to track anything in the addon from then on.
+* Social Filtering off: nothing is blocked (no chat filter, invite, duel or
+  trade decline, party warning, Blizzard ignore sync, Block menu items,
+  capture or expiry); lists, rules and counts are kept and can be edited, and
+  the list tabs say "Social Filtering is off".
+
+AddOns
+* Every installed addon in one list, grouped so an addon's parts and the
+  libraries are not clutter (or A to Z, or the load on demand ones apart),
+  with a search box. Tick an addon to turn it on or off for this character
+  or for all characters (the box at the top); "Dependencies" also turns on
+  the addons it requires. Load starts a load on demand addon now (not in
+  combat). Tick a group's header to turn the whole group on or off.
+* Each row shows its state in colour (Loaded, Disabled, Load on demand,
+  Out of date, a missing requirement, or a change that waits for a
+  reload) and its memory; click Memory to list the biggest first. A star
+  protects an addon: Disable All and addon profiles leave it on. Pour Social Score
+  itself is always protected.
+* The line above the list shows the addons' CPU and memory as Blizzard's
+  own AddOn list does; hover an addon for its details, requirements, CPU
+  (average, current, peak, encounter) and memory, or a group's header for
+  its sums.
+* Addon Profiles (the drop-down "Profiles" at the bottom left): 25
+  numbered places, each for this character or all characters (the choice at
+  the top), and one for your class; the first five are Core Addon Profiles,
+  then a line, then the Layered Addon Profiles. Every place is listed (a free
+  one as "Profile N (empty)"); choose one for its side menu: Select or
+  Deselect, Save (puts the addons that are on there, after one question),
+  Load (replaces what is on), Enable all and Disable all (every installed
+  addon of that profile on or off, as a tick; protected addons stay on),
+  Rename (up to 32 letters, not empty, not used twice in the
+  list) and Delete; a free place offers Save and Rename. A selected place is
+  marked *; any number can be selected together: the addons that are on are
+  every selected profile plus anything you turned on by hand, and deselecting
+  turns off only what nothing else wants (protected addons stay on). Undo puts the addons back as they were
+  at login; Enable All and Disable All (which asks first); Reload applies
+  the changes and shows when one is waiting.
+* /pss acp or /acp opens the tab, and the key binding "Open AddOns"
+  (Key Bindings > AddOns > Pour Social Score) and the minimap Addon
+  Compartment entry "Pour Social Score: AddOns" do too. The behaviour
+  follows Addon Control Panel by Sylvanaar (MIT); no code or art is copied.
 
 Core's own popups (the note prompt, the party warning, the reload prompt)
 are Blizzard's popups.
@@ -565,6 +643,19 @@ filter that mixes them without brackets may now behave differently.)
                           reload you have 15 seconds to keep the new
                           settings or revert. The last 5 sets are kept
                           to restore or export. Not in combat.
+/pss dtt                  PSS Drop Cheapest Thing (off by default: Options,
+                          Enabled components, then reload): destroy the
+                          cheapest junk item, or sell it at a merchant.
+                          list, sell, never <item>, always <item>, forget
+                          <item>, options, log, icon. Also /dropcheap and
+                          /dtct, a key binding and a minimap button.
+/pss wh                   The Warehouse (off by default: Options, Enabled
+                          components, then reload): Search Everywhere. Also
+                          search <text>, status, import [dry], sweep,
+                          hide <Name-Realm>, remove <Name-Realm>.
+/pss money                Warehouse: gold per character, realm and total.
+/pss status               Recent errors, open breakers and the saved-data
+                          upgrade state. /pss upgrade [plan | undo].
 /pss macro [set] [create] [account|character]
                           Camelot: write the macros the addon carries,
                           each as an account-wide or a character macro.
@@ -578,6 +669,23 @@ filter that mixes them without brackets may now behave differently.)
                           A macro with the same name in the same place is
                           set to PSS's version; nothing is deleted. Not
                           in combat.
+/pss acp                  Open the AddOns tab (/acp does the same, unless
+                          another addon already uses /acp)
+/pss acp list [text]      List the addons and their state
+/pss acp on|off name      Turn an addon on or off for this character
+                          (on also turns on what it requires)
+/pss acp load name        Load a load on demand addon now (not in combat)
+/pss acp all on|off       Enable All or Disable All (Pour Social Score and
+                          protected addons stay on)
+/pss acp undo             Put the addons back as at login
+/pss acp profiles         List the saved addon profiles (* = selected)
+/pss acp profile 1-25|class [char|all] save [name]|load|enable|disable|
+                          select|deselect|rename name|delete
+                          Addon profiles: char (the default) is this
+                          character's, all is shared by every character
+                          (set and sets still work as well)
+/pss acp lock|unlock name Protect an addon from Disable All and profiles
+/pss acp api              Which addon functions this game client has
 /pss showmsg on|off       Print what happens during synchronisation
 /pss sameserver on|off    Only sync same-server characters to Blizzard's
                           ignore list

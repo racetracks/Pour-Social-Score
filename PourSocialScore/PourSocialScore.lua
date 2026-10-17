@@ -78,12 +78,28 @@ function M.PSS_TidyBlockHistory()
 	return History.Tidy(alive)
 end
 
+-- A start-up stage that fails prints one red line naming it and the error, is kept for /pssguild chat, and never stops
+-- the stages after it (W-8: one throw used to leave the chat filter unregistered without a word). Returns ok, result.
+-- M.PSS_Test.fault = "start:<name>" makes a stage fail in the harness.
+M.PSS_StartFaults = {}
+local function stage(name, f, ...)
+	local T = M.PSS_Test
+	if T and T.fault == "start:" .. name then f = function() error("injected fault", 0) end end
+	local ok, res = pcall(f, ...)
+	if ok then return true, res end
+	M.PSS_StartFaults[#M.PSS_StartFaults + 1] = name .. ": " .. tostring(res)
+	M.ChatMsg("|cffff5555Pour Social Score: start-up stage " .. name .. " failed (" .. tostring(res) .. ")|r")
+	return false
+end
+
 local starting = false
+local startFailed = false
+local filterEnsured = false
 local function ApplicationStartup(self)
 
 	-- (loading an on-demand addon during startup fires ADDON_LOADED, which
 	-- comes back here: run once)
-	if V.PSS_Loaded == true or safeToLoad == false or starting then
+	if V.PSS_Loaded == true or safeToLoad == false or starting or startFailed then
 		return
 	end
 	starting = true
@@ -99,7 +115,8 @@ local function ApplicationStartup(self)
 	-- the PourSocialScore_Options tables, routing of moved keys, and the move
 	-- of a 2.0 save (upgrade steps 2 to 4). Without PourSocialScore_Options
 	-- nothing can be read: stop here (the message says which folder).
-	if not M.PSS_PrepareSavedData({ quiet = fresh, startup = true }) then starting = false return end
+	local okp, ready = stage("prepare", M.PSS_PrepareSavedData, { quiet = fresh, startup = true })
+	if not ready then startFailed = not okp; starting = false return end
 
 	-- Ensure all core list fields exist before any UI or upgrade code uses #field.
 	PourSocialScoreDB.list = PourSocialScoreDB.list or {}
@@ -112,17 +129,21 @@ local function ApplicationStartup(self)
 	if PourSocialScoreDB.defexpire ~= nil and not tonumber(PourSocialScoreDB.defexpire) then
 		PourSocialScoreDB.defexpire = nil
 	end
-	local defaults = M.PSS_ApplyOptionDefaults()
+	local _, defaults = stage("defaults", M.PSS_ApplyOptionDefaults)
 
 	-- saved data upgrades that run before the built-in filters are rebuilt
-	-- (PSS_Upgrade.lua)
-	M.PSS_RunUpgradeFields(fresh, defaults)
-
-	-- Built-in rules come from code; SavedVariables only hold their on/off state.
-	M.PSS_ExpandFilters()
+	-- (PSS_Upgrade.lua), then the built-in rules, which come from code
+	-- (SavedVariables only hold their on/off state). A fault in either leaves the
+	-- lists unready: the filter must not decide lines on them (PSS_Loaded stays
+	-- false), and the red line says which stage.
+	if not stage("upgradefields", M.PSS_RunUpgradeFields, fresh, defaults or 0) or not stage("expand", M.PSS_ExpandFilters) then
+		startFailed = true
+		starting = false
+		return
+	end
 	-- a shipped guild group's rule is on: load its member lists before chat
 	-- starts (PourSocialScore_Communities)
-	if M.PSS_LoadActiveManagedData then M.PSS_LoadActiveManagedData() end
+	if M.PSS_LoadActiveManagedData then stage("managed", M.PSS_LoadActiveManagedData) end
 
 	V.PSS_LoadedTime = GetTime()
 
@@ -132,18 +153,18 @@ local function ApplicationStartup(self)
 	starting = false
 
 	-- the rest of the upgrade steps, then the upgrade record
-	M.PSS_RunUpgradeData(fresh)
+	stage("upgradedata", M.PSS_RunUpgradeData, fresh)
 	-- entries past their expiry go now (N40), then once a day after combat
-	M.PSS_ExpireEntries()
+	stage("expire", M.PSS_ExpireEntries)
 	-- the lists are in their final form: hear unit and /who captures only if they can be used (P3)
-	if M.PSS_ApplyCapture then M.PSS_ApplyCapture() end
-	if PourSocialScoreDB.gfxPending and M.PSS_Need("Libraries") and M.PSS_GfxAsk then M.PSS_GfxAsk() end	-- the graphics keep prompt (PSS_Graphics.lua)
+	if M.PSS_ApplyCapture then stage("capture", M.PSS_ApplyCapture) end
+	if PourSocialScoreDB.gfxPending and M.PSS_Need("Libraries") and M.PSS_GfxAsk then stage("gfx", M.PSS_GfxAsk) end	-- the graphics keep prompt (PSS_Graphics.lua)
 	-- PourSocialScore_Logging was loaded for the upgrade: add the waiting
 	-- lines, trim and tidy the history now
 	local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
-	if isLoaded and isLoaded("PourSocialScore_Logging") and M.PSS_LoadLogging then M.PSS_LoadLogging() end
+	if isLoaded and isLoaded("PourSocialScore_Logging") and M.PSS_LoadLogging then stage("logging", M.PSS_LoadLogging) end
 
-	M.PSS_HookFunctions()
+	stage("hooks", M.PSS_HookFunctions)
 
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	self:UnregisterEvent("ADDON_LOADED")
@@ -250,17 +271,24 @@ local function EventHandler (self, event, sender, ...)
 
 	if (event == "ADDON_LOADED") and (sender == "PourSocialScore") then
 		M.PSS_ImportLegacyDB()
+		M.PSS_StartComponents()
 		gotLoaded = true
 	end
 
 	if event == "PLAYER_ENTERING_WORLD" then
 		gotEntering = true
+		-- the world is up: an event the client refused at start-up is added once more (W-8; once, no timer)
+		if M.PSS_RetryFilter and not filterEnsured then
+			filterEnsured = true
+			stage("retry", M.PSS_RetryFilter)
+		end
 		-- sender = isInitialLogin, then isReloadingUi: a login or /reload starts
 		-- a new session (a loading screen does not)
 		if M.PSS_History then M.PSS_History.StartSession(sender, (...)) end
 	end
 
-	if event == "GROUP_ROSTER_UPDATE" then
+	if event == "GROUP_ROSTER_UPDATE" and M.PSS_On("filtering") then
+		-- (the party warning belongs to Social Filtering, issue 181)
 		-- Raids fire this many times in a row: check once, 1 s after the
 		-- last one, and never while in combat (checked when combat ends).
 		if not IsInGroup() then
@@ -310,6 +338,56 @@ M.PSS_Stub("PSS_SlashPSS", "Libraries")
 M.PSS_Stub("PSS_SlashGuild", "Libraries")
 SlashCmdList["PSS"] = function(msg) M.PSS_SlashPSS(msg) end
 SlashCmdList["PSSGUILD"] = function(msg) M.PSS_SlashGuild(msg) end
+-- /acp is /pss acp (the AddOns tab, 3.6.0), under our own key and only when
+-- no other addon owns /acp (the client runs the first it finds)
+-- Enabled components (issue 181): read once at ADDON_LOADED. What starts at
+-- file load for a component is started here, only when it is on, and a
+-- change applies after a reload (hooks cannot be removed).
+function M.PSS_StartComponents()
+	stage("snap", M.PSS_SnapComponents)
+	stage("watch", M.PSS_WatchStart)
+	if M.PSS_On("filtering") then
+		if M.PSS_StartBlocking then stage("blocking", M.PSS_StartBlocking) end
+		if M.PSS_StartIgnoreSync then stage("ignoresync", M.PSS_StartIgnoreSync) end
+	end
+	stage("compartment", M.PSS_StartCompartment, M.PSS_On("addons"), M.PSS_On("dtt"))
+	stage("components", function()
+		if M.PSS_On("addons") then
+			-- /acp is /pss acp (the AddOns tab, 3.6.0), under our own key and only
+			-- when no other addon owns /acp (the client runs the first it finds)
+			local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+			if SlashCmdList["ACP"] == nil and not (isLoaded and isLoaded("ACP")) then
+				SLASH_PSSACP1 = "/acp"
+				SlashCmdList["PSSACP"] = function(msg) M.PSS_SlashPSS("acp " .. (msg or "")) end
+			else
+				M.PSS_ACPTaken = true
+			end
+		else
+			BINDING_NAME_PSS_OPEN_ADDONS = "Open Addon Manager (Addon Manager off)"
+		end
+		-- PSS Drop Cheapest Thing (money-helper): only the lines that start it;
+		-- every function is in Libraries, loaded now only when it is on
+		if M.PSS_On("dtt") then
+			if M.PSS_Need("Libraries") and M.PSS_DttStart then M.PSS_DttStart() end
+			local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+			if SlashCmdList["DROPTHECHEAPESTTHING"] == nil and not (isLoaded and isLoaded("DropTheCheapestThing")) then
+				SLASH_PSSDTT1 = "/dropcheap"
+				SLASH_PSSDTT2 = "/dtct"
+				SlashCmdList["PSSDTT"] = function(msg) M.PSS_SlashPSS("dtt " .. (msg or "")) end
+			else
+				M.PSS_DTTTaken = true
+			end
+		else
+			BINDING_NAME_PSS_DTT = "Drop the cheapest thing (PSS Drop Cheapest Thing off)"
+		end
+		-- The Warehouse and the shared item layer (warehouse-helper): everything is in
+		-- Libraries; with both switches off nothing loads and nothing is registered.
+		-- It starts at PLAYER_LOGIN, when every addon has loaded (it steps aside for Syndicator).
+		if M.PSS_On("warehouse") or M.PSS_On("bags") then
+			M.PSS_Trigger({ id = "whboot", on = { "PLAYER_LOGIN" }, settle = "now", run = "wh.boot" })
+		end
+	end)
+end
 
 PSSFRAME:SetScript("OnEvent", EventHandler)
 

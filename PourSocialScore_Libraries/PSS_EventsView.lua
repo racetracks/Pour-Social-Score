@@ -91,7 +91,7 @@ local function QueryKey(q)
 	for _, src in ipairs(SOURCES) do if not q.sources[src.key] then parts[#parts + 1] = "-" .. src.key end end
 	if q.period then parts[#parts + 1] = q.period .. (q.period == "custom" and (tostring(q.from) .. "-" .. tostring(q.to)) or "") end
 	if q.cats then
-		for _, cat in ipairs(History.ALL_CATS or {}) do if q.cats[cat] then parts[#parts + 1] = "+" .. cat end end
+		for _, cat in ipairs(History.FilterCats()) do if q.cats[cat] then parts[#parts + 1] = "+" .. cat end end
 	end
 	if #parts == 0 then return nil end
 	return concat(parts, " ")
@@ -317,11 +317,11 @@ function View:ToggleType(cat)
 	local q = self.q
 	if not q.cats then
 		q.cats = {}
-		for _, c in ipairs(History.ALL_CATS) do q.cats[c] = true end
+		for _, c in ipairs(History.FilterCats()) do q.cats[c] = true end
 	end
 	q.cats[cat] = not q.cats[cat] or nil
 	local every = true
-	for _, c in ipairs(History.ALL_CATS) do if not q.cats[c] then every = false end end
+	for _, c in ipairs(History.FilterCats()) do if not q.cats[c] then every = false end end
 	if every then q.cats = nil end
 end
 

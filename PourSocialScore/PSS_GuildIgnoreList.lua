@@ -105,7 +105,7 @@ local function scanUnit(unit)
 	-- compared or stored, so the unit is skipped.
 	local name, realm = UnitName(unit)
 	if type(name) ~= "string" or isSecret(name) or name == "" then return end
-	if realm ~= nil and (type(realm) ~= "string" or isSecret(realm)) then return end
+	if type(realm) ~= "nil" and (type(realm) ~= "string" or isSecret(realm)) then return end
 
 	-- one join for every name (a Camelot surname is not a realm)
 	local fullName = M.PSS_UnitFullName(unit)
@@ -1055,6 +1055,7 @@ function M.PSS_ManagedDataLoaded() return buildManaged().dataLoaded end
 
 -- Login and ticking a rule: load the lists when any group's rule is on.
 function M.PSS_LoadActiveManagedData()
+	if not M.PSS_On("filtering") then return end	-- Social Filtering off: shipped lists stay unloaded (issue 181)
 	for key in pairs(buildManaged().groups) do
 		if M.PSS_ManagedGroupActive and M.PSS_ManagedGroupActive(key) then return ensureManagedData() end
 	end
@@ -1270,7 +1271,7 @@ end
 
 -- Same, for any spelling of a player's name.
 local function lookupGuildMember(name)
-	if type(name) ~= "string" or name == "" or isSecret(name) then return nil end
+	if type(name) ~= "string" or isSecret(name) or name == "" then return nil end
 	return lookupGuildMemberCanon(canonPlayer(name))
 end
 M.PSS_LookupGuildMember = lookupGuildMember
@@ -1953,6 +1954,7 @@ end
 -- need nothing captured. Otherwise none of these events are registered
 -- (core uplift P3, 3.4.1.52).
 local function captureNeeded()
+	if not M.PSS_On("filtering") then return false end	-- Social Filtering off: nothing is captured (issue 181)
 	local db = PourSocialScoreDB
 	if type(db) ~= "table" then return false end
 	local list = db.list		-- (not M.PSS_List: it would create the table before the layout step)
@@ -2299,7 +2301,7 @@ end
 local ownName, ownCk
 function M.PSS_IsOwnGuild(actualGuild)
 	local mine = GetGuildInfo and GetGuildInfo("player")
-	if type(mine) ~= "string" or mine == "" or isSecret(mine) then return false end
+	if type(mine) ~= "string" or isSecret(mine) or mine == "" then return false end
 	if mine ~= ownName then ownName, ownCk = mine, canonGuild(mine) end
 	return ownCk ~= nil and canonGuild(actualGuild) == ownCk
 end

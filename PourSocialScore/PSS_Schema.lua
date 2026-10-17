@@ -22,8 +22,12 @@ local M = addon.M
 M.PSS_SCHEMA = {
 	-- PourSocialScoreDB's own keys (the rest are routed, LAYOUT)
 	core = "upgrade outbox purge recent session sessionStart revision imported importedFrom importedLegacyAt logAllV1",
-	-- PourSocialScoreDB.upgrade
-	upgrade = "step=0 version at",
+	-- PourSocialScoreDB.upgrade (fail "<step>:<code>" and undo, the pre-upgrade stores, one slot: one-build plan STP-p06)
+	upgrade = "step=0 version at fail undo",
+	-- PSS_WarehouseDB (its own SavedVariables, warehouse-helper, SAV-p01..p08): v layout, item/itemN/itemFree
+	-- the dictionary of item variants, inv/meta/cur/gold/seen by entity id, bad the quarantined strings,
+	-- jrn reserved for the journal (written by no one yet)
+	wh = "v item itemN itemFree inv meta cur gold bad seen jrn",
 	-- PSS_PlayersDB.list[i], one record per listed player, NPC or server
 	-- (S2b; the arrays ignoreList, typeList, factionList, dateList, notes,
 	-- expList and syncInfo are read once by the upgrade and dropped)
@@ -64,4 +68,17 @@ M.PSS_SCHEMA = {
 	-- a saved log group (blockLog[o] from 3.2.0-dev007; lines in its array part;
 	-- m only when it is not the owner key's own form, 3.4.1.52)
 	logGroup = "c gk m n k r",
+	-- the addon manager (3.6.0): PSS_OptionsDB.addonSets / addonLock / addonView
+	-- (account-wide) and PSS_CharDB.addonSets / addonLock (this character),
+	-- all packed strings, no record fields (PSS_AddonsQuery.lua). 3.6.0.68
+	-- adds addonSel (the selected addon profiles) and addonPick (the addons
+	-- turned on by hand while profiles are selected) in both stores
+	charDB = "addonSets addonLock addonSel addonPick",
+	-- the entity dictionary (S2, 3.7.0.100): PSS_OptionsDB.ent = { v, n, rec = { [id] = "kind;name;realm;faction;class;race;sex;flags" } }
+	-- (PSS_Entity.lua, PSS_Store.lua; SAV-00034)
+	ent = "v n dn rec dict",
+	-- the owned keys: PSS_OptionsDB.<key> = { [entity id] = packed value } (SAV-00035); "name=default"
+	-- when a value equal to the default is not stored. The addon manager's four (3.7.0.102, S2b; SAV-00036)
+	-- are packed strings; PSS_CharDB is read only, by upgrade step 11.
+	owned = "bagProfileOf addonSetsOf addonLockOf addonSelOf addonPickOf",
 }

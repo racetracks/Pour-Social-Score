@@ -11,8 +11,10 @@ local M = addon.M
 
 local iface = select(4, GetBuildInfo())
 if type(iface) ~= "number" or iface >= 20000 then return end
+-- off unless a keep prompt is pending (the import was the player's own click and Revert stays possible; issue 181)
+if not M.PSS_On("gfx") and not (PourSocialScoreDB and PourSocialScoreDB.gfxPending) then return end
 
-local C_CVar, ReloadUI, InCombatLockdown = C_CVar, ReloadUI, InCombatLockdown
+local C_CVar, InCombatLockdown = C_CVar, InCombatLockdown
 local GetBuildInfo, time, date = GetBuildInfo, time, date
 local pairs, ipairs, type, tostring, tonumber = pairs, ipairs, type, tostring, tonumber
 local sort, concat, tinsert = table.sort, table.concat, table.insert
@@ -298,7 +300,7 @@ function M.PSS_GfxApply(plan)
 	if applied == 0 then return false, T.refused, refused end
 	saveSet(before)
 	PourSocialScoreDB.gfxPending = true
-	ReloadUI()
+	M.PSS_ReloadUI()
 	return true, applied, refused
 end
 
@@ -405,7 +407,7 @@ function M.PSS_GfxKeepSpec()
 end
 
 function M.PSS_GfxReload()
-	ReloadUI()
+	M.PSS_ReloadUI()
 end
 
 ------------------------------------------------------------------------

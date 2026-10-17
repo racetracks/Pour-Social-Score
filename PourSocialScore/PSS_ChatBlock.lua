@@ -261,10 +261,10 @@ local EVENT_CHANNEL = {
 
 function M.PSS_ChannelLabel(event, channelString, chNumber, chName)
 	if event == "CHAT_MSG_CHANNEL" then
-		if type(channelString) == "string" and channelString ~= "" and not isSecret(channelString) then
+		if type(channelString) == "string" and not isSecret(channelString) and channelString ~= "" then
 			return channelString
 		end
-		if type(chName) == "string" and chName ~= "" and not isSecret(chName) then
+		if type(chName) == "string" and not isSecret(chName) and chName ~= "" then
 			local n = tonumber(chNumber)
 			return (n and n > 0) and (n .. ". " .. chName) or chName
 		end
@@ -322,7 +322,7 @@ end
 ------------------------------------------------------------------------
 -- Stats / diagnostics
 ------------------------------------------------------------------------
-local stats = { checked = 0, personHits = 0, hidden = 0, errors = 0, lastError = nil, lastChecked = { at = 0 }, bySource = {} }
+local stats = { calls = 0, secret = 0, checked = 0, personHits = 0, hidden = 0, errors = 0, lastError = nil, why = nil, lastChecked = { at = 0 }, bySource = {} }
 M.PSS_CoreStats = stats
 local debug = { on = false, allUntil = 0 }
 M.PSS_CoreDebug = debug
@@ -338,6 +338,7 @@ end
 
 local function noteError(err)
 	stats.errors = stats.errors + 1
+	stats.why = "an error while checking the line (lastError in /pssguild chat)"		-- a constant: nothing is allocated per line
 	if not stats.lastError then
 		M.ChatMsg("|cffff5555Pour Social Score chat block error (shown once, see /pssguild status):|r " .. tostring(err))
 	end
@@ -476,20 +477,22 @@ local function evaluate(ctx)
 	if cat == "system" then
 		return (runHandlers(handlers.system, ctx))
 	end
-	if not V.PSS_Loaded then return false end
+	if not V.PSS_Loaded then stats.why = "PSS has not finished starting (PSS_Loaded is false)" return false end
 	if cat == "npc" then
 		return (runHandlers(handlers.npc, ctx))
 	end
 
 	local author = ctx.author
-	if type(author) ~= "string" or author == "" then return false end
+	if type(author) ~= "string" or author == "" then stats.why = "no readable author" return false end
 	stats.checked = stats.checked + 1
+	stats.why = "no rule matched"
 	local lc = stats.lastChecked			-- one table, reused
 	lc.name, lc.event, lc.at = author, ctx.event, GetTime()
 
 	local canon = senderCanon(author, ctx.guid)
 	ctx.canon = canon
 	ctx.isSelf = isSelf(canon, ctx.guid)
+	if ctx.isSelf then stats.why = "your own line (a person rule never hides it)" end
 
 	if not ctx.isSelf and canon then
 		-- 2. people (player list + guild members, merged)
@@ -501,9 +504,13 @@ local function evaluate(ctx)
 			if debugActive() then dprint(("BLOCKED %s from %s (%s)"):format(M.PSS_BLOCK_LABELS[cat] or cat, author, hits[1].src.label or hits[1].src.id)) end
 			return true
 		elseif found then
+			stats.why = "listed, but allowed for this message type"
 			if debugActive() then dprint(("%s from %s: listed (%s) but allowed for this message type"):format(
 				M.PSS_BLOCK_LABELS[cat] or cat, author, found[1].src.label or found[1].src.id)) end
-		elseif debugActive(true) then
+		else
+			stats.why = "not on any list (the name form is in /pssguild check Name-Realm)"
+		end
+		if not found and debugActive(true) then
 			dprint(("%s from %s (key %s): not on any list"):format(M.PSS_BLOCK_LABELS[cat] or cat, author, tostring(canon)), true)
 		end
 
@@ -542,6 +549,66 @@ local function replyAllowed(key)
 	return true
 end
 
+-- The echo of the auto-reply (issue 183): the client prints every whisper you
+-- send as "To <name>: <text>". With "Show sent ignore replies" off, the reply
+-- PSS just sent leaves one short-lived token; a CHAT_MSG_WHISPER_INFORM filter
+-- (added on the first such reply, so nothing is registered while the option is
+-- on) hides the echo that matches it, and the "No player named" line of a reply
+-- that could not be delivered. A hand-typed whisper never matches a token.
+local ECHO_LIFE = 10
+local pendingEcho, echoFilterAdded = {}, false
+
+local function echoPurge(now)
+	for k, t in pairs(pendingEcho) do
+		if now - t.at > ECHO_LIFE then pendingEcho[k] = nil end
+	end
+end
+
+-- Claim the token for an echo (by the filter or the frame handler, whichever
+-- runs first); the line id lets the other chat frames hide the same line.
+local function echoClaim(canon, text, lineID)
+	local t = pendingEcho[canon]
+	if not t or t.text ~= text or GetTime() - t.at > ECHO_LIFE then return false end
+	local id = (type(lineID) == "number" and not isSecret(lineID)) and lineID or nil
+	if t.line == nil then
+		if id then t.line = id else pendingEcho[canon] = nil end
+		return true
+	end
+	return id ~= nil and t.line == id
+end
+
+local NOT_FOUND = ERR_CHAT_PLAYER_NOT_FOUND_S or "No player named '%s' is currently playing."
+local function echoFilter(_, event, msg, target, ...)
+	if next(pendingEcho) == nil or type(msg) ~= "string" or isSecret(msg) then return false end
+	if event == "CHAT_MSG_SYSTEM" then
+		for k, t in pairs(pendingEcho) do
+			if msg == format(NOT_FOUND, t.name) then pendingEcho[k] = nil return true end
+		end
+		return false
+	end
+	if type(target) ~= "string" or isSecret(target) or target == "" then return false end
+	local canon = canonPlayer(target)
+	if not canon then return false end
+	return echoClaim(canon, msg, (select(9, ...))) and true or false
+end
+
+local function echoNote(ctx)
+	local name = ctx.author
+	if type(name) ~= "string" or isSecret(name) then return end
+	local canon = ctx.canon or canonPlayer(name)
+	if not canon then return end
+	local now = GetTime()
+	echoPurge(now)
+	pendingEcho[canon] = { text = L["MSG_1"], at = now, name = name }
+	if not echoFilterAdded then
+		local add = (type(ChatFrameUtil) == "table" and ChatFrameUtil.AddMessageEventFilter) or ChatFrame_AddMessageEventFilter
+		if type(add) ~= "function" then return end
+		echoFilterAdded = true
+		add("CHAT_MSG_WHISPER_INFORM", echoFilter)
+		add("CHAT_MSG_SYSTEM", echoFilter)
+	end
+end
+
 -- After a line is hidden (runs once per line).
 local function afterBlock(ctx)
 	stats.hidden = stats.hidden + 1
@@ -551,7 +618,10 @@ local function afterBlock(ctx)
 		local octx = ctx.hits and hitOptionContext(ctx.hits) or {}
 		if opt("ignoreResponse", octx) == true and replyAllowed(ctx.canon or ctx.author) then
 			local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-			if send then pcall(send, L["MSG_1"], "WHISPER", nil, ctx.author) end
+			if send then
+				if opt("showIgnoreReplies", octx) == false then echoNote(ctx) end
+				pcall(send, L["MSG_1"], "WHISPER", nil, ctx.author)
+			end
 		end
 	end
 end
@@ -586,7 +656,12 @@ local function CoreFilter(_, event, msg, author, language, channelString, target
 							zoneChannelID, channelIndex, channelBaseName, languageID, lineID, guid)
 	local cat = EVENT_CATEGORY[event]
 	if not cat then return false end
-	if isSecret(author) or isSecret(guid) then return false end
+	stats.calls = stats.calls + 1
+	if isSecret(author) or isSecret(guid) then
+		stats.secret = stats.secret + 1		-- seen, not checked and not hidden (PSS 02 10.1); /pssguild chat shows it
+		stats.why = "the author or guid is a secret value (restricted chat), so the line is not filtered"
+		return false
+	end
 	if isSecret(flag) or type(flag) ~= "string" then flag = nil end
 	-- channel args reach the filter tags ([chname], [channel]): drop secret ones
 	if isSecret(channelString) then channelString = nil end
@@ -826,8 +901,13 @@ end
 -- list blocks their whispers (W ticked = allowed = no alert).
 local whisperWarned = {}
 
-local function handleWhisperSent(target)
-	if not V.PSS_Loaded or type(target) ~= "string" or target == "" or isSecret(target) then return end
+local function handleWhisperSent(target, text, lineID)
+	if not V.PSS_Loaded or type(target) ~= "string" or isSecret(target) or target == "" then return end
+	-- the echo of our own ignore reply raises no alert (issue 183)
+	if next(pendingEcho) ~= nil and type(text) == "string" and not isSecret(text) then
+		local c = canonPlayer(target)
+		if c and echoClaim(c, text, lineID) then return end
+	end
 	if opt("listWarnings", {}) == false then return end
 	local canon = canonPlayer(target)
 	if not canon or whisperWarned[canon] then return end
@@ -846,19 +926,77 @@ end
 local CFU = type(ChatFrameUtil) == "table" and ChatFrameUtil or nil
 local AddFilter = (CFU and CFU.AddMessageEventFilter) or ChatFrame_AddMessageEventFilter
 M.PSS_FilterAvailable = type(AddFilter) == "function"
-if M.PSS_FilterAvailable then
-	for event in pairs(EVENT_CATEGORY) do AddFilter(event, CoreFilter) end
+local GetFilters = (CFU and CFU.GetMessageEventFilters) or ChatFrame_GetMessageEventFilters
+
+-- Is our filter in the client's list for an event? true / false when the client hands back a list (an array of
+-- functions, or of entries { func = fn }); nil when it cannot be told: Retail 12.x hands back a registry object
+-- (ProcessFilters, RemoveFilter, AddFilter), which holds no list to read. Read only.
+local function filterHeld(event)
+	local list = GetFilters and GetFilters(event)
+	if type(list) ~= "table" or type(list.AddFilter) == "function" then return nil end
+	for _, f in ipairs(list) do
+		if f == CoreFilter or (type(f) == "table" and f.func == CoreFilter) then return true end
+	end
+	return false
+end
+M.PSS_FilterHeld = filterHeld
+
+-- what PSS itself did: events it added, events the client refused (kept for a retry and /pssguild chat)
+local added, refused = {}, {}
+M.PSS_FilterFaults = {}
+local function filterFault(event, err)
+	local faults = M.PSS_FilterFaults
+	faults[#faults + 1] = "registration " .. event .. ": " .. tostring(err)
+	if #faults == 1 then
+		M.ChatMsg("|cffff5555Pour Social Score: chat filter registration failed for " .. event .. " (" .. tostring(err) .. "); it is tried again once the world is up|r")
+	end
+end
+local function addOurs(event)
+	local ok, err = pcall(AddFilter, event, CoreFilter)
+	if ok then added[event], refused[event] = true, nil else refused[event] = true; filterFault(event, err) end
 end
 
+-- Social Filtering (issue 181): nothing is registered at file load; core's
+-- ADDON_LOADED handler calls M.PSS_StartBlocking only when the component is on
+-- (the chat filter and the game events below). Called once. One event the
+-- client refuses does not skip the others, nor the game events (W-8).
 local ev = CreateFrame("Frame")
-ev:RegisterEvent("PARTY_INVITE_REQUEST")
-ev:RegisterEvent("PARTY_INVITE_CANCEL")
-ev:RegisterEvent("GUILD_INVITE_REQUEST")
-ev:RegisterEvent("DUEL_REQUESTED")
-ev:RegisterEvent("TRADE_SHOW")
-ev:RegisterEvent("GROUP_ROSTER_UPDATE")
-ev:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
-pcall(ev.RegisterEvent, ev, "TRADE_REQUEST")	-- not on every client
+local blockingStarted
+function M.PSS_StartBlocking()
+	if blockingStarted then return end
+	blockingStarted = true
+	if M.PSS_FilterAvailable then
+		for event in pairs(EVENT_CATEGORY) do addOurs(event) end
+	end
+	ev:RegisterEvent("PARTY_INVITE_REQUEST")
+	ev:RegisterEvent("PARTY_INVITE_CANCEL")
+	ev:RegisterEvent("GUILD_INVITE_REQUEST")
+	ev:RegisterEvent("DUEL_REQUESTED")
+	ev:RegisterEvent("TRADE_SHOW")
+	ev:RegisterEvent("GROUP_ROSTER_UPDATE")
+	ev:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
+	pcall(ev.RegisterEvent, ev, "TRADE_REQUEST")	-- not on every client
+end
+
+-- The events the client refused are added once more when the world is up (the one retry; it reads no list, so it
+-- cannot add a second copy of an event that was added). Returns how many it added.
+function M.PSS_RetryFilter()
+	local n = 0
+	for event in pairs(refused) do
+		addOurs(event)
+		if added[event] then n = n + 1 end
+	end
+	return n
+end
+
+-- the truth about registration, for /pssguild chat: started, events added by PSS, events still refused, events in all
+function M.PSS_FilterStatus()
+	local n, r, t = 0, 0, 0
+	for _ in pairs(added) do n = n + 1 end
+	for _ in pairs(refused) do r = r + 1 end
+	for _ in pairs(EVENT_CATEGORY) do t = t + 1 end
+	return blockingStarted == true, n, r, t
+end
 ev:SetScript("OnEvent", function(_, event, arg1, ...)
 	local ok, err = true, nil
 	if event == "PARTY_INVITE_REQUEST" then
@@ -876,7 +1014,7 @@ ev:SetScript("OnEvent", function(_, event, arg1, ...)
 		ok, err = pcall(handleTrade, nil)
 	elseif event == "CHAT_MSG_WHISPER_INFORM" then
 		local target = ...
-		ok, err = pcall(handleWhisperSent, target)
+		ok, err = pcall(handleWhisperSent, target, arg1, (select(10, ...)))
 	elseif event == "PARTY_INVITE_CANCEL" or event == "GROUP_ROSTER_UPDATE" then
 		pendingInvite = nil
 	end
@@ -885,7 +1023,7 @@ end)
 
 -- Test hooks for an offline test harness (used only by tools/harness).
 M.PSS__CoreTest = {
-	handlePartyInvite = handlePartyInvite, handleGuildInvite = handleGuildInvite,
+	events = EVENT_CATEGORY, handlePartyInvite = handlePartyInvite, handleGuildInvite = handleGuildInvite,
 	handleDuel = handleDuel, handleTrade = handleTrade, handleWhisperSent = handleWhisperSent,
 	resetWhisperWarned = function() whisperWarned = {} end,
 	resetCache = function() decisionCache, ringKeys, ringPos = {}, {}, 0 end,

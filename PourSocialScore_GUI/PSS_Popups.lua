@@ -9,6 +9,10 @@
 --     timeout = seconds: the cancel button reads "<cancel> (<n>)" and counts
 --     down; at 0 the popup hides and onTimeout() runs (not onCancel). The
 --     count is an OnUpdate on the popup only while a timed one shows
+--     reload = true: a prompt that reloads the UI; on Camelot an action
+--     button over Accept (and Enter) runs the macro /reload (see BuildConfirm);
+--     onAccept runs after it and must not call the reload itself on Camelot
+--     (M.PSS_ReloadUI knows); the line under the text says how
 --   ns.GfxPopup()  the graphics settings popup (Export, Import, History,
 --     Reload UI; /pss gfx on Camelot): every button is a call into
 --     Libraries (PSS_Graphics.lua); M.PSS_GfxBox() shows it and
@@ -54,6 +58,13 @@ local function PopupButton(parent, w, h, accept)
 	return b
 end
 
+-- Raise controls above the frame art: its NineSlice has a fixed level of
+-- about 500 and takes the mouse where it overlaps, so a button under it never
+-- got its click on Camelot (issue 189: Save wrote nothing)
+local function Above(f, ...)
+	for _, c in ipairs({ ... }) do c:SetFrameLevel(f.pssTop + 2) end
+end
+
 -- The frame both popups share the build of: Blizzard dialog art or the Dark
 -- panel, a title, Escape, and in Dark a dimmed screen behind.
 local function Shell(name, w, h)
@@ -87,6 +98,7 @@ local function Shell(name, w, h)
 		top = math.max(top, art.NineSlice:GetFrameLevel() + 10)
 	end
 	chrome:SetFrameLevel(top)
+	f.pssTop = top
 	f.title = ns.NewText(chrome, 16, "GameFontNormalLarge")
 	f.pssParts = { fill = fill, edge = edge, art = art, dim = dim }
 	ns.OnPaint(function(dark)
@@ -106,6 +118,9 @@ end
 -- Confirm
 ------------------------------------------------------------------------
 local confirm, confirmOpts
+
+-- the shell, button and raise helper other windows made like a popup use (Search Everywhere)
+ns.PopupShell, ns.PopupButton, ns.PopupAbove = Shell, PopupButton, Above
 
 local function BuildConfirm()
 	confirm = Shell("PSS_Confirm", 390, 176)
@@ -128,24 +143,93 @@ local function BuildConfirm()
 		if o and o.numberNote then confirm.note:SetText(o.numberNote(tonumber(self:GetText()))) end
 	end)
 	confirm.number:SetScript("OnEscapePressed", function() confirm:Hide() end)
+	-- the name box (opts.name = { text, max }): a preset's name; the same
+	-- place as the number box
+	confirm.name = ns.NewEditBox(confirm, 220, 32)
+	confirm.name:SetPoint("TOP", confirm.text, "BOTTOM", 0, -10)
+	confirm.name:Hide()
+	confirm.name:SetScript("OnEscapePressed", function() confirm:Hide() end)
 	confirm.accept = PopupButton(confirm, 125, 27, true)
 	confirm.cancel = PopupButton(confirm, 125, 27, false)
 	confirm.accept:SetPoint("BOTTOMRIGHT", confirm, "BOTTOM", -8, 13)
 	confirm.cancel:SetPoint("BOTTOMLEFT", confirm, "BOTTOM", 8, 13)
+	Above(confirm, confirm.accept, confirm.cancel, confirm.number, confirm.name)
+	-- reload prompts (opts.reload) on Camelot: it blocks the client reload call from
+	-- addon code even inside a click, so the player's own click is the reload:
+	-- an action button over Accept (and a twin on Enter) runs the macro
+	-- "/reload"; the caller's onAccept runs as its post-click. Created once,
+	-- armed only while a reload prompt shows
+	confirm.hint = ns.NewText(confirm, 11)
+	confirm.hint:SetPoint("BOTTOM", confirm, "BOTTOM", 0, 48)
+	confirm.hint:SetAlpha(0.6)
+	confirm.hint:Hide()
+	local overlay, twin
+	local function ReloadHint()
+		if not (confirmOpts and confirmOpts.reload and M.PSS_ReloadMode() == "press") then return end
+		confirm.hint:SetText("Press Enter to reload.")
+		confirm.hint:Show()
+	end
+	local function ReloadArm()
+		if not (confirmOpts and confirmOpts.reload and M.PSS_ReloadMode() == "press") then return end
+		ReloadHint()
+		if not overlay then
+			local macro = "/reload"
+			local function Make(name, down)
+				local b = CreateFrame("Button", name, confirm, "InsecureActionButtonTemplate")
+				b:SetAttribute("type", "macro")
+				b:SetAttribute("macrotext", macro)
+				b:SetAttribute("useOnKeyDown", down)
+				b:RegisterForClicks(down and "AnyDown" or "LeftButtonUp")
+				b:SetScript("PostClick", function() confirm.pssAccept() end)
+				return b
+			end
+			overlay = Make("PSS_ReloadClick", false)
+			overlay:SetAllPoints(confirm.accept)
+			overlay:SetFrameLevel(confirm.accept:GetFrameLevel() + 2)
+			twin = Make("PSS_ReloadKey", true)
+			twin:SetSize(1, 1)
+			twin:SetPoint("BOTTOMLEFT", confirm, "BOTTOMLEFT", 0, 0)
+		end
+		overlay:Show()
+		twin:Show()
+		-- key bindings cannot be changed in combat: the click works, Enter waits
+		if not (InCombatLockdown and InCombatLockdown()) then
+			SetOverrideBindingClick(confirm, true, "ENTER", "PSS_ReloadKey")
+			SetOverrideBindingClick(confirm, true, "NUMPADENTER", "PSS_ReloadKey")
+		end
+	end
+	confirm.pssReloadDisarm = function()
+		confirm.hint:Hide()
+		if ClearOverrideBindings and not (InCombatLockdown and InCombatLockdown()) then ClearOverrideBindings(confirm) end
+		if overlay then overlay:Hide(); twin:Hide() end
+		confirm:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	end
+	confirm.pssReloadArm = function()
+		if M.PSS_ReloadMode() ~= "press" then return end
+		confirm:RegisterEvent("PLAYER_REGEN_ENABLED")
+		ReloadArm()
+	end
+	confirm:SetScript("OnEvent", function(_, event)
+		if event == "PLAYER_REGEN_ENABLED" then ReloadArm() end
+	end)
 	local function Accept()
 		local o = confirmOpts
 		confirmOpts = nil
 		local n = o and o.number ~= nil and tonumber(confirm.number:GetText()) or nil
+		local typed = o and o.name ~= nil and confirm.name:GetText() or nil
 		confirm:Hide()
-		if o and o.onAccept then o.onAccept(n) end
+		if o and o.onAccept then o.onAccept(n, typed) end
 	end
+	confirm.pssAccept = Accept
 	confirm.accept:SetScript("OnClick", Accept)
 	confirm.number:SetScript("OnEnterPressed", Accept)
+	confirm.name:SetScript("OnEnterPressed", Accept)
 	confirm.cancel:SetScript("OnClick", function() confirm:Hide() end)
 	-- hidden any other way (Cancel, Escape, a click on the dimmed screen,
 	-- another popup) is a cancel
 	confirm:SetScript("OnHide", function()
 		confirm:SetScript("OnUpdate", nil)	-- the countdown runs only while shown
+		confirm.pssReloadDisarm()
 		local o = confirmOpts
 		confirmOpts = nil
 		if o and o.onCancel then o.onCancel() end
@@ -182,6 +266,7 @@ local function Countdown(opts, left)
 end
 
 function ns.Confirm(opts)
+	ns.Fresh()
 	if not confirm then BuildConfirm() end
 	if confirm:IsShown() then confirm:Hide() end
 	confirmOpts = opts
@@ -201,12 +286,26 @@ function ns.Confirm(opts)
 		confirm.number:SetText(tostring(opts.number))
 		confirm.note:SetText(opts.numberNote and opts.numberNote(tonumber(opts.number)) or "")
 	end
-	-- grows with a long message (and the number box)
+	local withName = opts.name ~= nil
+	confirm.name:SetShown(withName)
+	if withName then
+		confirm.name:SetMaxLetters(opts.name.max or 32)
+		confirm.name:SetText(opts.name.text or "")
+	end
+	-- grows with a long message (and the number or name box)
 	local over = math.max(0, confirm.text:GetStringHeight() - 44)
-	confirm:SetHeight(176 + over + (withNumber and 52 or 0))
+	confirm:SetHeight(176 + over + ((withNumber or withName) and 52 or 0))
 	confirm:Show()
 	confirm:Raise()
+	if opts.reload then
+		confirm.pssReloadArm()
+		if confirm.hint:IsShown() then confirm:SetHeight(confirm:GetHeight() + 14) end
+	end
 	if withNumber then confirm.number:SetFocus() end
+	if withName then
+		confirm.name:SetFocus()
+		confirm.name:HighlightText()
+	end
 	return confirm
 end
 
@@ -237,6 +336,7 @@ local function BuildText()
 	f.edit = eb
 	f.accept = PopupButton(f, 120, 26, true)
 	f.close = PopupButton(f, 120, 26, false)
+	Above(f, box, f.accept, f.close)
 	f.accept:SetScript("OnClick", function()
 		local o = textOpts
 		local text = eb:GetText() or ""
@@ -254,6 +354,7 @@ local function BuildText()
 end
 
 local function ShowText(opts, readOnly)
+	ns.Fresh()
 	if not textPop then BuildText() end
 	if textPop:IsShown() then textPop:Hide() end
 	opts.readOnly = readOnly
@@ -311,7 +412,7 @@ local function GfxPreview(plan, why)
 	ns.Confirm({
 		title = "Apply Graphics Settings?",
 		text = M.PSS_GfxSummary(plan),
-		accept = "Apply",
+		accept = "Apply", reload = true,
 		onAccept = function()
 			local ok, msg = M.PSS_GfxApply(plan)
 			if not ok then GfxSay(msg) end
@@ -441,7 +542,10 @@ local function BuildGfx()
 		GfxPreview(M.PSS_GfxParse(f.edit:GetText() or ""))
 	end)
 	f.history:SetScript("OnClick", function() GfxHistoryView(true) end)
-	f.reload:SetScript("OnClick", function() M.PSS_GfxReload() end)
+	f.reload:SetScript("OnClick", function()
+		ns.Confirm({ title = "Reload UI?", text = "Reloads the game's interface so the changes take effect.", accept = "Reload", reload = true,
+			onAccept = M.PSS_GfxReload })
+	end)
 	f.restore:SetScript("OnClick", function()
 		if gfxPick then GfxPreview(M.PSS_GfxRestorePlan(gfxPick)) end
 	end)
