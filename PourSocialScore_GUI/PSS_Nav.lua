@@ -64,6 +64,8 @@ function ns.NewNav(parent, o)
 
 	-- the heading's rule and the selected entry's bar sit on the left edge
 	local function Place(r, y, entry)
+		r.y, r.entry = y, entry
+		y = y + nav.offset
 		r:ClearAllPoints()
 		r:SetPoint("TOPLEFT", nav, "TOPLEFT", 4, y)
 		r:SetPoint("TOPRIGHT", nav, "TOPRIGHT", -4, y)
@@ -84,6 +86,7 @@ function ns.NewNav(parent, o)
 
 	function nav:SetRows(rows)
 		local y = -PAD
+		self.offset = 0
 		for i, d in ipairs(rows) do
 			local r = self.pool[i]
 			if not r then r = MakeRow(); self.pool[i] = r end
@@ -96,7 +99,17 @@ function ns.NewNav(parent, o)
 			self.rows[i] = r
 		end
 		for i = #rows + 1, #self.pool do self.pool[i]:Hide(); self.rows[i] = nil end
+		self.contentH = PAD - y
 	end
+
+	nav:SetClipsChildren(true)
+	nav.offset = 0
+	nav:EnableMouseWheel(true)
+	nav:SetScript("OnMouseWheel", function(self, delta)
+		local maxOff = math.max(0, (self.contentH or 0) - (self:GetHeight() or 0))
+		self.offset = math.min(maxOff, math.max(0, self.offset - delta * ROW_H * 3))
+		for _, r in ipairs(self.rows) do Place(r, r.y, r.entry) end
+	end)
 
 	function nav:Select(key, click)
 		selected = key

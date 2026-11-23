@@ -111,7 +111,7 @@ end
 -- Labels: Blizzard's gold / white / grey button fonts; Dark white, grey
 -- when disabled (the shared font objects follow the look).
 function ns.NewButton(parent, text, w, onClick, primary)
-	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	local b = CreateFrame("Button", nil, parent, ns.M.PSS_CompatTemplate("button"))
 	b.pssPrimary = primary
 	b:SetSize(w, 22)
 	b:SetNormalFontObject(ns.Font(12, "GameFontNormal"))
@@ -146,9 +146,9 @@ function ns.NewButton(parent, text, w, onClick, primary)
 end
 
 -- Dark: a near-black box inset 4 with a grey edge; Blizzard's tick kept
--- and tinted with the accent.
+-- desaturated and tinted with the accent.
 function ns.NewCheck(parent)
-	local c = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+	local c = CreateFrame("CheckButton", nil, parent, ns.M.PSS_CompatTemplate("check"))
 	c:SetSize(24, 24)
 	local box = ns.Own(c:CreateTexture(nil, "BACKGROUND", nil, -6))
 	box:SetPoint("TOPLEFT", 4, -4)
@@ -189,6 +189,7 @@ function ns.NewCheck(parent)
 		if modern then mbox:SetAtlas("checkbox-minimal") end
 		Tick()
 		if tick then
+			tick:SetDesaturated(dark)
 			if dark then tick:SetVertexColor(ns.Accent()) else tick:SetVertexColor(1, 1, 1) end
 		end
 	end)
@@ -230,7 +231,7 @@ local function BoxHint(e, text, size, x, white)
 end
 
 function ns.NewEditBox(parent, w, maxLetters, hint)
-	local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+	local e = CreateFrame("EditBox", nil, parent, ns.M.PSS_CompatTemplate("input"))
 	e:SetSize(w, 20)
 	e:SetAutoFocus(false)
 	if maxLetters then e:SetMaxLetters(maxLetters) end
@@ -479,7 +480,7 @@ end
 -- grey edge.
 function ns.NewPanel(parent, inset)
 	local p = CreateFrame("Frame", nil, parent)
-	local ok, art = pcall(CreateFrame, "Frame", nil, p, "InsetFrameTemplate")
+	local ok, art = pcall(CreateFrame, "Frame", nil, p, ns.M.PSS_CompatTemplate("inset"))
 	if ok and art then
 		art:SetAllPoints(p)
 		art:SetFrameLevel(p:GetFrameLevel())
@@ -520,8 +521,9 @@ end
 local BAR_BUTTONS = { "Back", "Forward", "ScrollUpButton", "ScrollDownButton" }
 
 function ns.NewScrollFrame(parent)
-	local ok, sf = pcall(CreateFrame, "ScrollFrame", nil, parent, "ScrollFrameTemplate")
-	if not (ok and sf) then sf = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate") end
+	local tpl = ns.M.PSS_CompatTemplate("scroll")
+	local ok, sf = pcall(CreateFrame, "ScrollFrame", nil, parent, tpl)
+	if not (ok and sf) then sf = CreateFrame("ScrollFrame", nil, parent) end
 	local bar = sf.ScrollBar
 	if type(bar) ~= "table" then return sf end
 	-- new bars: Back, Forward, Track with a Thumb frame; old: up / down
@@ -552,19 +554,37 @@ end
 
 ------------------------------------------------------------------------
 -- Tabs: the port's tab row. Blizzard: a Blizzard top tab where the client
--- has one, else the Dark plate in Blizzard's font. Dark: a dark plate,
+-- has one (PanelTopTabButtonTemplate; on TBC it inherits TabButtonTemplate), else the Dark plate in Blizzard's font. Dark: a dark plate,
 -- the label at half strength unless selected; the selected tab gets a faint
 -- wash and a one-pixel underline in the accent. Labels fade with SetAlpha,
 -- never text colour alpha (that leaves the shadow as a second label).
 ------------------------------------------------------------------------
-local TAB_TEMPLATES = { "PanelTopTabButtonTemplate", "TabButtonTemplate" }
--- the template's art for an unselected and a selected tab
+-- the template's art for an unselected tab, and the selected art's key sets: [1] Retail and Forever, [2] TBC (kept under *Disabled)
 local TAB_IDLE = { "Left", "Middle", "Right" }
-local TAB_ACTIVE = { "LeftActive", "MiddleActive", "RightActive" }
+local TAB_ACTIVE = { { "LeftActive", "MiddleActive", "RightActive" }, { "LeftDisabled", "MiddleDisabled", "RightDisabled" } }
+
+-- TBC's tab art is fixed-width parts chained from the left: span the tab
+local TAB_ART_SETS = { { "Left", "Middle", "Right" }, { "LeftDisabled", "MiddleDisabled", "RightDisabled" } }
+local function LayoutTabArt(tab)
+	for _, set in ipairs(TAB_ART_SETS) do
+		local left, mid, right = tab[set[1]], tab[set[2]], tab[set[3]]
+		if left and mid and right then
+			left:ClearAllPoints()
+			left:SetPoint("TOPLEFT", tab, "TOPLEFT", 0, 0)
+			left:SetPoint("BOTTOMLEFT", tab, "BOTTOMLEFT", 0, 0)
+			right:ClearAllPoints()
+			right:SetPoint("TOPRIGHT", tab, "TOPRIGHT", 0, 0)
+			right:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", 0, 0)
+			mid:ClearAllPoints()
+			mid:SetPoint("TOPLEFT", left, "TOPRIGHT", 0, 0)
+			mid:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", 0, 0)
+		end
+	end
+end
 
 function ns.NewTab(parent, text, onClick)
 	local tab
-	for _, t in ipairs(TAB_TEMPLATES) do
+	for _, t in ipairs({ ns.M.PSS_CompatTemplate("tab") }) do
 		local ok, f = pcall(CreateFrame, "Button", nil, parent, t)
 		if ok and f then
 			tab = f
@@ -587,6 +607,7 @@ function ns.NewTab(parent, text, onClick)
 	local label = tab:GetFontString()
 	label:SetWidth(0)
 	tab:SetSize(label:GetStringWidth() + 32, 24)
+	if tab.pssTemplate and tab.LeftDisabled and not tab.LeftActive then LayoutTabArt(tab) end
 	tab:SetScript("OnClick", onClick)
 	local plate = ns.Own(ns.Fill(tab, DARK.tab, -6))
 	local wash = ns.Own(tab:CreateTexture(nil, "ARTWORK", nil, 7))
@@ -659,7 +680,7 @@ function ns.SetTabSelected(tab, selected)
 		for _, k in ipairs(TAB_IDLE) do
 			if tab[k] then tab[k]:SetShown(not selected) end
 		end
-		for _, k in ipairs(TAB_ACTIVE) do
+		for _, k in ipairs(tab.LeftActive and TAB_ACTIVE[1] or TAB_ACTIVE[2]) do
 			if tab[k] then tab[k]:SetShown(selected) end
 		end
 		tab:SetNormalFontObject(ns.Font(11, selected and "GameFontHighlightSmall" or "GameFontNormalSmall"))

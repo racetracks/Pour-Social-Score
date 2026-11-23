@@ -88,6 +88,7 @@ local function stage(name, f, ...)
 	local ok, res = pcall(f, ...)
 	if ok then return true, res end
 	M.PSS_StartFaults[#M.PSS_StartFaults + 1] = name .. ": " .. tostring(res)
+	if M.PSS_IxPut then M.PSS_IxPut("pss", "pss.start", { step = name, message = tostring(res) }) end
 	M.ChatMsg("|cffff5555Pour Social Score: start-up stage " .. name .. " failed (" .. tostring(res) .. ")|r")
 	return false
 end
@@ -270,12 +271,14 @@ local function EventHandler (self, event, sender, ...)
 	end
 
 	if (event == "ADDON_LOADED") and (sender == "PourSocialScore") then
+		M.PSS_ReadIdentity()
 		M.PSS_ImportLegacyDB()
 		M.PSS_StartComponents()
 		gotLoaded = true
 	end
 
 	if event == "PLAYER_ENTERING_WORLD" then
+		if V.playerName == nil then M.PSS_ReadIdentity() end
 		gotEntering = true
 		-- the world is up: an event the client refused at start-up is added once more (W-8; once, no timer)
 		if M.PSS_RetryFilter and not filterEnsured then

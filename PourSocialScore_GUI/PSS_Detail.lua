@@ -19,7 +19,7 @@
 --       player, guild or member can be an exception to (ticked = it
 --       happens; "(exception)" where it differs from the default);
 --       ex:Set(target, scope, who [, parentOpts])
--- A slice or View Events opens the Events tab (ns.OpenEvents, from the
+-- A slice or View Events opens Spyglass (ns.DeepDive, from the
 -- Events tab's stage); until it is there they only show their counts.
 ------------------------------------------------------------------------
 local ADDON_NAME, ns = ...
@@ -169,10 +169,10 @@ end
 ------------------------------------------------------------------------
 local summaries, typePies = {}, {}
 
-local function CanOpen() return ns.OpenEvents ~= nil end
+local function CanOpen() return ns.DeepDive ~= nil end
 
 local function OpenEvents(tabPage, spec, period, cats)
-	if ns.OpenEvents then ns.OpenEvents(tabPage, spec, { period = period, cats = cats }) end
+	if spec and ns.DeepDive then ns.DeepDive("pane.events", { kind = spec.kind, id = spec.id, period = period, cats = cats }) end
 end
 
 -- every pie again (a period or type tick changed)
@@ -324,7 +324,7 @@ function TP:Build()
 		local sl = self.slices[i]
 		if not (sl and sl.cat and CanOpen()) then return end
 		local spec = self.specFn and self.specFn(self.id) or nil
-		OpenEvents(self.tabPage, spec, M.PSS_WidestPeriodOn(), { [sl.cat] = true })
+		if spec and ns.DeepDive then ns.DeepDive("pane.slice", { kind = spec.kind, id = spec.id, cat = sl.cat }) end
 	end)
 	self.pie.frame:SetPoint("TOPLEFT", f, "TOPLEFT", 18, top)
 	self.pie.tip = function(i)

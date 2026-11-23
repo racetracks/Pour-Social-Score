@@ -71,7 +71,7 @@ local function OptionRow(content, o, rows)
 		local c = ns.NewCheck(row)
 		c:SetPoint("LEFT", row, "RIGHT", -CONTROL_X, 0)
 		local function Apply(on)
-			M.PSS_SetOpt(o.key, "global", on)
+			if M.PSS_OptSetBool(o, on) == false then c:SetChecked(false) return end
 			if o.reload and M.PSS_OptGate(o) then
 				ns.Confirm({ title = "Reload UI?", text = "Turning " .. o.label .. " on or off applies after a reload. Reload now?",
 					accept = "Reload", cancel = "Later", reload = true, onAccept = M.PSS_ReloadNow })

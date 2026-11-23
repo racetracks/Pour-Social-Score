@@ -27,6 +27,7 @@ local BREAK = 5			-- failures that open a service
 
 local ring, byKey = {}, {}		-- oldest first
 local state = {}					-- [service] = { fails, open, half }
+local logged = {}					-- [code .. service] = true once its pss.err line is written
 M.PSS_ERR_CODES = CODES
 
 local function now()
@@ -60,6 +61,12 @@ function M.PSS_ErrNote(code, service, message)
 	e = { key = key, code = code, service = service, message = message, count = 1, first = t, last = t }
 	ring[#ring + 1] = e
 	byKey[key] = e
+	-- the internal log (search-helper STP-00247): one line per code and service per session
+	local once = code .. "\1" .. service
+	if not logged[once] and M.PSS_IxPut then
+		logged[once] = true
+		M.PSS_IxPut("pss", "pss.err", { code = code, service = service, message = message })
+	end
 	return e
 end
 

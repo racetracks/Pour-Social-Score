@@ -64,7 +64,7 @@ local ON_DEMAND = { PourSocialScore_Logging = "Logging" }
 -- in 3.4.1.51).
 local LAYOUT = {
 	options	= { "showIgnoreDebug", "windowSizes", "windowPoints", "columnWidths", "charOptions", "optionsV2012",
-				"euiIntegration", "blizzardSync", "gfxSets", "gfxPending", "addonSets", "addonLock", "addonView", "addonSel", "addonPick", "mapButtons", "ent" },
+				"euiIntegration", "blizzardSync", "gfxSets", "gfxPending", "addonSets", "addonLock", "addonView", "addonSel", "addonPick", "mapButtons", "ent", "sqSaved", "sqSavedBad", "sqCharts" },
 	players	= { "list", "delList", "playerData",
 				"ignoreList", "typeList", "factionList", "dateList", "notes", "expList", "syncInfo" },
 	guilds	= { "guildData", "guildExclusions", "guildGroupOpen", "scanFieldsDefaultV1", "guildPlayerCleanupV3" },
@@ -73,7 +73,7 @@ local LAYOUT = {
 	counts	= { "blockStats", "historyFormat", "hiddenTotal", "filterTotal", "filterWhisperTotal",
 				"filterPrivateTotal", "filterCount", "filterBlocked", "filterBlockedLast", "builtinStats",
 				"guildRuleCountsV1" },
-	logging	= { "blockLog", "blockKeep" },
+	logging	= { "blockLog", "blockKeep", "pss" },
 }
 
 -- PourSocialScoreDB key -> group

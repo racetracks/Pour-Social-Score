@@ -14,8 +14,8 @@
 local addon = PourSocialScore_NS
 local M = addon.M
 
-local iface = select(4, GetBuildInfo())
-if type(iface) ~= "number" or iface >= 20000 then return end
+if not M.PSS_Can("macroCommand") then return end
+if not M.PSS_Can("macroCommand") then return end
 
 local CreateMacro, EditMacro, GetNumMacros, GetMacroInfo = CreateMacro, EditMacro, GetNumMacros, GetMacroInfo
 local InCombatLockdown, UnitClass, pcall = InCombatLockdown, UnitClass, pcall

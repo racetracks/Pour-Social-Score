@@ -49,6 +49,39 @@ ns.DARK = {
 	tipText = { 1, 1, 1, 0.80 },
 }
 
+-- Chart colours (PSS_Chart.lua): series 1 is the accent (ns.ChartColor), 2 to 8 are these
+ns.CHART = {
+	series = { nil, { 0.35, 0.66, 1 }, { 1, 0.66, 0.30 }, { 0.30, 0.83, 0.53 }, { 0.79, 0.55, 1 }, { 1, 0.36, 0.36 }, { 0.31, 0.82, 0.82 }, { 1, 0.81, 0.36 } },
+	other = { 0.55, 0.55, 0.55 },
+	grid = { 1, 1, 1, 0.12 },
+	gridDark = ns.DARK.border,
+	heatSteps = { 0.15, 0.35, 0.55, 0.75, 0.95 },
+}
+
+-- r, g, b of series i: 1 the accent, 2 to 8 the palette, "other" or beyond 8 grey
+function ns.ChartColor(i)
+	if i == 1 then return ns.Accent() end
+	local c = type(i) == "number" and i <= 8 and ns.CHART.series[i] or ns.CHART.other
+	return c[1], c[2], c[3]
+end
+
+-- Query syntax colours, hex without "#" (the same for every class; Modern and Classic use light, Dark dark)
+local SYN = {
+	index = { "3a7bd5", "5aa9ff" }, indexname = { "3a7bd5", "5aa9ff" }, cmd = { "1e9c5a", "4cd486" },
+	fn = { "a855c7", "c98cff" }, arg = { "2a9d9d", "4fd1d1" }, bool = { "d9822b", "ffa94d" },
+	field = { "3d8bd9", "7cc3ff" }, op = { "8a8a8a", "b0b0b0" }, string = { "c2410c", "ff8a65" },
+	value = { "c2410c", "ff8a65" }, number = { "c2410c", "ff8a65" }, time = { "b45309", "ffcf5c" },
+	keyword = { "be185d", "ff79c6" }, param = { "be185d", "ff79c6" }, pipe = { "6b6b6b", "d0d0d0" },
+	paren = { "6b6b6b", "d0d0d0" }, error = { "dc2626", "ff5c5c" },
+}
+ns.SYNTAX = { light = {}, dark = {} }
+for k, v in pairs(SYN) do ns.SYNTAX.light[k], ns.SYNTAX.dark[k] = v[1], v[2] end
+
+-- the hex for a token kind in the look shown; nil for word or an unknown kind
+function ns.SyntaxHex(kind)
+	return (ns.IsDark() and ns.SYNTAX.dark or ns.SYNTAX.light)[kind]
+end
+
 -- the look's own accent, used only without a class colour
 local ACCENT = { dark = { 0.047, 0.824, 0.616 }, blizzard = { 1, 0.82, 0 } }
 
@@ -68,7 +101,7 @@ function ns.IsDark()
 end
 
 -- The art of Blizzard's new Social window (12.x), every atlas Modern draws;
--- a client without one of them (Camelot) shows the Blizzard look when
+-- a client without one of them (Forever and the Classic clients) shows the Blizzard look when
 -- Modern is picked.
 local MODERN_ART = {
 	"128-RedButton-Left", "128-RedButton-Left-Pressed", "128-RedButton-Left-Disabled",
@@ -274,9 +307,9 @@ end
 function ns.ShowArt(frame, dark, keep)
 	for i = 1, select("#", frame:GetRegions()) do
 		local r = select(i, frame:GetRegions())
-		if r and r:GetObjectType() == "Texture" and not own[r] and not (keep and keep[r]) then
+		if r and r:GetObjectType() == "Texture" and not own[r] then
 			if alphaOf[r] == nil then alphaOf[r] = r:GetAlpha() end
-			r:SetAlpha(dark and 0 or alphaOf[r])
+			if keep and keep[r] then r:SetAlpha(alphaOf[r]) else r:SetAlpha(dark and 0 or alphaOf[r]) end
 		end
 	end
 end
@@ -287,10 +320,9 @@ end
 -- inset hidden (ours are used). Modern puts the frame on black, as
 -- Blizzard's new Social window does (art.pssBlack). nil when the client
 -- has no such template (the Dark art is used then).
-local FRAME_TEMPLATES = { "ButtonFrameTemplate", "PortraitFrameTemplate", "BasicFrameTemplateWithInset" }
 
 function ns.NewFrameArt(parent)
-	for _, t in ipairs(FRAME_TEMPLATES) do
+	for _, t in ipairs({ M.PSS_CompatTemplate("frame") }) do
 		local ok, f = pcall(CreateFrame, "Frame", nil, parent, t)
 		if ok and f then
 			f:SetAllPoints(parent)

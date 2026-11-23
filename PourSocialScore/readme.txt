@@ -13,9 +13,10 @@ for the chat command list.
 
 == INSTALLING AND UPDATING
 
-Pour Social Score is six folders. Extract the zip into World of Warcraft/
-_retail_/Interface/AddOns/ (or your Camelot client's AddOns folder) so the
-folders sit side by side:
+Pour Social Score is six folders. Extract the zip into the Interface/AddOns
+folder of your client; the release notes name each client's folder. Retail
+(Midnight), Forever and TBC Anniversary are supported. The folders sit side
+by side:
 
   PourSocialScore              always loaded: chat filtering, warnings,
                                declines, guild member capture
@@ -146,6 +147,22 @@ Also
 * Options apply to every character on the account; some can also be set
   per guild or per player. Only options you changed are saved.
 
+
+== SPYGLASS
+
+Spyglass searches everything Pour Social Score has logged.
+* Open it with /pss and click the Spyglass tab (the old Events tab is part of it now).
+* Type a search in the bar at the top. The words are coloured as you type, so a
+  mistake shows at once; Help lists examples and clicking one inserts it.
+* The time picker beside the bar sets the period: a preset such as the last
+  24 hours, the session, or all time.
+* Results show as a chart and rows. Click a row for its actions: copy the line,
+  show this owner, find where an item is.
+* Save keeps a search with its charts and alerts; saved searches come back
+  from the Queries list.
+* View Events, on a pie or a player, guild or filter page, opens Spyglass on
+  that period.
+* The Data dictionary page lists every index and field you can search.
 
 == EXCLUSIONS: W I G P C
 

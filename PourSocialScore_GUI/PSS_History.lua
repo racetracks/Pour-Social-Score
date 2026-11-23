@@ -24,7 +24,7 @@ local Filter
 local function FiltersChanged()
 	for _, hv in ipairs(lists) do
 		for t, c in pairs(hv.boxes) do c:SetChecked(not M.PSS_HistHidden(t)) end
-		Filter(hv)
+		if hv.qv then hv:Requery() else Filter(hv) end
 	end
 end
 
@@ -81,7 +81,7 @@ end
 local function Tip(hv, row, i)
 	local h = hv.shown[i]
 	if not h then return end
-	ns.Tip(row, M.PSS_HistTip(h, hv.open and ns.OpenEvents and true or false))
+	ns.Tip(row, M.PSS_HistTip(h, hv.open and ns.DeepDive and true or false))
 end
 
 -- a second left click on the same line opens the Events tab
@@ -108,7 +108,7 @@ local function Click(hv, row, i, button)
 		if h then ns.SenderMenu(row, h.member) end
 		return
 	end
-	if not (hv.open and ns.OpenEvents) or button ~= "LeftButton" then return end
+	if not (hv.open and ns.DeepDive) or button ~= "LeftButton" then return end
 	if M.PSS_DoubleClick(hv.clicks, i) then hv.open(hv.id) end
 end
 
@@ -118,6 +118,12 @@ HV.__index = HV
 -- Show the lines of id (read(id) returns them, loading Logging); read again
 -- only when id or its count changed. fresh scrolls back to the top.
 function HV:Set(id, total, read, fresh)
+	if self.qv then
+		if self.set and self.id == id then return end
+		self.set, self.id = true, id
+		self:Requery()
+		return
+	end
 	local ready = M.PSS_LoggingReady()
 	if self.set and self.id == id and self.total == total and self.ready == ready then return end
 	fresh = fresh or self.id ~= id
@@ -140,6 +146,18 @@ function HV:Set(id, total, read, fresh)
 end
 
 -- Forget what is shown (the next Set reads again).
+-- Query mode (opts.kind): the pane's search, hidden types left out; tier 1 shows Load history.
+function HV:Requery()
+	if not self.id then return end
+	local hidden = {}
+	for _, t in ipairs(M.PSS_EVENT_TYPES) do if M.PSS_HistHidden(t) then hidden[t] = true end end
+	local text, params = M.PSS_PaneQuery(self.kind, self.id, hidden)
+	self.params = params
+	if not text then return end
+	self.qv:SetQuery(text, params)
+	self.qv:Run(false)
+end
+
 function HV:Clear()
 	self.set, self.id, self.read = nil, nil, nil
 end
@@ -150,7 +168,7 @@ end
 -- buttons at the bottom of the page.
 function ns.NewHistory(body, y, opts)
 	local hv = setmetatable({ all = EMPTY, shown = {}, emptyText = opts.empty or "", open = opts.open,
-		clicks = {} }, HV)
+		clicks = {}, kind = opts.kind }, HV)
 	local f = CreateFrame("Frame", nil, body)
 	f:SetPoint("TOPLEFT", body, "TOPLEFT", 6, y)
 	f:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -4, 36)
@@ -161,6 +179,34 @@ function ns.NewHistory(body, y, opts)
 	local lf = CreateFrame("Frame", nil, f)
 	lf:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -20)
 	lf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
+	if opts.kind then
+		-- the list is a query view on the kind's .events query (STP-00257)
+		hv.off = ns.NewText(lf, 11)
+		hv.off:SetPoint("TOPLEFT", lf, "TOPLEFT", 4, -8)
+		hv.off:SetText(M.PSS_PANE_OFF)
+		if M.PSS_On("logging") then
+			hv.off:Hide()
+			hv.qv = ns.NewQueryView(lf, { compact = true, shape = "events", deepDive = true, w = opts.w or 420, h = opts.h or 250,
+				from = opts.from, fill = true, detail = true })
+			hv.qv.chart.profile = "log.pane"
+			local dd = ns.NewDropdown(f, 120, function(m)
+				for _, q in ipairs(M.PSS_PaneQueries(opts.kind)) do
+					m:Button(q.name, function()
+						if not hv.id then return end
+						hv.qv:SetQuery(q.text, hv.params)
+						hv.qv:Run(false)
+					end)
+				end
+			end)
+			dd:SetPoint("RIGHT", hv.qv.deep, "LEFT", -6, 0)
+			if dd.SetLabel then dd:SetLabel("Queries") end
+			hv.queries = dd
+		else
+			for _, c in pairs(hv.boxes) do c:Hide() end
+		end
+		lists[#lists + 1] = hv
+		return hv
+	end
 	local cols = {
 		{ key = "time", text = "Time", width = 118 },
 		{ key = "kind", text = "Type", width = 48 },

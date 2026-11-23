@@ -39,7 +39,7 @@ local function rowsOf(list, ent, code, out)
 	return n
 end
 
-local function newPayload() return { cols = COLS, n = 0, conts = {} } end
+local function newPayload() return { cols = COLS, n = 0, conts = {}, import = true } end
 
 -- a character's containers -> a payload
 local function character(c, ent, p)

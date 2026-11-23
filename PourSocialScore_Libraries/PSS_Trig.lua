@@ -129,6 +129,7 @@ local function New(client)
 		c[c.n] = { n.id, n.source or "pss", n.class or "unknown", why,
 			"a: map to a client event, b: map to a signal of ours, c: keep on pulses (degraded), d: refuse",
 			n.step and "c until mapped" or "a" }
+		if M.PSS_IxPut then M.PSS_IxPut("pss", "pss.card", { row = n.id, answer = "" }) end		-- the internal log (STP-00247)
 	end
 
 	-- The clock (DEC-00183, DEC-00227): one pending one-shot for the earliest due

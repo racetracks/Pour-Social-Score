@@ -41,7 +41,7 @@ end
 
 local function Build()
 	if button or not MerchantFrame then return end
-	button = CreateFrame("Button", "PSS_DttSellButton", MerchantFrame, "UIPanelButtonTemplate")
+	button = CreateFrame("Button", "PSS_DttSellButton", MerchantFrame, M.PSS_CompatTemplate("button"))
 	button:SetSize(80, 22)
 	button:SetPoint("TOPLEFT", MerchantFrame, "TOPLEFT", 70, -28)
 	button:SetText("Sell junk")

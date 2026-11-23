@@ -22,6 +22,7 @@ local LINE_H = 16
 -- stored; row: the one table every drawn row is read into
 local V = M.PSS_PlayerListNew()
 local sel
+function ns.SelectedPlayer() return sel end
 local rowBuf = {}
 local page, list, pane, lf, picker, searchButton
 local pickCells = {}
@@ -86,7 +87,7 @@ local function ConfirmRemove()
 end
 
 local function OpenPlayerEvents(entry)
-	if ns.OpenEvents then ns.OpenEvents(page, M.PSS_PlayerEventsSpec(entry), {}) end
+	if ns.DeepDive then ns.DeepDive("player.events", { id = entry }) end
 end
 
 local function BuildPane(parent)
@@ -196,7 +197,7 @@ local function BuildPane(parent)
 
 	-- Event History: the block history, the whole page, Reset under it
 	pane.hist = ns.NewHistory(dp.history, -2, {
-		empty = "Nothing blocked from this player yet.",
+		empty = "Nothing blocked from this player yet.", kind = "player",
 		open = OpenPlayerEvents,
 	})
 	pane.player[#pane.player + 1] = pane.hist.frame

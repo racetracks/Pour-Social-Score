@@ -468,11 +468,12 @@ function M.PSS_GwSyndicatorStart()
 		OptionsCategory = "PourSocialScore", PSS_SHIM = true }
 	M.PSS_GwBuild("syndicator", root)
 	local c = root.Constants
-	c.IsForever = M.PSS_IsCamelot and true or false
-	c.IsRetail = not c.IsForever
-	c.BattlePetCageID, c.MaxGuildBankTabItemSlots, c.MaxBagSize = 82800, 98, 36
+	local K = M.PSS_FLV.const
+	c.IsForever = M.PSS_IsForever()
+	c.IsRetail = M.PSS_FLV.flavour == "retail"
+	c.BattlePetCageID, c.MaxGuildBankTabItemSlots, c.MaxBagSize = K.battlePetCage, K.guildBankSlots, K.maxBagSize
 	c.AllBagIndexes, c.AllBankIndexes, c.AllWarbandIndexes = {}, {}, {}
-	for _, code in ipairs({ "b0", "b1", "b2", "b3", "b4", "b5" }) do c.AllBagIndexes[#c.AllBagIndexes + 1] = tonumber(code:sub(2)) end
+	for i = 0, K.lastBagIndex do c.AllBagIndexes[#c.AllBagIndexes + 1] = i end
 	c.KeywordGroupOrder = { "quality", "binding", "slot", "armor", "class", "consumable", "other", "expansion" }
 	local U = root.Utilities
 	function U.IsEquipment(link) local _, _, _, loc = (C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant)(link); return loc ~= nil and loc ~= "" end

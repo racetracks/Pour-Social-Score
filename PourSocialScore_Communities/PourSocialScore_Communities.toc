@@ -1,12 +1,13 @@
-## Interface: 120007, 16001
+## Interface: 120007, 16001, 20506
 ## Title: |cff69ccf0PourSocialScore|r Communities
-## Notes: PourSocialScore shipped guild lists, loaded when their rule is on
+## Notes: PourSocialScore managed community lists and their logic, loaded when a rule is on
 ## Category: PSS
 ## Group: PourSocialScore
 ## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
 ## Author: Boaties
-## Version: 3.7.0.114
+## Version: 3.9.0.163
 ## LoadOnDemand: 1
 ## Dependencies: PourSocialScore
 
 PSS_GuildIgnore_Managed.lua
+PSS_CommunityLogic.lua

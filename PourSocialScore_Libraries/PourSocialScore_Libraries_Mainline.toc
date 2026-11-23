@@ -5,16 +5,28 @@
 ## Group: PourSocialScore
 ## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
 ## Author: Boaties
-## Version: 3.7.0.114
+## Version: 3.9.0.163
 ## LoadOnDemand: 1
 ## Dependencies: PourSocialScore
 
 PSS_Err.lua
 PSS_Bus.lua
+PSS_CompatBus.lua
 PSS_Codec.lua
 PSS_Store.lua
 PSS_Index.lua
 PSS_Query.lua
+PSS_Ix.lua
+PSS_IxCatalog.lua
+PSS_Line.lua
+PSS_Seg.lua
+PSS_IxDict.lua
+PSS_Time.lua
+PSS_Pred.lua
+PSS_Stats.lua
+PSS_Terms.lua
+PSS_Psql.lua
+PSS_Plan.lua
 PSS_Entity.lua
 PSS_Name.lua
 PSS_WhContainers.lua
@@ -30,10 +42,23 @@ PSS_WhImport.lua
 PSS_Gw.lua
 PSS_GwSyndicator.lua
 PSS_WhTooltip.lua
+PSS_JrnIx.lua
+PSS_WhHist.lua
+PSS_JrnMon1.lua
+PSS_JrnMonBasic.lua
+PSS_JrnAh.lua
 PSS_WhView.lua
 PSS_WhRows.lua
 PSS_WhCommands.lua
 PSS_Trig.lua
+PSS_IxLog.lua
+PSS_IxWh.lua
+PSS_IxSocial.lua
+PSS_IxCfg.lua
+PSS_SQ.lua
+PSS_IxExport.lua
+PSS_Fields.lua
+PSS_ConsoleView.lua
 PSS_ImportExport.lua
 PSS_PlayerRows.lua
 PSS_Validate.lua
@@ -54,9 +79,6 @@ PSS_EventsView.lua
 PSS_OptionsView.lua
 PSS_AddonsView.lua
 PSS_RowMenus.lua
-PSS_Graphics.lua
-PSS_MacroData.lua
-PSS_Macros.lua
 PSS_MapButton.lua
 PSS_DttScan.lua
 PSS_DttAct.lua

@@ -215,7 +215,7 @@ local function ExclBoxes(parent, y, tip, onClick)
 end
 
 local function OpenGuildEvents(key)
-	if ns.OpenEvents then ns.OpenEvents(page, M.PSS_GuildEventsSpec(key), {}) end
+	if ns.DeepDive then ns.DeepDive("guild.events", { id = key }) end
 end
 
 local function ConfirmRemoveGuild()
@@ -281,7 +281,7 @@ end
 local function MemberAct(m, act, arg)
 	if m ~= V.msel then SelectMember(m) end
 	if act == "history" then
-		if ns.OpenEvents then ns.OpenEvents(page, M.PSS_MemberEventsSpec(m, V.mguild), {}) end
+		if ns.DeepDive then ns.DeepDive("member.events", { id = m }) end
 	elseif act == "resetHistory" then
 		M.PSS_ResetMemberBlockHistory(m)
 	elseif act == "exception" then
@@ -469,8 +469,8 @@ local function BuildMemberBody(parent)
 	b.addGuild = addGuild
 
 	-- Event History: the member's block history, the whole page
-	b.hist = ns.NewHistory(dp.history, -2, { empty = "Nothing blocked from this player yet.", open = function(m)
-		if ns.OpenEvents then ns.OpenEvents(page, M.PSS_MemberEventsSpec(m, V.mguild), {}) end
+	b.hist = ns.NewHistory(dp.history, -2, { kind = "member", empty = "Nothing blocked from this player yet.", open = function(m)
+		if ns.DeepDive then ns.DeepDive("member.events", { id = m }) end
 	end })
 	local reset = ns.NewButton(dp.history, L["HISTORY_RESET"] or "Reset Block History", 130, function()
 		if V.msel then M.PSS_ResetMemberBlockHistory(V.msel) end

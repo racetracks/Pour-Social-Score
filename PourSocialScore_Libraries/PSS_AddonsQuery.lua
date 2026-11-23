@@ -45,8 +45,7 @@ local floor = math.floor
 local tremove = table.remove
 local InCombatLockdown, UnitGUID, UnitClass = InCombatLockdown, UnitGUID, UnitClass
 
-local iface = select(4, GetBuildInfo())
-local DIGIT = (type(iface) == "number" and iface < 20000) and "2" or "1"	-- the client in a set: 1 Retail, 2 Camelot
+local DIGIT = M.PSS_FLV.digit	-- the client in a set (SAV-00092)
 local PRESETS_MAX = 25
 local CORE_MAX = 5	-- places 1 to 5 are the Core Addon Profiles, the rest Layered
 local NAME_MAX = 32
@@ -214,8 +213,9 @@ local function nameMap()
 	return map
 end
 
-local function hidden(name)
-	return sub(name, 1, 9) == "Blizzard_"
+local function hidden(name, i)
+	if sub(name, 1, 9) == "Blizzard_" then return true end
+	return i ~= nil and meta(i, "X-PSS-Developer") == "1" and M.PSS_TK_DEV ~= true
 end
 
 ------------------------------------------------------------------------
@@ -598,7 +598,7 @@ function M.PSS_AddonList(who, view, search)
 	local byGroup = view ~= "az" and view ~= "lod"
 	for i = 1, count() do
 		local name, title = info(i)
-		if type(name) == "string" and not hidden(name) then
+		if type(name) == "string" and not hidden(name, i) then
 			local key = lower(plain(type(title) == "string" and title ~= "" and title or name))
 			if not needle or find(lower(name), needle, 1, true) or find(key, needle, 1, true) then
 				n = n + 1
@@ -1004,7 +1004,7 @@ local function parse(str, withDigit)
 	local pos = e and e + 1 or #str + 1
 	if withDigit then
 		local d = sub(head, 1, 1)
-		if d ~= "1" and d ~= "2" then return nil end
+		if not (d and d:match("^[0-5]$")) then return nil end
 		return sub(head, 2), pos, d
 	end
 	return head, pos
@@ -1091,7 +1091,7 @@ local function enabledNames(who)
 	local list = {}
 	for i = 1, count() do
 		local name = info(i)
-		if type(name) == "string" and not hidden(name) and not M.PSS_AddonLocked(name)
+		if type(name) == "string" and not hidden(name, i) and not M.PSS_AddonLocked(name)
 			and enableState(i, who) ~= NONE then
 			list[#list + 1] = name
 		end

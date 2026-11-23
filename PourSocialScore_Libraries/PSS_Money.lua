@@ -62,17 +62,21 @@ end
 M.PSS_Provide("money.write", function()
 	local out = { cols = { "ent", "copper" }, n = 0 }
 	local function one(ent, v)
-		if ent and put(ent, v) then out.n = out.n + 1; out[out.n] = { ent, v } end
+		if ent and put(ent, v) then
+			out.n = out.n + 1; out[out.n] = { ent, v }
+			if M.PSS_WhHistGold and M.PSS_On("journal") then M.PSS_WhHistGold(ent, v) end
+		end
 	end
 	if GetMoney then one(M.PSS_Me(true), GetMoney()) end
 	if C_Bank and C_Bank.FetchDepositedMoney and Enum and Enum.BankType then
 		local ok, v = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
 		if ok and v then one(M.PSS_EntityId("w", "Warband", "", true), v) end
 	end
-	if GetGuildBankMoney and GetGuildInfo then
+	if GetGuildInfo then
 		local name, _, _, realm = GetGuildInfo("player")
-		local bank = tonumber(GetNumGuildBankTabs and GetNumGuildBankTabs() or 0) > 0
-		if name and bank then one(M.PSS_EntityId("g", name, realm or GetRealmName(), true), GetGuildBankMoney()) end
+		local r = M.PSS_Call("compat.guildBank.money")
+		local copper = r and r[1] and r[1][1]
+		if name and copper then one(M.PSS_EntityId("g", name, realm or GetRealmName(), true), copper) end
 	end
 	changed(out)
 	return out

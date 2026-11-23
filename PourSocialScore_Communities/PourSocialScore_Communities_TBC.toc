@@ -1,0 +1,13 @@
+## Interface: 20506
+## Title: |cff69ccf0PourSocialScore|r Communities
+## Notes: PourSocialScore managed community lists and their logic, loaded when a rule is on
+## Category: PSS
+## Group: PourSocialScore
+## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
+## Author: Boaties
+## Version: 3.9.0.163
+## LoadOnDemand: 1
+## Dependencies: PourSocialScore
+
+PSS_GuildIgnore_Managed.lua
+PSS_CommunityLogic.lua

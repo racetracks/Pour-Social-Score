@@ -89,13 +89,24 @@ function M.PSS_OptSectionOff(section)
 	if g and not M.PSS_On(g.on) then return g.text end
 end
 
+-- a row with cap (a name or a list, any one on) is drawn only when this client has it
+function M.PSS_OptCapOn(o)
+	local cap = o.cap
+	if not cap then return true end
+	if type(cap) ~= "table" then return M.PSS_Can(cap) end
+	for i = 1, #cap do
+		if M.PSS_Can(cap[i]) then return true end
+	end
+	return false
+end
+
 function M.PSS_OptGroups()
 	local groups = {}
 	local sections = M.PSS_OPTION_SECTIONS
 	for _, section in ipairs(M.PSS_OPTION_SECTION_ORDER) do
 		local g
 		for _, o in ipairs(M.PSS_OPTIONS) do
-			if o.section == section and not o.inline and not o.retired and not o.reserved then
+			if o.section == section and not o.inline and not o.retired and not o.reserved and M.PSS_OptCapOn(o) then
 				if not g then
 					g = { title = ((sections[section] or ""):gsub("[:%s]+$", "")), items = {}, section = section,
 						group = M.PSS_OptSectionGroup(section), off = M.PSS_OptSectionOff(section) }
@@ -121,18 +132,11 @@ function M.PSS_OptGate(o)
 	local name = COMPONENT_NAME[o.key]
 	if not name then return true, "" end
 	local enabled, note = true, ""
-	if name == "gfx" and not M.PSS_IsCamelot() then
-		enabled, note = false, " (Camelot only)"
+	if name == "gfx" and not M.PSS_Can("gfxCommand") then
+		enabled, note = false, " (Forever only)"
 	end
 	if M.PSS_ComponentPending(name) then note = note .. " (after reload)" end
 	return enabled, note
-end
-
--- how this client reloads: "press" on Camelot (it blocks ReloadUI from addon
--- code even inside a click: only the player's own click on a secure "/reload"
--- macro reloads, which ns.Confirm { reload = true } sets up), else "direct"
-function M.PSS_ReloadMode()
-	return M.PSS_IsCamelot and M.PSS_IsCamelot() and "press" or "direct"
 end
 
 -- the one reload call (allowed in combat: the player chose it, the author,
@@ -240,6 +244,16 @@ function M.PSS_OptSetFieldOn(o, on, typed)
 	if on and n then M.PSS_SetOpt(f.key, "global", n) end
 	if on and not Clamp(f, M.PSS_Opt(f.key)) then
 		M.ShowMsg(("|cffff5555%s: enter the %s first (%d-%d).|r"):format(o.label, f.label:lower(), f.min, f.max))
+		return false
+	end
+	M.PSS_SetOpt(o.key, "global", on and true or false)
+	return true
+end
+
+-- a plain tick box: the Journal is refused while the Warehouse is off (the key stays off)
+function M.PSS_OptSetBool(o, on)
+	if o.key == "useJournal" and on and not M.PSS_Opt("useWarehouse") then
+		M.ShowMsg("|cffff5555Journal needs the Warehouse: turn on Warehouse first.|r")
 		return false
 	end
 	M.PSS_SetOpt(o.key, "global", on and true or false)

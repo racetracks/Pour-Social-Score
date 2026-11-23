@@ -65,6 +65,7 @@ end
 M.PSS_TAB_ALIAS = {
 	importExport = { tab = "addons", page = "importExport" },
 	options = { tab = "addons", page = "options" },
+	events = { tab = "console" },
 }
 
 -- a key from any build: the tab key to open and the Addon Manager page (nil

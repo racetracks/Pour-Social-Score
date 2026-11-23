@@ -18,6 +18,7 @@
 -- empties the saved copy. An item whose data the client has not loaded is
 -- saved at once with its id and count; its name is awaited (class await-data)
 -- for display only. A secret value is skipped.
+-- A guild tab is read only while current and sent this visit; any other tab keeps its saved copy.
 -- The file returns at the top while the Warehouse and the Bag manager are off.
 -- Loaded with Libraries. No frame, no OnUpdate.
 ------------------------------------------------------------------------
@@ -32,6 +33,7 @@ local floor = math.floor
 local COLS = { "ent", "cont", "slot", "item", "count", "flags" }
 local OPEN = {}				-- [kind] = true while that window is open
 local KIND_OF_TYPE			-- [interaction type] = kind, built on first need
+local LOADED = {}			-- [tab] = true: the client sent this guild tab's slots while it was current, this visit
 local pending = {}			-- [itemID] = true: data asked for, not yet here
 
 local function now() return GetServerTime and GetServerTime() or time() end
@@ -141,12 +143,19 @@ local function locEquip(slot)
 	if ItemLocation and ItemLocation.CreateFromEquipmentSlot then return ItemLocation:CreateFromEquipmentSlot(slot) end
 end
 
+local bagSet = { cols = { "bag" }, n = 1, { 0 } }		-- the one-row key set and the reused out of the bag reads
+local bagOut = {}
+local bagOpts = { out = bagOut }
+
 local function readBagLike(row, code, out, ent)
 	local bag = row.bagId(tonumber(code:sub(2)))
 	if bag == nil then return end
-	local n = C_Container.GetContainerNumSlots(bag) or 0
+	bagSet[1][1] = bag
+	local r = M.PSS_Call("compat.containers.size", bagSet)
+	local n = r and r[1] and r[1][1] or 0
+	M.PSS_Call("compat.containers.read", bagSet, bagOpts)
 	for slot = 1, n do
-		local info = C_Container.GetContainerItemInfo(bag, slot)
+		local info = bagOut[slot]
 		if info and not secret(info.hyperlink) then
 			add(out, ent, code, slot, info.hyperlink, info.itemID, info.stackCount, bagFlags(info))
 		elseif not info and C_Item.DoesItemExist then
@@ -160,7 +169,11 @@ local function readBagLike(row, code, out, ent)
 end
 
 local function readEquipped(row, code, out, ent)
-	local top = C_Container.ContainerIDToInventoryID(1) - 1
+	bagSet[1][1] = 1
+	local r = M.PSS_Call("compat.containers.invId", bagSet)
+	local inv = r and r[1] and r[1][1]
+	if not inv then return false end
+	local top = inv - 1
 	for slot = 0, top do
 		local id = GetInventoryItemID("player", slot)
 		if id then
@@ -201,26 +214,26 @@ local function readAuctions(row, code, out, ent)
 	if C_AuctionHouse then
 		for i = 1, C_AuctionHouse.GetNumOwnedAuctions() do
 			local a = C_AuctionHouse.GetOwnedAuctionInfo(i)
-			if a then add(out, ent, code, i, a.itemLink, a.itemKey and a.itemKey.itemID, a.quantity, "t" .. floor(t + (a.timeLeftSeconds or 3600))) end
+			if a and a.quantity ~= 0 then add(out, ent, code, i, a.itemLink, a.itemKey and a.itemKey.itemID, a.quantity, "t" .. floor(t + (a.timeLeftSeconds or 3600))) end
 		end
 	else
 		for i = 1, GetNumAuctionItems("owner") do
 			local _, _, n = GetAuctionItemInfo("owner", i)
 			local link = GetAuctionItemLink("owner", i)
-			if link then add(out, ent, code, i, link, nil, n, "t" .. floor(t + (LEFT[GetAuctionItemTimeLeft("owner", i)] or 3600))) end
+			if link and n ~= 0 then add(out, ent, code, i, link, nil, n, "t" .. floor(t + (LEFT[GetAuctionItemTimeLeft("owner", i)] or 3600))) end
 		end
 	end
 end
 
 local function readGuild(row, code, out, ent)
 	local tab = tonumber(code:sub(2))
-	if select(3, GetGuildBankTabInfo(tab)) == false then return false end		-- a tab we may not view is never read: its saved copy stays
-	for slot = 1, 98 do
-		local link = GetGuildBankItemLink(tab, slot)
-		if link and not secret(link) then
-			local _, n = GetGuildBankItemInfo(tab, slot)
-			add(out, ent, code, slot, link, nil, n, "")
-		end
+	if not LOADED[tab] or not GetCurrentGuildBankTab or GetCurrentGuildBankTab() ~= tab then return false end
+	bagSet[1][1] = tab
+	local res = M.PSS_Call("compat.guildBank.read", bagSet, bagOpts)
+	if not res or res.n == 0 then return false end		-- a tab we may not view is never read: its saved copy stays (the bus turns the service's false into an empty answer; a viewable tab always has its slots)
+	for slot = 1, res.n do
+		local t = res[slot]
+		if t and not secret(t.link) then add(out, ent, code, slot, t.link, type(t.link) == "string" and tonumber(t.link:match("item:(%d+)")) or nil, t.count, "") end
 	end
 end
 
@@ -264,7 +277,9 @@ M.PSS_Provide("item.slots", function(input)
 	for i = 1, input.n do
 		local bag = tonumber(input[i][1])
 		out.n = out.n + 1
-		out[out.n] = { bag, bag and C_Container.GetContainerNumSlots(bag) or 0 }
+		local size = 0
+		if bag then bagSet[1][1] = bag; local r = M.PSS_Call("compat.containers.size", bagSet); size = r and r[1] and r[1][1] or 0 end
+		out[out.n] = { bag, size }
 	end
 	return out
 end, { accepts = { "key" }, returns = { "bag", "slots" }, doc = "the number of slots of a bag id", cost = "O(1)", writes = false, onError = "default",
@@ -291,6 +306,7 @@ function M.PSS_ItemKeyFn(row)
 	return function(event, a1)
 		if event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" or event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
 			local k = kinds()[a1]
+			if k == "guildbank" then for tb in pairs(LOADED) do LOADED[tb] = nil end end
 			if k then OPEN[k] = event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" or nil end
 			if k and k == w and OPEN[k] then return row.code .. "*" end
 			return nil
@@ -311,6 +327,14 @@ function M.PSS_ItemKeyFn(row)
 			if w and not M.PSS_ItemOpen(w) then return nil end
 			if C_Bank and C_Bank.FetchPurchasedBankTabData then return type(a1) == "number" and "k" .. a1 or "k*" end
 			return "k0"
+		elseif event == "GUILDBANKBAGSLOTS_CHANGED" then
+			if kind ~= "guild" or not M.PSS_ItemOpen("guildbank") then return nil end
+			local cur = GetCurrentGuildBankTab and GetCurrentGuildBankTab()
+			if type(cur) == "number" and cur > 0 then
+				LOADED[cur] = true
+				return "t" .. cur
+			end
+			return nil
 		elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then
 			if kind ~= "warband" or not M.PSS_ItemOpen("account") then return nil end
 			return type(a1) == "number" and "w" .. a1 or "w*"

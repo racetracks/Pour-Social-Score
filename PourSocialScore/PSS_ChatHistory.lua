@@ -273,6 +273,9 @@ function M.PSS_LoadLogging()
 	History.CapKeep(true)
 	History.Trim(true)
 	if M.PSS_TidyBlockHistory then M.PSS_TidyBlockHistory() end
+	-- the hot log lines are in the log now; the internal log's ring seals into its store
+	if M.PSS_IxHot then M.PSS_IxHot("log", true) end
+	if M.PSS_IxOnLogging then M.PSS_IxOnLogging() end
 	return true
 end
 
@@ -681,7 +684,10 @@ function History.Add(owner, counts, entry, ruleTag)
 	end
 	History.CountRecent(owner, entry.ts, entry.cat)
 	-- Event Logging off: counted, but the line is not kept (issue 181)
-	return Store(entry)
+	Store(entry)
+	-- the Spyglass log sees a kept line at once (I5, cause A)
+	if M.PSS_IxPut and M.PSS_On("logging") then M.PSS_IxPut("log", "act." .. entry.cat, { time = GetServerTime(), event = entry.event, label = entry.channel, message = entry.message }) end
+	return entry
 end
 
 -- An act of PSS Drop Cheapest Thing (money-helper, DEC-00122): one line,
@@ -705,6 +711,8 @@ function History.Act(event, message, cat, label)
 	local entry = History.NewEntry(cat, event, message, label or "Drop Cheapest Thing", nil)
 	entry.o = cat
 	Store(entry)
+	-- the Spyglass log sees it at once (search-helper STP-00235); the adapter shows it once
+	if M.PSS_IxPut then M.PSS_IxPut("log", "act." .. cat, { time = entry.ts, event = event, label = entry.channel, message = entry.message }) end
 	return entry
 end
 

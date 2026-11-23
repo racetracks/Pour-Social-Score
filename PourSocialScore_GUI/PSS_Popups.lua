@@ -154,7 +154,7 @@ local function BuildConfirm()
 	confirm.accept:SetPoint("BOTTOMRIGHT", confirm, "BOTTOM", -8, 13)
 	confirm.cancel:SetPoint("BOTTOMLEFT", confirm, "BOTTOM", 8, 13)
 	Above(confirm, confirm.accept, confirm.cancel, confirm.number, confirm.name)
-	-- reload prompts (opts.reload) on Camelot: it blocks the client reload call from
+	-- reload prompts (opts.reload) where the reloadButton cap holds (Forever): it blocks the client reload call from
 	-- addon code even inside a click, so the player's own click is the reload:
 	-- an action button over Accept (and a twin on Enter) runs the macro
 	-- "/reload"; the caller's onAccept runs as its post-click. Created once,
@@ -384,6 +384,57 @@ local function ShowText(opts, readOnly)
 end
 
 function ns.CopyText(opts) return ShowText(opts, true) end
+
+------------------------------------------------------------------------
+-- Row detail: one result row, every field by label (Spyglass, E6)
+--   ns.RowDetail({ title, rows = { { field, value }, ... }, copy = text })
+------------------------------------------------------------------------
+local detail, detailRows, detailCopy
+
+local function BuildDetail()
+	local f = Shell("PSS_RowDetail", 460, 360)
+	detail = f
+	local lf = CreateFrame("Frame", nil, f)
+	lf:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -50)
+	lf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -20, 52)
+	f.list = ns.NewRows(lf, { rowH = 18,
+		cols = { { key = "field", text = "Field", width = 140 }, { key = "value", text = "Value" } },
+		draw = function(row, i)
+			local r = detailRows and detailRows[i]
+			if not r then return end
+			row.cells.field:SetText(r.field or "")
+			row.cells.value:SetText(r.value or "")
+		end,
+		enter = function(row, i)
+			local r = detailRows and detailRows[i]
+			if r and r.value and r.value ~= "" then ns.Tip(row, r.value) end
+		end })
+	f.copy = PopupButton(f, 120, 26, true)
+	f.close = PopupButton(f, 120, 26, false)
+	f.copy:SetText("Copy All")
+	f.close:SetText(CLOSE or "Close")
+	f.copy:SetPoint("BOTTOMRIGHT", f, "BOTTOM", -4, 14)
+	f.close:SetPoint("BOTTOMLEFT", f, "BOTTOM", 4, 14)
+	Above(f, lf, f.copy, f.close)
+	f.copy:SetScript("OnClick", function() ns.CopyText({ title = "Copy line", text = detailCopy or "" }) end)
+	f.close:SetScript("OnClick", function() f:Hide() end)
+	f:SetScript("OnHide", function() ns.HideTip(); detailRows, detailCopy = nil, nil end)
+	ns.EscapeCloses(f, "PSS_RowDetail")	-- after its OnHide (SetScript drops hooks)
+end
+
+function ns.RowDetail(opts)
+	opts = opts or {}
+	ns.Fresh()
+	if not detail then BuildDetail() end
+	detailRows, detailCopy = opts.rows or {}, opts.copy
+	local f = detail
+	f.title:SetText(opts.title or "Event Details")
+	f.list:SetCount(#detailRows)
+	f.list:Redraw()
+	f:Show()
+	f:Raise()
+	return f
+end
 
 -- /pss export unused (Libraries PSS_Commands.lua): the copy box on its own
 function M.PSS_CopyTextBox(title, subtitle, text)

@@ -171,10 +171,7 @@ end
 -- Step 10: is this a Camelot save (the client, and its realm)? The name
 -- repair only runs on one: a Retail realm has the same name shapes.
 local function isCamelot()
-	local iface = GetBuildInfo and select(4, GetBuildInfo())
-	if type(iface) ~= "number" or iface >= 20000 then return false end
-	local realm = M.PSS_CanonRealm(M.PSS_OwnRealm())
-	return realm ~= nil and realm:find("^classicbetapvp") ~= nil
+	return M.PSS_FLV.flavour == "forever"
 end
 
 -- anything saved that carries a name (worth loading the repair for)
@@ -783,9 +780,14 @@ local function runPart(part)
 		if i > done or step.always then
 			if i > done and not step.always and not snap and not skipSnap then snap = take() end
 			local parts = step.parts
+			local t0, ok = debugprofilestop and debugprofilestop() or 0, true
 			for j = 1, #parts do
 				local f = parts[j][part]
-				if f and not guard(i, parts[j], part, f) then break end
+				if f and not guard(i, parts[j], part, f) then ok = false break end
+			end
+			-- the internal log (search-helper STP-00247): one line per step that upgraded the save
+			if part == "data" and i > done and M.PSS_IxPut then
+				M.PSS_IxPut("pss", "pss.upg", { step = i, ok = ok and 1 or 0, ms = (debugprofilestop and debugprofilestop() or 0) - t0 })
 			end
 		end
 	end
@@ -851,6 +853,7 @@ local function countUnusable(c)
 end
 
 local function printReport(c)
+	M.PSS_UPG_SHOWN = { from = c.from or "", to = c.to }
 	M.ShowMsg(L["UPG_HEAD"]:format(c.from or L["UPG_OLD"], c.to))
 	printFeatures(c)
 	if c.gfxOff then M.ShowMsg("  Graphics Settings Exporter is now off by default: Options, Enabled components.") end

@@ -92,6 +92,16 @@ local function has(want, v)
 end
 
 M.PSS_Provide("q.where", function(set, opts)
+	local pred = opts and opts.pred
+	if pred then		-- a compiled predicate (search-helper STP-00238): tested over the set's columns
+		local test = pred:forCols(set.cols).fn
+		local o, pooled = out("q.where", set.cols, opts)
+		M.PSS_QueryStats.scanned = M.PSS_QueryStats.scanned + set.n
+		for i = 1, set.n do
+			if test(set[i]) then put(o, pooled, set[i]) end
+		end
+		return o
+	end
 	local where = opts and opts.where
 	if type(where) ~= "table" then error("no where", 0) end
 	local cs, ws = {}, {}
@@ -174,15 +184,27 @@ end, { accepts = { "*" }, returns = { "total", "n" }, doc = "groups by opts.by, 
 M.PSS_Provide("q.order", function(set, opts)
 	local spec = opts and opts.order
 	if type(spec) ~= "table" then error("no order", 0) end
-	local c, desc = col(set, spec[1]), spec[2] == "desc"
+	-- one key { col, dir } or several { { col, dir }, ... } (search-helper STP-00239); stable; nil sorts last
+	local keys = type(spec[1]) == "table" and spec or { spec }
+	local cs, ds = {}, {}
+	for i = 1, #keys do cs[i], ds[i] = col(set, keys[i][1]), keys[i][2] == "desc" end
+	local nk = #cs
 	local skip = opts.after or 0
 	local want = opts.limit and (opts.limit + skip)
 	local pos = {}
 	local function before(a, b)
-		local x, y = a[c], b[c]
-		if x == y then return pos[a] < pos[b] end
-		if desc then return x > y end
-		return x < y
+		for i = 1, nk do
+			local x, y = a[cs[i]], b[cs[i]]
+			if x ~= y then
+				if x == nil then return false end
+				if y == nil then return true end
+				local tx, ty = type(x), type(y)
+				if tx ~= ty then x, y = tostring(x), tostring(y) end
+				if ds[i] then return x > y end
+				return x < y
+			end
+		end
+		return pos[a] < pos[b]
 	end
 	local rows = {}
 	for i = 1, set.n do pos[set[i]] = i end

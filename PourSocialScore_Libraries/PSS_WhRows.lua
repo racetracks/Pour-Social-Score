@@ -35,7 +35,9 @@ end
 local function holders(key)
 	local list = M.PSS_WhHolderList and M.PSS_WhHolderList(key)
 	if not list or #list == 0 then return "" end
-	local where = list[1][2]
+	local shown = list[1]
+	for i = 1, #list do if list[i][5] == "g" then shown = list[i]; break end end		-- a guild bank holder is named first
+	local where = shown[2]
 	if #list > 1 then where = where .. " and " .. (#list - 1) .. " more" end
 	return where
 end

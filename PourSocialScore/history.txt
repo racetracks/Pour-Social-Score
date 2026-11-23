@@ -1,6 +1,228 @@
 POUR SOCIAL SCORE - VERSION HISTORY
 (newest first)
 
+=> 3.9.0.163 - Forever patch fixes, Spyglass and TestKit
+
+- Every change since 3.7.0.114, in one summary.
+- Spyglass (new search tab): one search language over everything Pour Social Score keeps. Type /pss q followed by a search, for example /pss q index=log -24h whisper | stats count by event; /pss q status shows what can be searched, /pss q export <search> copies the result as CSV, /pss q alert <id> on|off turns an alert on or off. The Spyglass tab replaces the Events tab: a search bar, time range, Run, Save and ? on one row, charts, saved searches and charts (searches up to 200, charts up to 100), a Fields panel (click a value to filter by it), a Data dictionary page, collapsible side panels and an Event Details box. Reports read in plain words (Time, From, Type, Channel, Blocked by, Message) and chat-filter blocks can be searched by filter name. Typed pipes work in the chat box. Text search in the log is faster on large logs. A small self log keeps upgrades, start-up faults and the addon's own errors as searchable lines.
+- Journal (off by default, Options, Journal; refused while the Warehouse is off): a journal index and a warehouse history store, and monitors that read vendor, repair, mail, taxi, trainer and auction house activity and write it to the Journal. Gold seal rule, visible gold, Dark look tick fixes and warehouse auctions without an item link are fixed.
+- Macro Helper (Forever, /pss macro): new sets for Warriors, Shamans and Priests (each created only on its own class), Mark-Skull, Mark-X and Mark-Moon for everyone, and /pss macro global create now makes 10 account macros.
+- TBC Anniversary: Pour Social Score now loads on TBC Anniversary, with the Modern and Classic looks. Tabs are whole again, and the guild bank keeps every tab you have seen.
+- Forever: the addon says Forever, not Camelot. PSS failed to start after a Forever client patch because the realm name was late at load; that is fixed.
+- /pss version shows which version this client loaded, checks all six folders and names each one that is different or missing, and adds a line when the save was last upgraded by another version.
+- Managed Communities: its code now loads with the Communities addon, only while a Managed Communities rule is on. Nothing changes in what is blocked.
+- Fixes: the Syndicator compatibility layer no longer reports Retail as Forever; Search Everywhere no longer shows a cached answer for another item.
+- Behind the scenes: PSS TestKit, a developer only add-on folder (opens with /pss test, hidden from the AddOns list unless developer mode is on, saves in its own PSS_TestKitDB), with a test string codec, run store, runner and objective tracker; one packaging manifest and shared release workflow; faster test runs; documentation and tooling updates. No change for players.
+- Known issues: Forever: the realm name stays unknown after login (names typed without a realm lose their spaces and the server shows All); workaround: type Name-Realm.
+- Known issues: a crash at startup can leave an empty player list that replaces the saved one at the next login.
+
+=> 3.9.0.162 - PSS TestKit objective tracker
+
+- PSS TestKit (developer only, no change for players): the objective tracker (PSS_TK_Track) ticks a test string's objectives as they happen, shown in the run detail and in a small pop-out window, and the first Forever example string.
+- Fixed: PSS failed to start after a Forever client patch (realm name late at load)
+- Nothing else changes in game.
+
+=> 3.9.0.161 - PSS TestKit runner
+
+- PSS TestKit (developer only, no change for players): the runner (PSS_TK_Run) that runs a test string's steps, with a read-only allow list for actions, a self-test string, and the developer-mode setting moved from the core save to the kit's own saved variable (PSS_TestKitDB).
+- The kit never writes the core save. Nothing else changes in game.
+
+=> 3.9.0.160 - PSS TestKit codec, store, list and detail
+
+- PSS TestKit (developer only, no change for players): a string codec (K160a), the saved run store (K160b), the window's run list and test text (K160c), the run detail pane (K160d), the string tools with their fixtures (K160e), the kit checks (K160f) and the version-record fix for kit packages (K160g).
+- Nothing else changes in game.
+
+=> 3.9.0.159 - PSS TestKit shell and R158 fixes
+
+- PSS TestKit shell (K159c to K159e): a new developer add-on folder, PSS_TestKit, opens with /pss test. It is built as its own package with its own version line (TK.1) and is not part of the player zip's behaviour.
+- Developer filter (K159a, K159b): developer-only folders are hidden from the AddOns list unless the new developer-mode option is on (off by default; asks the author, card DEC-00501).
+- Fixes deferred from the 3.9.0.158 review (K159r): small corrections to the release tooling. Nothing else changes in game.
+
+=> 3.9.0.158 - Reusable release workflow
+
+- Behind the scenes: releases are built by one shared workflow that any package can use. Nothing changes in game.
+
+=> 3.9.0.157 - Glob migration
+
+- Behind the scenes: the build tools take the addon's folder list from one manifest. Nothing changes in game.
+
+=> 3.9.0.156 - Packaging manifest and guards
+
+- Behind the scenes: the build tools keep one list of the addon's folders and check it on every change. Nothing changes in game.
+
+=> 3.9.0.155 - Journal monitors
+
+- Journal monitors (off by default, Journal option on): vendor, repair, mail, taxi, trainer and auction house activity is read and written to the Journal.
+- Gold seal rule and visible gold, Dark look tick fixes, and warehouse auctions without an item link.
+
+=> 3.9.0.154 - Journal data
+
+- Journal data (off by default): a new Journal option in Options, shown only on clients that support it and refused while the Warehouse is off.
+- A journal index and a warehouse history store, written only while Journal is on.
+- The Retail-only Journal options (crafting orders, trading post, tokens, missions) are not offered.
+- Warehouse history triggers are set up once, only while Journal is on.
+- Faster load: the data-dictionary check no longer builds a text key per field.
+- No other change in game.
+
+=> 3.8.0.153 - Search: faster text search in the log
+
+- Searching the log for words is faster on large logs; the results are the same.
+
+=> 3.8.0.152 - Harness: sharded real saves
+
+- No change in game: the real-save test run is split across several runners, each taking a share of the saves, so it finishes sooner.
+
+=> 3.8.0.151 - Harness: real-only mode
+
+- No change in game: the real-save test run skips the checks that do not read real saves, so it finishes sooner.
+
+=> 3.8.0.150 - Real-saves job fixes
+
+- No change in game: the test checks for old and Forever saves are corrected (issue #268).
+
+=> 3.8.0.149 - Global macros
+
+- Macro Helper: five more global macros. /pss macro global create (Forever) now makes 10 account macros: Face (says a face drawn in raid marks), RaidGroup (invites Neo, converts to a raid, leaves the party), Focus (/focus), TarFocus (targets your focus) and HolyWater (uses Stratholme Holy Water on yourself).
+
+=> 3.8.0.148 - Communities: the managed community logic moves into the Communities addon
+
+- Communities: the Managed Communities code now loads with the Communities addon, only while a Managed Communities rule is on. Nothing changes in what is blocked.
+
+=> 3.8.0.147 - Shaman Stormstrike macro
+
+- Macro Helper: the Shaman set gains SS (Stormstrike, then start attacking). A class set may now reuse a name another class uses (the Warrior's SS is Shield Slam); each is created only on its own class.
+
+=> 3.8.0.146 - Priest macros
+
+- Macro Helper: Priest macros. /pss macro priest create (on a Priest, Forever) makes 13 character macros: PWS, RN, Dispel, FH, H, GH, PoM, AD, Fort, DS, SP, PI, MS. The heals, shield and buffs go to your mouseover, else your target; several cast a damage spell on an enemy target instead; Fort, DS and SP cast the group buff with Shift.
+
+=> 3.8.0.145 - Shaman macros
+
+- Macro Helper: Shaman macros. /pss macro shaman create (on a Shaman, Forever) makes four character macros that heal your mouseover, else your target: HW (Healing Wave), LHW (Lesser Healing Wave), CH (Chain Heal) and RT (Riptide).
+
+=> 3.8.0.144 - Search speed
+
+- Search timing harness: measures search speed on real saves; the search freeze is not reproduced yet, in-game check next.
+
+=> 3.8.0.143 - Fix: /pss version checks all six folders
+
+- `/pss version` now checks all 6 Pour Social Score folders and names each one that is a different version or missing.
+- `/pss version` adds a line when the save was last upgraded by a different version than the one loaded.
+
+=> 3.8.0.142 - Fix: TBC tabs, Forever wording, version proof
+
+- Bug fix (TBC Anniversary): window tabs are whole again in the Modern and Classic looks; each tab's art now spans its label, selected or not.
+- Wording: the addon now says Forever, not Camelot: `/pss gfx`, `/pss macro`, the Graphics Settings Exporter note in Options, the `/pss` help and the upgrade line "Forever name(s) repaired".
+- New: `/pss version` shows which Pour Social Score version this client loaded, warns when the 3 folders come from different zips, and shows the save's upgrade record.
+- New macros (Forever, `/pss macro`): Mark-Skull, Mark-X and Mark-Moon for everyone (each marks your target), and BT, SS, TC, Sunder, Revenge, HS and Cleave for warriors (each shows its spell, casts it and starts attacking).
+
+=> 3.8.0.141 - TBC B4 fix: tab art and guild bank
+
+- Bug fix (TBC Anniversary): in the Classic look the selected window tab now shows its highlighted art again.
+- Bug fix: the guild bank keeps every tab you have seen, even tabs you could not open this visit; searches find guild bank items, and search rows name the guild bank first, as `<Guild> (guild bank) and N more`.
+
+=> 3.8.0.140 - TBC B4: Modern and Classic looks on TBC Anniversary, TBC pre-release
+
+- TBC pre-release: the window's Modern and Classic looks now also work on TBC Anniversary; nothing changes on other clients.
+
+=> 3.8.0.139 - TBC B3: compat shim, TBC adapters, Friends anchor
+
+- Bug fix: the Syndicator compatibility layer no longer reports Retail as Forever (IsForever false, IsRetail true), so other addons that ask Syndicator pick the right client.
+- Behind the scenes: PSS reads bags, the guild bank, menus and the Friends window through one compatibility layer so the core addon loads on TBC Anniversary; two small saved flags (SAV-00092, SAV-00093) add 0 bytes to every save. Nothing else changes for players on Retail.
+
+=> 3.8.0.138 - TBC B2: TOC set for TBC Anniversary
+
+- Behind the scenes: PSS now ships a table-of-contents set for the TBC Anniversary client, and the install text names no client folder. Nothing changes for players on Retail or Forever.
+
+=> 3.8.0.137 - Re-entry cost cuts: model by brief, extend, accept, stale head
+
+- Behind the scenes: developer tooling only, nothing changes for players.
+
+=> 3.8.0.136 - TBC B1: flavour module and capability flags
+
+- Behind the scenes: one place now decides which game client PSS runs on (Retail or Forever), and client-only features read it. Nothing changes for players on Retail or Forever.
+
+=> 3.8.0.135 - Spyglass fields: Fields panel, raw column names, chat-filter names
+
+- Spyglass: a Fields panel (opened with >>) lists every column with counts; click a value to filter by it. Columns and details show the raw field names, and chat-filter blocks can be searched by filter name (filter, sender, server).
+
+=> 3.8.0.134 - Spyglass pane fix and layout: one list per pane, top bar, collapsible panels, wider Message
+
+- Spyglass: a pane no longer keeps old rows under a new query; the search bar, time range, Run, Save and ? sit on one row at the top; both side panels are collapsible and the right one starts closed; the Message column gets at least 40 percent of the table.
+
+=> 3.8.0.133 - Spyglass readable reports: labels, report columns, summary header, Top values, row detail
+
+- Spyglass reports now read in plain words: column headers and values are named (Time, From, Type, Channel, Blocked by, Message), the header line says what is shown (for example "Events of <player> - newest 200"), Top values lists only useful values, and clicking a row opens an Event Details box.
+
+=> 3.8.0.132 - Spyglass fixes 2: time format, content-fit columns, time like on shown text
+
+- Spyglass: time cells show the full date with the year, table columns size to their content, and "time like" searches match the time as it is shown.
+
+=> 3.8.0.131 - Spyglass load fix: os is nil in the client
+
+- Fixes the Lua error at login in 3.8.0.130 (PSS_Pred.lua: attempt to index global 'os'); the date picker's "..." button had the same fault.
+
+=> 3.8.0.130 - Spyglass fixes: like on time, alerts on blocked lines, console layout
+
+- Spyglass: "time like" searches work, alerts now fire on blocked world-chat lines, the query view resizes with the window, Events starts blank until you search, and table columns size to their content.
+
+=> 3.8.0.129 - Phase B brought up to date with main
+
+- No addon changes since 3.8.0.127: the docs changes of 3.8.0.128 merged in; the Spyglass pre-release moves up one to 3.8.0.130.
+
+=> 3.8.0.128 - Docs: scratch temp folders moved into dated folders
+
+- No addon changes: links in the docs point to the new dated session folders on scratch.
+=> 3.8.0.127 - Spyglass search fixes
+
+- Spyglass: the console fits its page, System searches fill in the selected player or item (never a $), only valid searches run, Events shows dates and blank cells, the status names the 2000-line history cap; What PSS did is now Items PSS sold or dropped.
+
+=> 3.8.0.126 - Spyglass console fixes
+
+- Spyglass: typed pipes work, the search bar shows its text, the left list scrolls, one Load history, pie slices of All open their rows.
+
+=> 3.8.0.125 - Spyglass console
+
+- Spyglass console (phase B): the Spyglass tab with a colour-coded search bar, time picker, charts, saved searches and charts, the Data dictionary page; View Events and pane histories open in Spyglass; the Events tab is replaced by Spyglass.
+
+=> 3.8.0.124 - Ignore agent session files
+
+- Repo tooling only, nothing in the addon changes: the agent pack's session files (.claude/.session and sessions/) are now ignored by git, so session state is never committed.
+
+=> 3.8.0.123 - Docs and tooling: context budget and M1 lane
+
+- Nothing in the addon changes. The developer instructions load about half as much at the start of each session, and every file written for the developer agents is kept small and checked.
+
+- Agent tooling (nothing changes in game): a Haiku engineer for mechanical work with one Sonnet re-run, token and cost measurement in the session ledger, and a one-command stage close (tools/stage_close.sh).
+
+=> 3.8.0.120 - Docs: startup context (imports, documentation rules, reference index, build history)
+
+- Nothing in the addon changes. The developer instructions load less at the start of each session, and the build history is kept in its own file.
+
+=> 3.8.0.119 - Docs: trim the status file, remove the prompt hook
+
+- Nothing in the addon changes. The developer status file keeps only the current and next builds (the build history moved to its own file), and an unused developer hook is removed.
+
+=> 3.8.0.118 - Spyglass pipe fix
+
+- /pss q: a search typed with a pipe (|) in the chat box works. The chat box sends a typed pipe as two (||), so every search with a pipe failed with "a command is needed after |"; /pss q and /pss q export now read || as one pipe.
+
+=> 3.8.0.117 - Spyglass size and speed
+
+- Spyglass reads a search about a third faster before running it (the reader scans words and quoted values in one pass). Nothing else changes.
+
+=> 3.8.0.116 - Spyglass engine
+
+- Spyglass engine (no window yet; the console comes in the next build): one search language over everything Pour Social Score keeps. Type /pss q followed by a search, for example /pss q index=log -24h whisper | stats count by event, or /pss q index=inv #reagent | stats sum(count) by owner, and the answer prints in chat. /pss q status shows what can be searched, /pss q index=sq lists the saved searches, /pss q export <search> copies the result as CSV text, and /pss q alert <id> on|off turns an alert on or off.
+- What it searches: the block log and counts, your player, guild and chat filter lists, the Warehouse (bags, bank, mail, gold, currencies, item values), your options, addon profiles, Drop Cheapest Thing, graphics sets, macros, upgrades and the addon's own errors. Logs and shipped guild lists are read only when a search needs them.
+- A small self log: upgrades, start-up faults, chat filter faults and the addon's own errors are kept as searchable lines (index=pss, 50 recent lines plus older ones while Event Logging is on).
+- Saved searches (up to 200, account wide) and alerts that tell you when a new line matches, through the event engine (no timers).
+- Fix: Search Everywhere could show a cached answer for a different item when the same words were searched with a list of items.
+
+=> 3.7.1.115 - Operating Instructions
+
+- Documentation only: the instructions for the AI that builds PSS are updated. Nothing in the addon changes.
+
 => 3.7.0.114 - Addon manager, Drop Cheapest Thing, Warehouse and money
 
 - Every change since 3.5.0.62, in one summary.

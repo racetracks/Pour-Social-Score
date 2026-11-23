@@ -34,8 +34,18 @@ local lastKey
 
 M.PSS_DttMissing = function() return missing end
 
+local bagSet = { cols = { "bag" }, n = 1, { 0 } }		-- the one-row key set and the reused out of the bag read
+local bagOut = {}
+local bagOpts = { out = bagOut }
+local readBag
+local function ReadBag(bag)
+	bagSet[1][1] = bag
+	M.PSS_Call("compat.containers.read", bagSet, bagOpts)
+	readBag = bag
+end
 local function Info(bag, slot)
-	return C_Container.GetContainerItemInfo(bag, slot)
+	if readBag ~= bag then ReadBag(bag) end
+	return bagOut[slot] or nil
 end
 local function ItemInfo(l)
 	local f = C_Item and C_Item.GetItemInfo or GetItemInfo
@@ -140,7 +150,10 @@ function M.PSS_DttScan(mode)
 	local live = LiveSlots()
 	for bag = 0, LAST_BAG do
 		local only = live and (live[bag] or {})
-		for k = 1, only and #only or (C_Container.GetContainerNumSlots(bag) or 0) do
+		ReadBag(bag)
+		bagSet[1][1] = bag
+		local r = M.PSS_Call("compat.containers.size", bagSet)
+		for k = 1, only and #only or (r and r[1] and r[1][1] or 0) do
 			local slot = only and only[k] or k
 			local info = Info(bag, slot)
 			if info then
@@ -214,6 +227,7 @@ end
 -- one slot, for another addon's junk marking (the Baganator plugin)
 function M.PSS_DttIsJunk(bag, slot, mode)
 	Lists()
+	readBag = nil		-- always a fresh read of the bag
 	local info = Info(bag, slot)
 	return info ~= nil and Evaluate(info, mode or "drop") ~= nil
 end

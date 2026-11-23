@@ -106,8 +106,11 @@ local ROWS = {
 		events = { "OWNED_AUCTIONS_UPDATED", "AUCTION_HOUSE_AUCTION_CREATED", "AUCTION_CANCELED", "AUCTION_OWNED_LIST_UPDATE", "AUCTION_HOUSE_AUCTIONS_EXPIRED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" },
 		settle = { "OWNED_AUCTIONS_UPDATED", "AUCTION_OWNED_LIST_UPDATE" }, persist = true },
 	{ code = "t", kind = "guild", owner = "g", gate = "warehouse", shim = "guild", cb = "GuildCacheUpdate", sum = "guild", ["while"] = "guildbank",
-		has = function() return GetNumGuildBankTabs ~= nil end,
-		tabs = function() return range(1, GetNumGuildBankTabs()) end,
+		has = function() return M.PSS_Can("guildBank") end,
+		tabs = function()
+			local r = M.PSS_Call("compat.guildBank.tabs")
+			return range(1, r and r[1] and r[1][1] or 0)
+		end,
 		events = { "GUILDBANKBAGSLOTS_CHANGED", "GUILDBANK_UPDATE_TABS", "GUILDBANK_UPDATE_MONEY", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }, settle = { "GUILDBANKBAGSLOTS_CHANGED" }, persist = true },
 }
 M.PSS_WH_CONTAINERS = ROWS

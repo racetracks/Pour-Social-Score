@@ -59,14 +59,23 @@ local function unpackList(str)
 end
 M.PSS_WhMetaPack, M.PSS_WhMetaUnpack = packList, unpackList
 
+local tabSet = { cols = { "tab" }, n = 1, { 1 } }		-- the reused one-row input sets
+local bagSet = { cols = { "bag" }, n = 1, { 1 } }
+
 local function guildMeta(ent)
 	local m = metaOf(ent)
-	if not (m and GetNumGuildBankTabs and GetGuildBankTabInfo) then return end
+	if not m then return end
 	local old = {}
 	for _, r in ipairs(unpackList(m.t)) do old[tonumber(r[1])] = r end
 	local rows = {}
-	for tab = 1, GetNumGuildBankTabs() do
-		local name, icon, viewable = GetGuildBankTabInfo(tab)
+	local r = M.PSS_Call("compat.guildBank.tabs")
+	local count = r and r[1] and r[1][1] or 0
+	for tab = 1, count do
+		tabSet[1][1] = tab
+		local ans = M.PSS_Call("compat.guildBank.tab", tabSet)
+		ans = ans and ans[1]
+		local name, icon, viewable
+		if ans then name, icon, viewable = ans[1], ans[2], ans[3] end
 		if viewable == false and old[tab] then
 			old[tab][4] = "0"		-- the old name and icon stay; only the flag changes
 			rows[tab] = old[tab]
@@ -88,10 +97,14 @@ end
 
 local function bagMeta(ent)
 	local m = metaOf(ent)
-	if not (m and GetInventoryItemLink and C_Container and C_Container.ContainerIDToInventoryID) then return end
+	if not (m and GetInventoryItemLink) then return end
 	local keys = {}
 	for i = 1, 5 do
-		local link = GetInventoryItemLink("player", C_Container.ContainerIDToInventoryID(i))
+		bagSet[1][1] = i
+		local r = M.PSS_Call("compat.containers.invId", bagSet)
+		local inv = r and r[1] and r[1][1]
+		if not inv then return end		-- no answer: the saved bag keys stay (as before B3T5, when the API was missing)
+		local link = GetInventoryItemLink("player", inv)
 		keys[i] = link and M.PSS_ItemKey(link) or ""
 	end
 	m.q = "1;" .. C.list(keys, ",")

@@ -508,7 +508,7 @@ M.PSS_Provide("item.search", function(input, opts)
 	if M.PSS_IsSecret and M.PSS_IsSecret(text) then return out end
 	if not find(text, "%S") then return out end
 	local given = input and input.cols and input or nil
-	local ck = given and nil or text
+	local ck = (not given) and text or nil		-- a search over a given set is never cached by its text alone
 	local entry = ck and cache[ck]
 	if not entry then
 		local why

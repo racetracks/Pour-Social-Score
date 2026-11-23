@@ -101,6 +101,13 @@ local function sameRows(a, b)
 	return true
 end
 
+-- the Journal's warehouse history gets the rows before and after a changed write
+local function histDelta(ent, code, old, want)
+	local was = newSet()
+	if old then M.PSS_WhUnpack(old, was, ent, code) end
+	if not sameRows(was, want) then M.PSS_WhHistDelta(ent, code, was, want) end
+end
+
 ------------------------------------------------------------------------
 -- Entities: hidden flag, kind
 ------------------------------------------------------------------------
@@ -172,6 +179,7 @@ M.PSS_Provide("wh.write", function(input)
 		end
 		local changes = {}		-- [ent] = { [code] = string | false }
 		local ops = {}			-- [ent] = { [code] = "put" | "drop" }
+		local hist = {}			-- history deltas, run after the commit
 		for code, ent in pairs(p.conts or {}) do
 			if ent and ent ~= 0 and not (M.PSS_Entity and M.PSS_Entity(ent)) then
 				-- F4: containers are saved only for an entity whose row is saved
@@ -183,7 +191,10 @@ M.PSS_Provide("wh.write", function(input)
 				local kept = dropExpired(capped, t)
 				local old = ms.Get(ent, code)
 				if #kept == 0 then
-					if old then changes[ent] = changes[ent] or {}; changes[ent][code] = false; ops[ent] = ops[ent] or {}; ops[ent][code] = "drop" end
+					if old then
+						if M.PSS_WhHistDelta and M.PSS_On("journal") then hist[#hist + 1] = { ent, code, old, newSet() } end
+						changes[ent] = changes[ent] or {}; changes[ent][code] = false; ops[ent] = ops[ent] or {}; ops[ent][code] = "drop"
+					end
 				else
 					local str, n, sum = M.PSS_WhPack(kept)
 					if not str then error(n, 0) end
@@ -197,6 +208,7 @@ M.PSS_Provide("wh.write", function(input)
 					for _, r in ipairs(kept) do want.n = want.n + 1; want[want.n] = { ent, code, r[1], r[2], r[3] or 1, r[4] or "" } end
 					if not sameRows(back, want) then error("integrity: " .. code .. " did not decode to the rows it came from", 0) end
 					if str ~= old then
+						if M.PSS_WhHistDelta and M.PSS_On("journal") then hist[#hist + 1] = { ent, code, old, want } end
 						changes[ent] = changes[ent] or {}
 						changes[ent][code] = str
 						ops[ent] = ops[ent] or {}
@@ -215,12 +227,16 @@ M.PSS_Provide("wh.write", function(input)
 				out[out.n] = { ent, code, op }
 			end
 		end
+		for _, h in ipairs(hist) do
+			local ok, why = pcall(histDelta, h[1], h[2], h[3], h[4])		-- the history never fails the write
+			if not ok then M.PSS_ErrNote("fail", "wh.write", "whh: " .. tostring(why)) end
+		end
 	end
-	-- guild tabs, bank tabs and the bags you carry are read again whenever their containers were read
+	-- guild tabs, bank tabs and the bags you carry are read again whenever their containers were read; import payloads never write live meta
 	if M.PSS_WhMeta then
 		for _, p in ipairs(payloads(input)) do
 			local byEnt = {}
-			for code, ent in pairs(p.conts or {}) do
+			for code, ent in pairs(not p.import and p.conts or {}) do
 				if ent and ent ~= 0 then byEnt[ent] = byEnt[ent] or {}; byEnt[ent][code] = true end
 			end
 			for ent, codes in pairs(byEnt) do
@@ -415,9 +431,10 @@ function M.PSS_WhStart()
 	local warehouse = M.PSS_On("warehouse") and not synd
 	if synd and M.PSS_On("warehouse") and not said then
 		said = true
-		M.ShowMsg("Syndicator is loaded, so the Warehouse is off this session. /pss wh import copies its data.")
+		M.ShowMsg("Syndicator is loaded, so the Warehouse is off this session. /pss wh import copies its data." .. (M.PSS_Opt("useJournal") == true and " The Journal is off with it." or ""))
 	end
 	M.PSS_WhOn = warehouse
+	if not warehouse and M.PSS_SnapOff then M.PSS_SnapOff("journal") end
 	for _, row in ipairs(M.PSS_WH_CONTAINERS) do
 		if row.has() and (row.gate == "bags" or warehouse) then
 			M.PSS_Trigger({ id = "item." .. row.kind, gate = row.gate == "bags" and "items" or "warehouse", on = validEvents(row.events),

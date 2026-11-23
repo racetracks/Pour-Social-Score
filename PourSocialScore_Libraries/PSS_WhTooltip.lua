@@ -70,7 +70,7 @@ local function limited(list, out)
 	if shown < #list then out.n = out.n + 1; out[out.n] = { "more", "and " .. (#list - shown) .. " more", "" } end
 end
 
--- the holders of one item as { kind, left, right, n } sorted by count, and their total; nil when a read failed
+-- the holders of one item as { kind, left, right, n, entKind } sorted by count, and their total; nil when a read failed
 local function holderList(key)
 	local keys = M.PSS_Opt("whTipByName") and sameId(key) or { key }
 	local set = { cols = { "item" }, n = #keys }
@@ -105,7 +105,7 @@ local function holderList(key)
 			end
 			if n > 0 then
 				total = total + n
-				list[#list + 1] = { "holder", label(f, mineRealm), concat(parts, ", "), n }
+				list[#list + 1] = { "holder", label(f, mineRealm), concat(parts, ", "), n, f[2] }
 			end
 		end
 	end

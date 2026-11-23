@@ -28,6 +28,42 @@ local firstClear		= false
 -- /pss          --
 -------------------
 
+local CLIENT_NAMES = { retail = "Retail", forever = "Forever", tbc = "TBC Anniversary", era = "Classic Era", mists = "Mists of Pandaria" }
+
+-- /pss version: the version this client loaded, any of the 5 other folders that differs (mixed install), the save's upgrade record, and a save record from another version
+local function versionData ()
+	local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+	local function ver (name)
+		local ok, v = pcall(get, name, "Version")
+		if ok and type(v) == "string" then return v end
+	end
+	local flv = M.PSS_FLV or {}
+	local FOLDERS = { "PourSocialScore_Options", "PourSocialScore_Libraries", "PourSocialScore_GUI", "PourSocialScore_Logging", "PourSocialScore_Communities" }
+	local core = ver("PourSocialScore")
+	local bad = {}
+	for i = 1, #FOLDERS do
+		local v = ver(FOLDERS[i])
+		if v ~= core then bad[#bad + 1] = FOLDERS[i] .. " " .. (v or "not installed") end
+	end
+	local up = PourSocialScoreDB and PourSocialScoreDB.upgrade
+	if type(up) ~= "table" then up = {} end
+	local sv = type(up.version) == "string" and up.version or nil
+	return { core = core, flavour = flv.flavour, interface = flv.interface, bad = bad, saveVersion = sv, saveRaw = up.version, step = tonumber(up.step) or 0, differs = sv ~= nil and core ~= nil and sv ~= core }
+end
+M.PSS_VersionData = versionData
+
+local function versionReport ()
+	local d = versionData()
+	M.ShowMsg ("Pour Social Score " .. (d.core or "not installed") .. " on " .. (CLIENT_NAMES[d.flavour] or tostring(d.flavour)) .. " (interface " .. tostring(d.interface or "?") .. ")")
+	if #d.bad > 0 then
+		M.ShowMsg ("Mixed install: " .. table.concat(d.bad, ", ") .. ". Reinstall the 6 folders from one zip.")
+	end
+	M.ShowMsg ("Save upgrade record: " .. tostring(d.saveRaw or "none") .. ", step " .. d.step)
+	if d.differs then
+		M.ShowMsg ("Save record differs: this save was last upgraded by " .. d.saveVersion .. ", this client loaded " .. d.core .. ".")
+	end
+end
+
 local function OnOff (value)
 	if value == nil or value == false then
 		return "|cffffff00" .. L["OFF"] .. "|cffffffff"
@@ -119,6 +155,58 @@ end
 -- one /pss does not know (/pss help) lists them.
 local OPEN = { gui = true, ui = true, eui = true }
 
+M.PSS_TESTKIT = "PSS_TestKit"
+
+-- /pss test: load the PSS TestKit on demand, then ask it to open (never enables it)
+function M.PSS_TestKitOpen ()
+	local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+	if not (isLoaded and isLoaded(M.PSS_TESTKIT)) then
+		local ok, reason = (C_AddOns and C_AddOns.LoadAddOn or LoadAddOn)(M.PSS_TESTKIT)
+		if not ok then
+			if reason == "MISSING" then
+				M.ShowMsg(L["TEST_1"])
+			elseif reason == "DISABLED" then
+				M.ShowMsg(L["TEST_2"])
+			else
+				M.ShowMsg(string.format(L["TEST_3"], tostring(reason)))
+			end
+			return
+		end
+	end
+	local set, err = M.PSS_Call("testkit.open")
+	if err then M.ShowMsg(string.format(L["TEST_3"], tostring(err))) end
+end
+
+-- the PSS TestKit's core services (D15): read only, nothing here writes a SavedVariables table
+M.PSS_Provide("core.version", function()
+	local d = M.PSS_VersionData()
+	return { cols = { "version", "flavour", "interface", "mixed", "saveVersion", "differs" }, n = 1, { d.core or "", tostring(d.flavour or ""), d.interface or 0, table.concat(d.bad, ", "), d.saveVersion or "", d.differs } }
+end, { returns = { "version", "flavour", "interface", "mixed", "saveVersion", "differs" }, doc = "the loaded version, client and save record", cost = "O(1)", writes = false, onError = "empty" })
+
+M.PSS_Provide("core.upgradeReport", function()
+	local u = M.PSS_UPG_SHOWN
+	if type(u) ~= "table" then return { cols = { "shown", "from", "to" }, n = 1, { false, "", "" } } end
+	return { cols = { "shown", "from", "to" }, n = 1, { true, tostring(u.from or ""), tostring(u.to or "") } }
+end, { returns = { "shown", "from", "to" }, doc = "the upgrade report printed this session", cost = "O(1)", writes = false, onError = "empty" })
+
+M.PSS_Provide("core.messages", function()
+	local m = M.PSS_MSGS
+	local set = { cols = { "n", "text" }, n = 0 }
+	if type(m) == "table" then
+		for i = 1, #m do set[i] = { i, tostring(m[i]) } end
+		set.n = #m
+	end
+	return set
+end, { returns = { "n", "text" }, doc = "the last 20 lines the suite printed", cost = "O(20)", writes = false, onError = "empty" })
+
+M.PSS_Provide("ui.state", function()
+	local shown, tab, page = false, "", ""
+	if M.PSS_WindowState then shown, tab, page = M.PSS_WindowState() end
+	local skin = M.PSS_Opt and M.PSS_Opt("uiSkin")
+	local look = skin == 0 and "classic" or skin == 1 and "dark" or "modern"
+	return { cols = { "shown", "look", "tab", "page" }, n = 1, { shown and true or false, look, tab or "", page or "" } }
+end, { returns = { "shown", "look", "tab", "page" }, doc = "the PSS window's state", cost = "O(1)", writes = false, onError = "empty" })
+
 function M.PSS_SlashPSS (msg)
 
 	-- Keywords are matched in lower case; everything after the command word
@@ -135,6 +223,10 @@ function M.PSS_SlashPSS (msg)
 	if not args[1] or OPEN[args[1]] then
 
 		M.PSS_OpenUI()
+
+	elseif args[1] == "test" then
+
+		M.PSS_TestKitOpen()
 
 	elseif args[1] == "clear" then
 
@@ -283,7 +375,7 @@ function M.PSS_SlashPSS (msg)
 
 		-- graphics settings export, import and history (3.5.0, Camelot only;
 		-- PSS_Graphics.lua defines nothing on other clients)
-		if not M.PSS_IsCamelot() then M.ShowMsg("Graphics settings are for Camelot only.")
+		if not M.PSS_Can("gfxCommand") then M.ShowMsg("Graphics settings are for Forever only.")
 		elseif M.PSS_GfxOpen then M.PSS_GfxOpen()
 		else M.ShowMsg(M.PSS_OFF_TEXT.gfx) end
 
@@ -291,7 +383,7 @@ function M.PSS_SlashPSS (msg)
 
 		-- the macro helper (3.5.0, Camelot only; PSS_Macros.lua defines
 		-- nothing on other clients)
-		if M.PSS_MacroCommand then M.PSS_MacroCommand(args) else M.ShowMsg("The macro helper is for Camelot only.") end
+		if M.PSS_Can("macroCommand") and M.PSS_MacroCommand then M.PSS_MacroCommand(args) else M.ShowMsg("The macro helper is for Forever only.") end
 
 	elseif args[1] == "dtt" then
 
@@ -304,6 +396,12 @@ function M.PSS_SlashPSS (msg)
 		-- the Warehouse (warehouse-helper; PSS_WhCommands.lua)
 		if not M.PSS_On("warehouse") or not M.PSS_WhCommand then M.ShowMsg(M.PSS_OFF_TEXT.warehouse)
 		else M.PSS_WhCommand(args) end
+
+	elseif args[1] == "q" then
+
+		-- the Spyglass engine (search-helper; PSS_IxExport.lua): the query keeps its case
+		if not M.PSS_QCommand then M.ShowMsg("|cffff5555Spyglass: the search engine did not load.|r")
+		else M.PSS_QCommand(raw:match("^%S+%s*(.*)$")) end
 
 	elseif args[1] == "money" then
 
@@ -345,6 +443,10 @@ function M.PSS_SlashPSS (msg)
 			M.PruneIgnoreList(tonumber(args[2]), true)
 		end
 
+	elseif args[1] == "version" then
+
+		versionReport()
+
 	else
 		M.ShowMsg (L["HELP_1"])
 		M.ShowMsg ("")
@@ -360,10 +462,12 @@ function M.PSS_SlashPSS (msg)
 		M.ShowMsg ("  " .. L["HELP_17"])
 		M.ShowMsg ("  " .. L["HELP_18"])
 		M.ShowMsg ("  " .. L["HELP_19"])
-		M.ShowMsg ("  |cffffff00gfx|cffffffff: Export, import and restore graphics settings (Camelot)" .. (M.PSS_On("gfx") and "" or " (off)"))
-		M.ShowMsg ("  |cffffff00macro|cffffffff: Create the preloaded macros (Camelot): /pss macro global create, /pss macro <class> create [account|character]")
+		M.ShowMsg ("  |cffffff00gfx|cffffffff: Export, import and restore graphics settings (Forever)" .. (M.PSS_On("gfx") and "" or " (off)"))
+		M.ShowMsg ("  |cffffff00macro|cffffffff: Create the preloaded macros (Forever): /pss macro global create, /pss macro <class> create [account|character]")
+		M.ShowMsg ("  |cffffff00version|cffffffff: Show the PSS version this client loaded and the save's upgrade record")
 		M.ShowMsg ("  |cffffff00dtt|cffffffff: Destroy or sell the cheapest junk item: /pss dtt | list | sell | never | always | forget | options | log | icon" .. (M.PSS_On("dtt") and "" or " (off)"))
 		M.ShowMsg ("  |cffffff00wh|cffffffff: Search every character, guild bank and the warband: /pss wh | search <text> | status | import | sweep | hide | delete; /pss money" .. (M.PSS_On("warehouse") and "" or " (off)"))
+		M.ShowMsg ("  |cffffff00q|cffffffff: Spyglass, search everything PSS knows: /pss q <query> | status | export <query> [as pssio] | alert <id> on|off")
 		M.ShowMsg ("  |cffffff00acp|cffffffff: Turn addons on and off, see what they cost, addon profiles: /pss acp (the AddOns tab), /pss acp list | on | off | load | all | undo | profiles | profile | lock | api" .. (M.PSS_On("addons") and "" or " (off)"))
 		if M.PSS_On("addons") then M.ShowMsg ("  " .. (M.PSS_ACPTaken and "/acp is used by another addon; use /pss acp" or "/acp = /pss acp")) end
 		M.ShowMsg ("  " .. L["HELP_9"])

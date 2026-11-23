@@ -7,6 +7,7 @@ local V = addon.V
 -- use this to share methods between addon files
 addon.M = {}
 local M = addon.M
+M.PSS_CONSOLE_NAME = "Spyglass"
 
 ----------------------
 -- SHARED FUNCTIONS --
@@ -180,7 +181,7 @@ function M.removeServer (name, strict)
 	if index ~= nil then
 		local server = M.Proper(string.sub(name, index + 1, string.len(name)));
 
-		if strict == true or server == M.Proper(V.serverName) then
+		if strict == true or (V.serverName ~= nil and server == M.Proper(V.serverName)) then
 			result = string.sub(name, 1, index - 1)
 		end
 	end
@@ -192,7 +193,7 @@ function M.addServer (name)
 
 	if not name then return nil end
 
-	if string.find(name, "-", 1, true) == nil then
+	if V.serverName ~= nil and string.find(name, "-", 1, true) == nil then
 		return name .. "-" .. V.serverName
 	end
 
@@ -203,21 +204,24 @@ end
 -- SHARED VARIABLES --
 ----------------------
 
-V.serverName		= M.Proper(GetRealmName())
-V.playerName		= M.addServer(GetUnitName("player"), true)
+-- the realm name can be nil or "" at file load (Forever client patch); set again from ADDON_LOADED
+function M.PSS_ReadIdentity()
+	local r = GetRealmName()
+	if r == nil or r == "" then return false end
+	V.serverName = M.Proper(r)
+	V.playerName = M.addServer(GetUnitName("player"))
+	return true
+end
+
+V.serverName		= nil
+V.playerName		= nil
+M.PSS_ReadIdentity()
 
 -- Color yellow: ffff0000
 -- Color white: ffffff00
 -- Color red: 00ff0000
 -- Color Horde red: ffe60000
 -- Color Cyan: ff69CCF0
-
--- Client flavour. This package is built for the Mainline client (Interface
--- 120007); the Camelot TOC loads the same files. wowIsRetail is true only on
--- the real Mainline client, so Mainline-only extras (e.g. the addon
--- compartment) are skipped elsewhere; everything else checks that an API
--- exists before using it.
-V.wowIsRetail	= (WOW_PROJECT_ID == nil) or (WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 ------------------------------------------------------------------------
 -- Messages (shared by every module)
@@ -229,6 +233,10 @@ function M.debugMsg (msg)
 end
 
 function M.ShowMsg (msg)
+	local ring = M.PSS_MSGS
+	if not ring then ring = {} M.PSS_MSGS = ring end
+	ring[#ring + 1] = msg or "Critical error"
+	if #ring > 20 then table.remove(ring, 1) end
 	print ("|cff33ff99Pour Social Score: |cffffffff" .. (msg or "Critical error"))
 end
 

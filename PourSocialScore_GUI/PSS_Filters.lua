@@ -90,7 +90,7 @@ local function Save()
 end
 
 local function OpenFilterEvents(i)
-	if ns.OpenEvents then ns.OpenEvents(page, M.PSS_FilterEventsSpec(i), {}) end
+	if ns.DeepDive then ns.DeepDive("filter.events", { id = i }) end
 end
 
 -- A row's right-click menu (Libraries M.PSS_FilterMenu): the row is
@@ -245,7 +245,7 @@ local function BuildPane(parent)
 	pane.sumSpec = { specFn = M.PSS_FilterEventsSpec }
 
 	-- Event History: the filter's block history, the whole page
-	pane.hist = ns.NewHistory(dp.history, -2, { names = true, empty = "Nothing blocked by this filter yet.",
+	pane.hist = ns.NewHistory(dp.history, -2, { names = true, kind = "filter", empty = "Nothing blocked by this filter yet.",
 		open = OpenFilterEvents })
 	-- no buttons under it: the list goes to the bottom of the page
 	pane.hist.frame:SetPoint("BOTTOMRIGHT", dp.history, "BOTTOMRIGHT", -4, 6)

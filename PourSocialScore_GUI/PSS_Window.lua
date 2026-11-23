@@ -33,6 +33,8 @@ local WIN_W, WIN_H = 960, 494
 local PLACE = "PSS_Window"
 local TAB_H, NAV_H = 24, 20
 local TOP = -32
+-- the tab page's size; builders run before the page shows, so GetWidth is 0 there
+ns.PAGE_W, ns.PAGE_H = WIN_W - 20, WIN_H + (TOP - TAB_H - NAV_H - 8) - 10
 -- the arrows' line first, the tab row under it (Dan, 3.4.0.24)
 local NAV_Y = TOP
 local TAB_Y = TOP - NAV_H - 4
@@ -41,7 +43,7 @@ ns.TAB_ROW_Y = TAB_Y
 local STREAKS = "_UI-Frame-TopTileStreaks"
 local SEP = "  >  "
 local TABS = M.PSS_UI_TABS
-local EVENTS = M.PSS_UI_EVENTS_TAB
+local CONSOLE = M.PSS_UITabIndex("console")
 
 -- the tabs' builders, keyed by M.PSS_UI_TABS key (the tab files add theirs)
 ns.TabBuilders = ns.TabBuilders or {}
@@ -158,6 +160,13 @@ local function ShownState()
 	return curTab, page.navState and page.navState() or nil
 end
 
+function M.PSS_WindowState()
+	if not win then return false, "", "" end
+	local page = win.pages[curTab]
+	local st = page and page.navState and page.navState()
+	return win:IsShown(), curTab or "", st ~= nil and tostring(st) or ""
+end
+
 local ResetTab
 
 -- a button over each part of the line but the last (the view shown),
@@ -262,16 +271,19 @@ function ResetTab(id)
 	ns.NavRecord()
 end
 
--- The Events tab, built if need be; prepare() then sets what it shows, as
--- a step of its own (pies and View Events).
-function ns.ShowEventsTab(prepare)
-	if not win then return end
-	local page = BuildTab(EVENTS)
-	if not page.refresh then return end
+-- Deep dive: a button opens the Spyglass console on a query (a registry key or
+-- text; ctx binds its parameters), with a Back chip to the tab it came from.
+function ns.DeepDive(keyOrText, ctx, from)
+	local text, params, range = M.PSS_DeepDiveText(keyOrText, ctx)
+	if not text then M.ShowMsg("Spyglass: " .. tostring(params)) return end
+	if from == nil and win and win:IsShown() and TABS[curTab] then from = TABS[curTab].text end
+	if not (win and win:IsShown()) then M.PSS_OpenWindow(true) end
+	if not CONSOLE then return end
+	local page = BuildTab(CONSOLE)
 	local shown = win.pages[curTab]
-	if shown.navClose then shown.navClose() end
-	if prepare then prepare() end
-	SelectTab(EVENTS)
+	if shown and shown.navClose then shown.navClose() end
+	SelectTab(CONSOLE)
+	if page.deepDive then page.deepDive(text, params, range, from) end
 	ns.NavRecord()
 end
 
@@ -286,8 +298,8 @@ function ns.NavForward()
 	Go(nav:Forward())
 end
 
--- Escape: up one level; false at the top (the window closes). Events
--- opened from another tab (a pie, View Events) go back to that tab.
+-- Escape: up one level; false at the top (the window closes). The console
+-- opened from another tab (a deep dive) goes back to that tab.
 function ns.NavUp()
 	local page = win.pages[curTab]
 	if page.navClose and page.navClose() then UpdateNav() return true end
@@ -295,8 +307,8 @@ function ns.NavUp()
 		ns.NavRecord()
 		return true
 	end
-	if curTab == EVENTS then
-		local st = nav:BackToOther(EVENTS)
+	if curTab == CONSOLE and page.from then
+		local st = nav:BackToOther(curTab)
 		if st then
 			Go(st)
 			return true
@@ -543,6 +555,7 @@ function M.PSS_OpenWindow(show, tab, how)
 	end
 	win.byFriends = nil
 	RestorePlace()
+	if win.dockStrata then win:SetFrameStrata(win.dockStrata); win.dockStrata = nil end
 	-- fonts other addons shared since the last open join the font choices
 	M.PSS_UIFontChoices()
 	if id and id ~= curTab then
@@ -559,8 +572,16 @@ end
 -- closes with it. Opened from a command it stays put.
 function M.PSS_WindowDock(host, x)
 	if not win then Build() end
-	win:ClearAllPoints()
-	win:SetPoint("TOPLEFT", host or FriendsFrame, "TOPRIGHT", x or 12, -10)
+	local a = M.PSS_CompatFriendsAnchor(host)
+	if a then
+		win:ClearAllPoints()
+		win.dockStrata = win.dockStrata or win:GetFrameStrata()
+		win:SetFrameStrata(a.strata)
+		win:SetPoint("TOPLEFT", host, "TOPRIGHT", a.x, a.y)
+	else
+		win:ClearAllPoints()
+		win:SetPoint("TOPLEFT", host or FriendsFrame, "TOPRIGHT", x or 12, -10)
+	end
 	win.byFriends = true
 	M.PSS_UIFontChoices()
 	win:Show()

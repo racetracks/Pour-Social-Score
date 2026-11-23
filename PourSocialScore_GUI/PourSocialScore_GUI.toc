@@ -1,11 +1,11 @@
-## Interface: 120007, 16001
+## Interface: 120007, 16001, 20506
 ## Title: |cff69ccf0PourSocialScore|r GUI
 ## Notes: PourSocialScore windows, loaded when first opened
 ## Category: PSS
 ## Group: PourSocialScore
 ## IconTexture: Interface\FriendsFrame\Battlenet-Portrait
 ## Author: Boaties
-## Version: 3.7.0.114
+## Version: 3.9.0.163
 ## LoadOnDemand: 1
 ## Dependencies: PourSocialScore, PourSocialScore_Libraries
 
@@ -17,12 +17,16 @@ PSS_Popups.lua
 PSS_SearchEverywhere.lua
 PSS_Rows.lua
 PSS_Pie.lua
+PSS_Chart.lua
+PSS_QueryView.lua
+PSS_TimePicker.lua
+PSS_Console.lua
+PSS_QueryDialog.lua
 PSS_Detail.lua
 PSS_History.lua
 PSS_Players.lua
 PSS_Guilds.lua
 PSS_Filters.lua
-PSS_Events.lua
 PSS_Options.lua
 PSS_Addons.lua
 PSS_Nav.lua

@@ -82,7 +82,7 @@ local COMPONENTS = {
 		tip = "Keeps a line for every blocked chat line or request (the Events tab, Block History). Off: no line is stored and the Events tab goes; every count stays as it is. Applies after a reload.",
 		warn = "Turn off Event Logging? From now on nothing is recorded about what Pour Social Score blocks: the Events tab and every Event History page go, and you will not be able to track or review anything in the addon (the counts still run). OK turns it off after a reload; Cancel keeps it on." },
 	{ key = "useGfx",			kind = "bool",		default = false, section = 6, reload = true, label = "Graphics Settings Exporter",
-		tip = "/pss gfx: export, import and restore the graphics settings with a 15 second keep prompt (Camelot only). Off: /pss gfx does nothing and its code is not loaded. Applies after a reload." },
+		tip = "/pss gfx: export, import and restore the graphics settings with a 15 second keep prompt (Forever only). Off: /pss gfx does nothing and its code is not loaded. Applies after a reload." },
 	{ key = "useFiltering",		kind = "bool",		default = true,		section = 6, reload = true, label = "Social Filtering",
 		tip = "Everything that blocks: chat filtering, invite, duel and trade declines, the party warning, the Blizzard ignore sync, the Block menu items and capture. Off: nothing is blocked; your lists, rules and counts are kept and editable. Applies after a reload." },
 }
@@ -99,6 +99,7 @@ OPTIONS[#OPTIONS + 1] = { key = "useDtt", kind = "bool", default = false, sectio
 -- windows come in a later line). Both off by default; off means no file, event or table.
 OPTIONS[#OPTIONS + 1] = { key = "useWarehouse", kind = "bool", default = false, section = 6, reload = true, label = "Warehouse",
 	tip = "Keeps every character's, guild's and warband's items, currencies and gold, shows them in item tooltips and in search (/pss wh). Off: nothing loads and nothing is saved. Applies after a reload." }
+OPTIONS[#OPTIONS + 1] = { key = "useJournal", kind = "bool", default = false, section = 6, reload = true, label = "Journal" }
 OPTIONS[#OPTIONS + 1] = { key = "useBags", kind = "bool", default = false, section = 6, reserved = true, reload = true, label = "Bag manager (item layer)",
 	tip = "Reads your bags, bank and equipped items live for other features. The bag windows come later. Off: nothing loads. Applies after a reload." }
 local DTT = {
@@ -131,7 +132,7 @@ local DTT = {
 for _, o in ipairs(DTT) do OPTIONS[#OPTIONS + 1] = o end
 -- Warehouse options (section 8, shown under Feature Options; SAV-p09). A tooltip line for every holder
 -- of the item, from the Warehouse.
-local WHCAM = (select(4, GetBuildInfo()) or 0) < 20000
+local WHCAM = M.PSS_IsForever()
 local WH = {
 	{ key = "whTooltips",		kind = "bool",		default = true,		section = 8, label = "Show who holds an item in its tooltip" },
 	{ key = "whTipGuilds",		kind = "bool",		default = true,		section = 8, label = "Include guild banks" },
@@ -152,14 +153,47 @@ local WH = {
 	{ key = "whGuildDays",		kind = "number",	default = 0,		section = 8, min = 0, max = 365, label = "Forget a guild bank not seen for this many days (0 keeps it)" },
 }
 for _, o in ipairs(WH) do OPTIONS[#OPTIONS + 1] = o end
-local SECTIONS = { L["OPT_8"], "Blocking Options:", L["OPT_9"], L["OPT_15"], "Whois Scan Options:", "Enabled components:", "Drop The Cheapest Thing:", "Warehouse:" }
+local JRN = {
+	{ key = "jrnMonths",	kind = "number",	default = 13,	section = 10, min = 0, max = 120, label = "Months of journal kept (0 keeps all)" },
+	{ key = "jrnMonitorAH",	kind = "bool",	default = true,	section = 10, label = "Record auction house", cap = { "modernAH", "legacyAH" } },
+	{ key = "jrnMonitorVendor",	kind = "bool",	default = true,	section = 10, label = "Record vendors" },
+	{ key = "jrnMonitorQuests",	kind = "bool",	default = true,	section = 10, label = "Record quests" },
+	{ key = "jrnMonitorLoot",	kind = "bool",	default = true,	section = 10, label = "Record loot" },
+	{ key = "jrnMonitorMail",	kind = "bool",	default = true,	section = 10, label = "Record mail" },
+	{ key = "jrnMonitorTrades",	kind = "bool",	default = true,	section = 10, label = "Record trades" },
+	{ key = "jrnTipSaleRate",	kind = "bool",	default = true,	section = 10, label = "Show the sale rate in item tooltips" },
+	{ key = "jrnTipFailures",	kind = "bool",	default = true,	section = 10, label = "Show failed auctions in item tooltips" },
+	{ key = "jrnTipSuccesses",	kind = "bool",	default = false,	section = 10, label = "Show sold auctions in item tooltips" },
+	{ key = "jrnTipLastSold",	kind = "bool",	default = false,	section = 10, label = "Show when it was last sold" },
+	{ key = "jrnTipLastBought",	kind = "bool",	default = false,	section = 10, label = "Show when it was last bought" },
+	{ key = "jrnTipBoughtStats",	kind = "bool",	default = false,	section = 10, label = "Show bought totals" },
+	{ key = "jrnTipSoldStats",	kind = "bool",	default = false,	section = 10, label = "Show sold totals" },
+	{ key = "jrnGroupJunk",	kind = "bool",	default = true,	section = 10, label = "Group junk sales into one line" },
+	{ key = "jrnIcon",	kind = "bool",	default = false,	section = 10, label = "Show the minimap button" },
+	{ key = "jrnIconAt",	kind = "number",	default = 225,	section = 10, min = 0, max = 359, label = "Minimap button position (degrees)" },
+	{ key = "jrnDetailedStatus",	kind = "bool",	default = false,	section = 10, label = "Detailed status line" },
+	{ key = "jrnDefaultPeriod",	kind = "choice",	default = "last30d",	section = 10, label = "Journal time range when it opens",
+		choices = { { "last24h", "Last 24 hours" }, { "last7d", "Last 7 days" }, { "last30d", "Last 30 days" }, { "thismonth", "This month" }, { "lastmonth", "Last month" }, { "all", "All time" } } },
+	{ key = "jrnIgnoreTransfers",	kind = "bool",	default = true,	section = 10, label = "Ignore transfers between your characters", tip = "Mail and trades between your own characters are not counted as income." },
+}
+for _, o in ipairs(JRN) do OPTIONS[#OPTIONS + 1] = o end
+-- Spyglass console (section 9); the preset keys are PSS_ConsoleView.PRESETS' (Libraries is not loaded here)
+local CONTIME = { { "all", "All time" } }
+for _, p in ipairs({ { "last15m", "Last 15 minutes" }, { "last60m", "Last 60 minutes" }, { "last4h", "Last 4 hours" },
+	{ "last24h", "Last 24 hours" }, { "last7d", "Last 7 days" }, { "last30d", "Last 30 days" }, { "today", "Today" },
+	{ "yesterday", "Yesterday" }, { "thisweek", "This week" }, { "lastweek", "Last week" }, { "thismonth", "This month" },
+	{ "lastmonth", "Last month" } }) do CONTIME[#CONTIME + 1] = p end
+OPTIONS[#OPTIONS + 1] = { key = "conTime", kind = "choice", default = "all", section = 9, label = "Spyglass time range", choices = CONTIME }
+OPTIONS[#OPTIONS + 1] = { key = "conRows", kind = "number", default = 500, section = 9, min = 50, max = 5000, label = "Spyglass rows shown" }
+local SECTIONS = { L["OPT_8"], "Blocking Options:", L["OPT_9"], L["OPT_15"], "Whois Scan Options:", "Enabled components:", "Drop The Cheapest Thing:", "Warehouse:", "Spyglass", "Journal:" }
 -- the order the Options tab lists the sections in (Enabled components first)
-M.PSS_OPTION_SECTION_ORDER = { 6, 1, 2, 3, 4, 5, 7, 8 }
+M.PSS_OPTION_SECTION_ORDER = { 6, 1, 2, 3, 4, 5, 7, 8, 10, 9 }
 -- sections drawn under a group title, and sections shown disabled (one line)
 -- while their Enabled component is off: { [section] = ... }; none yet
-M.PSS_OPTION_SECTION_GROUP = { [7] = "Feature Options", [8] = "Feature Options" }
+M.PSS_OPTION_SECTION_GROUP = { [7] = "Feature Options", [8] = "Feature Options", [10] = "Feature Options" }
 M.PSS_OPTION_SECTION_GATE = { [7] = { on = "dtt", text = "Turn on PSS Drop Cheapest Thing in Enabled components, then reload." },
-	[8] = { on = "warehouse", text = "Turn on the Warehouse in Enabled components, then reload." } }
+	[8] = { on = "warehouse", text = "Turn on the Warehouse in Enabled components, then reload." },
+	[10] = { on = "journal", text = "Turn on the Journal in Enabled components, then reload." } }
 M.PSS_OPTION_SECTION_PAGE = { [7] = "dtt", [8] = "warehouse" }	-- section -> its Addon Manager page key
 
 local REG = {}
@@ -220,21 +254,16 @@ end
 -- started with (M.PSS_SnapComponents at ADDON_LOADED), so a change made in
 -- the Options tab applies after a reload and a session never has half a
 -- component. M.PSS_OnNow(name) is the option as set now (the Options tab).
-local COMPONENT_KEY = { addons = "useAddons", gfx = "useGfx", logging = "useLogging", filtering = "useFiltering", dtt = "useDtt", warehouse = "useWarehouse", bags = "useBags" }
+local COMPONENT_KEY = { addons = "useAddons", gfx = "useGfx", logging = "useLogging", filtering = "useFiltering", dtt = "useDtt", warehouse = "useWarehouse", journal = "useJournal", bags = "useBags" }
 local snap
-
-local function camelot()
-	local build = select(4, GetBuildInfo())
-	return type(build) == "number" and build < 20000
-end
-M.PSS_IsCamelot = camelot
 
 local liveOn
 function liveOn(name)
 	if name == "items" then return liveOn("bags") or liveOn("warehouse") end		-- the shared item layer runs for either
 	local key = COMPONENT_KEY[name]
 	if not key then return false end
-	if name == "gfx" and not camelot() then return false end
+	if name == "gfx" and not M.PSS_Can("gfxCommand") then return false end
+	if name == "journal" and (not liveOn("warehouse") or M.PSS_WhOn == false) then return false end
 	return M.PSS_Opt(key) == true
 end
 
@@ -243,6 +272,8 @@ function M.PSS_SnapComponents()
 	for name in pairs(COMPONENT_KEY) do snap[name] = liveOn(name) end
 	snap.items = snap.bags or snap.warehouse
 end
+
+function M.PSS_SnapOff(name) if snap then snap[name] = false end end
 
 function M.PSS_On(name)
 	if snap then return snap[name] == true end
@@ -258,6 +289,7 @@ M.PSS_OFF_TEXT = {
 	filtering = "Social Filtering is off: nothing is blocked (Options, Enabled components).",
 	dtt = "PSS Drop Cheapest Thing is off: turn it on in Options, Enabled components, then reload.",
 	warehouse = "The Warehouse is off: turn it on in Options, Enabled components, then reload.",
+	journal = "The Journal is off: turn it on in Options, Enabled components, then reload.",
 	bags = "The Bag manager is off: turn it on in Options, Enabled components, then reload.",
 }
 
@@ -291,6 +323,7 @@ function M.PSS_SetOpt(key, scope, value, target)
 	M.Events.Fire("OPTION_CHANGED", key)
 	-- a smaller history buffer frees the memory now, not only as lines arrive
 	if key == "historyTotal" and M.PSS_TrimAllHistory then M.PSS_TrimAllHistory() end
+	if key == "jrnMonths" and M.PSS_JrnSeal then M.PSS_JrnSeal("months") end
 end
 
 -- Saved values equal to their default are dropped (3.0: only changes are

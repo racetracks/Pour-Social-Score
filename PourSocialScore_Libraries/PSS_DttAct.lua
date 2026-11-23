@@ -15,6 +15,10 @@ local tostring, tonumber, type, pcall = tostring, tonumber, type, pcall
 
 local DEFAULT_ICON = 133634		-- Interface\Icons\INV_Misc_Bag_22 (the bag picture)
 
+local actSet = { cols = { "bag" }, n = 1, { 0 } }		-- the one-row key set, the reused out and the use opts
+local actOut = {}
+local actOpts, actUse = { out = actOut }, { slot = 0 }
+
 local function Money(copper)
 	if GetMoneyString then return GetMoneyString(copper or 0, true) end
 	return tostring(copper or 0) .. "c"
@@ -58,7 +62,9 @@ function M.PSS_DttAct(mode, bagslot, l, quiet)
 		want = tonumber(tostring(l):match("item:(%d+)"))
 	end
 	local bag, slot = math.floor(bagslot / 100), bagslot % 100
-	local info = C_Container.GetContainerItemInfo(bag, slot)
+	actSet[1][1] = bag
+	M.PSS_Call("compat.containers.read", actSet, actOpts)
+	local info = actOut[slot] or nil
 	if not info or info.itemID ~= want or (wantCount and info.stackCount ~= wantCount) then
 		return Fail("The slot changed; try again.")
 	end
@@ -67,9 +73,11 @@ function M.PSS_DttAct(mode, bagslot, l, quiet)
 	local _, _, _, _, _, _, _, _, _, ic, sell = (C_Item and C_Item.GetItemInfo or GetItemInfo)(info.hyperlink)
 	local value = (sell or 0) * count
 	if mode == "sell" then
-		C_Container.UseContainerItem(bag, slot)
+		actUse.slot = slot
+		M.PSS_Call("compat.containers.use", actSet, actUse)
 	else
-		C_Container.PickupContainerItem(bag, slot)
+		actUse.slot = slot
+		M.PSS_Call("compat.containers.pickup", actSet, actUse)
 		if CursorBusy() and DeleteCursorItem then
 			DeleteCursorItem()
 		end
